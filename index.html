@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mi Mundo Espacial</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+</head>
+<body>
+  <!-- Interfaz superior -->
+  <div id="ui">
+    <h3>🌌 Recursos: <span id="recursos">0</span></h3>
+  </div>
+
+  <!-- 📱 Controles Táctiles -->
+  <div class="dpad">
+    <button class="btn-up" data-dir="up">⬆</button>
+    <button class="btn-left" data-dir="left">⬅</button>
+    <button class="btn-right" data-dir="right">➡</button>
+    <button class="btn-down" data-dir="down">⬇</button>
+  </div>
+
+  <!-- Botón de interacción -->
+  <button id="btn-action">✦</button>
+
+  <script src="js/nave.js"></script>
+  <script src="js/mundo.js"></script>
+  <script src="js/controles.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
