@@ -171,6 +171,40 @@
       } else if (tab === 'ajustes') pintarAjustes(cont);
       var nh = P.querySelector('.hor'); if (nh) nh.scrollLeft = sl;
     }
+    /* ---- editor de controles: arrastra cada control; toca uno para elegirlo y cambiar su tamaño ---- */
+    var NOMBRES_CTL = { fuego: 'FUEGO', agarrar: 'AGARRAR', turbo: 'TURBO', freno: 'FRENO', acel: 'ACELERADOR', radar: 'RADAR' };
+    function abrirEditor() {
+      var L = DOMcapas.lobby, ed = el('div', 'jn-ed', L), sel = 'fuego', drag = null, els = {}, id;
+      function cfg(i) { return jug.layout[i] || (jug.layout[i] = { dx: 0, dy: 0, s: 1 }); }
+      function revisar() {   // marca en rojo lo que se pisa con otro control o se sale de la pantalla
+        var ks = Object.keys(els), i, j, r1, r2, mal = {};
+        for (i = 0; i < ks.length; i++) for (j = i + 1; j < ks.length; j++) { r1 = els[ks[i]].getBoundingClientRect(); r2 = els[ks[j]].getBoundingClientRect(); if (r1.left < r2.right - 4 && r1.right > r2.left + 4 && r1.top < r2.bottom - 4 && r1.bottom > r2.top + 4) { mal[ks[i]] = mal[ks[j]] = 1; } }
+        ks.forEach(function (k) { els[k].classList.toggle('sol', !!mal[k]); els[k].classList.toggle('sel', k === sel); });
+        info.textContent = NOMBRES_CTL[sel] + ' · tamaño ' + Math.round(cfg(sel).s * 100) + '%' + (Object.keys(mal).length ? ' · ⚠ hay controles encimados (en rojo)' : '');
+        rng.value = Math.round(cfg(sel).s * 100);
+      }
+      function aplicar() { E.aplicarLayout(ed); }
+      function dentro(k) {
+        var r = els[k].getBoundingClientRect(), W = E.ancho, H = E.alto, c = cfg(k), pad = 4;
+        if (r.left < pad) c.dx += (pad - r.left) / W; if (r.right > W - pad) c.dx -= (r.right - (W - pad)) / W;
+        if (r.top < pad) c.dy += (pad - r.top) / H; if (r.bottom > H - pad) c.dy -= (r.bottom - (H - pad)) / H;
+      }
+      function hacer(elm, k) {
+        els[k] = elm; elm.setAttribute('data-ctl', k); elm.classList.add('jn-ed-c');
+        elm.addEventListener('pointerdown', function (e) { sel = k; drag = { k: k, x: e.clientX, y: e.clientY, dx: cfg(k).dx, dy: cfg(k).dy, id: e.pointerId }; try { elm.setPointerCapture(e.pointerId); } catch (x) { } revisar(); e.preventDefault(); e.stopPropagation(); });
+        elm.addEventListener('pointermove', function (e) { if (!drag || drag.id !== e.pointerId || drag.k !== k) return; var c = cfg(k); c.dx = drag.dx + (e.clientX - drag.x) / E.ancho; c.dy = drag.dy + (e.clientY - drag.y) / E.alto; aplicar(); dentro(k); aplicar(); revisar(); });
+        ['pointerup', 'pointercancel'].forEach(function (n) { elm.addEventListener(n, function () { drag = null; guardar('layout', jug.layout); }); });
+      }
+      el('div', 'jn-ed-tit', ed, 'ARRASTRA LOS CONTROLES');
+      var rad = el('div', 'jn-radar', ed, '<span>RADAR</span>'); rad.style.width = rad.style.height = '132px'; hacer(rad, 'radar');
+      var ac = el('div', 'jn-acel', ed), pal = el('div', 'jn-pal', ac, '<u>ACEL</u><i></i>'); hacer(pal, 'acel');
+      var bs = el('div', 'jn-bots', ac); hacer(el('div', 'jn-bot fu', bs, 'FUEGO'), 'fuego'); hacer(el('div', 'jn-bot gr', bs, 'AGARRAR'), 'agarrar'); hacer(el('div', 'jn-bot', bs, 'TURBO'), 'turbo'); hacer(el('div', 'jn-bot f', bs, 'FRENO'), 'freno');
+      var barra = el('div', 'jn-ed-barra', ed), info = el('div', 'jn-ed-info', barra, ''), rng = el('input', 'jn-lb-rng', barra); rng.type = 'range'; rng.min = 60; rng.max = 170; rng.step = 5;
+      rng.oninput = function () { cfg(sel).s = rng.value / 100; aplicar(); dentro(sel); aplicar(); guardar('layout', jug.layout); revisar(); };
+      var rs = el('button', 'jn-btn', barra, 'RESTABLECER'); rs.onclick = function () { jug.layout = {}; guardar('layout', {}); aplicar(); revisar(); };
+      var ok = el('button', 'jn-btn jn-grande', barra, 'LISTO'); ok.onclick = function () { guardar('layout', jug.layout); ed.parentNode.removeChild(ed); };
+      aplicar(); revisar();
+    }
     function seg(padre, titulo, k, opciones) {
       el('h4', '', padre, titulo); var s = el('div', 'jn-seg', padre); s.setAttribute('data-k', k);
       opciones.forEach(function (o) { var b = el('button', 'jn-btn', s, o[1]); b.setAttribute('data-v', o[0]); });
@@ -190,6 +224,8 @@
       seg(c, 'EJE VERTICAL (CABECEO)', 'inv', [['0', 'Natural'], ['1', 'Invertido']]);
       deslizador(c, 'SENSIBILIDAD DE GIRO (palanca)', 'sensGiro', 50, 200);
       deslizador(c, 'SENSIBILIDAD DE CÁMARA', 'sensCam', 50, 250);
+      var be = el('button', 'jn-btn jn-lb-sel', c, 'PERSONALIZAR CONTROLES'); be.onclick = abrirEditor;
+      el('div', 'jn-lb-nota', c, 'Mueve y cambia de tamaño los botones para que no se estorben en tu pantalla.');
       el('div', 'jn-lb-sub', c, 'APLICACIÓN');
       var ins = el('button', 'jn-btn jn-lb-sel', c, 'INSTALAR COMO APP'), info = el('div', 'jn-lb-nota', c, '');
       var standalone = (global.matchMedia && global.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) || global.navigator.standalone;

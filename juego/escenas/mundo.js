@@ -83,6 +83,7 @@
       var rc = el('canvas', 'jn-radar', L); rc.style.width = radarS + 'px'; rc.style.height = radarS + 'px'; hud.radar = rc; rc.style.pointerEvents = 'auto'; rc.style.cursor = 'pointer'; rc.onclick = function () { abrirMapa(); };
       var ac = el('div', 'jn-acel', L), pal = el('div', 'jn-pal', ac, '<u>ACEL</u><i></i>'); hud.pal = pal; hud.palI = pal.querySelector('i');
       var bots = el('div', 'jn-bots', ac); hud.bFu = el('div', 'jn-bot fu', bots, 'FUEGO'); hud.bGr = el('div', 'jn-bot gr', bots, 'AGARRAR'); hud.bT = el('div', 'jn-bot', bots, 'TURBO'); hud.bF = el('div', 'jn-bot f', bots, 'FRENO');
+      hud.bFu.setAttribute('data-ctl', 'fuego'); hud.bGr.setAttribute('data-ctl', 'agarrar'); hud.bT.setAttribute('data-ctl', 'turbo'); hud.bF.setAttribute('data-ctl', 'freno'); pal.setAttribute('data-ctl', 'acel'); rc.setAttribute('data-ctl', 'radar');
       function pulsar(e, b, f) { e.addEventListener('pointerdown', function (ev) { f(true); b.classList.add('on'); try { b.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); }); ['pointerup', 'pointercancel'].forEach(function (n) { e.addEventListener(n, function () { f(false); b.classList.remove('on'); }); }); }
       pulsar(hud.bFu, hud.bFu, function (v) { botFu = v; });
       pulsar(hud.bGr, hud.bGr, function (v) { botGr = v; });
@@ -98,6 +99,7 @@
       hud.menu = el('div', 'jn-pmenu', L, '<h3>PAUSA</h3>');
       var bc = el('button', 'jn-btn jn-grande', hud.menu, 'CONTINUAR'); bc.onclick = function () { pausar(false); };
       var bh = el('button', 'jn-btn', hud.menu, 'VOLVER AL HANGAR'); bh.onclick = function () { irA('lobby'); };
+      E.aplicarLayout(L);
     }
     function toast(txt, ms) { hud.toast.textContent = txt; hud.toast.style.opacity = 1; tToast = ms || 1.1; }
     /* ---------- mapa a pantalla completa: estaciones, planetas, planetas mineros, campos de asteroides y (pronto) astilleros ---------- */
@@ -426,6 +428,35 @@
       for (var id in remotos) { o = remotos[id]; punto(o.rp.x, o.rp.y, o.rp.z, 0, '#5dff8a', 3); }
       g.fillStyle = '#7fe3ff'; g.beginPath(); g.moveTo(c, c - 7); g.lineTo(c - 5, c + 5); g.lineTo(c + 5, c + 5); g.closePath(); g.fill();
     }
+    /* ---------- mira: hacia dónde van los disparos, con distancia y punto de adelanto al blanco ---------- */
+    function dibujarMira(g, w, h) {
+      var k = DPRH, bloq = esp && esp.segura(), col = bloq ? 'rgba(160,170,185,0.6)' : 'rgba(120,255,200,0.9)';
+      v3.copy(fwd).multiplyScalar(3000).project(cam); if (v3.z > 1) return;
+      var cx = (v3.x * 0.5 + 0.5) * w, cy = (-v3.y * 0.5 + 0.5) * h, i, a, mejor = null, mAng = 1e9, d, ang, dx, dy, dz;
+      /* blanco: el asteroide más centrado en la línea de tiro */
+      var lst = esp ? esp._ast : [];
+      for (i = 0; i < lst.length; i++) {
+        a = lst[i]; dx = a.x - P.x; dy = a.y - P.y; dz = a.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d > 3500 || d < 1) continue;
+        ang = Math.acos(clamp((dx * fwd.x + dy * fwd.y + dz * fwd.z) / d, -1, 1)) - Math.atan(a.r / d); if (ang < 0.16 && ang < mAng) { mAng = ang; mejor = { a: a, d: d }; }
+      }
+      g.lineWidth = 1.6 * k; g.strokeStyle = col; g.fillStyle = col;
+      g.beginPath(); g.arc(cx, cy, 5 * k, 0, TAU); g.stroke();
+      g.beginPath(); g.moveTo(cx - 24 * k, cy); g.lineTo(cx - 11 * k, cy); g.moveTo(cx + 11 * k, cy); g.lineTo(cx + 24 * k, cy); g.moveTo(cx, cy - 24 * k); g.lineTo(cx, cy - 11 * k); g.moveTo(cx, cy + 11 * k); g.lineTo(cx, cy + 24 * k); g.stroke();
+      g.lineWidth = 1 * k; g.globalAlpha = 0.75;
+      for (i = -2; i <= 2; i++) { if (!i) continue; var o = i * 11 * k; g.beginPath(); g.moveTo(cx + o, cy - 3 * k); g.lineTo(cx + o, cy + 3 * k); g.moveTo(cx - 3 * k, cy + o); g.lineTo(cx + 3 * k, cy + o); g.stroke(); }   // rayitas de escala
+      g.beginPath(); g.arc(cx, cy, 40 * k, -0.5, 0.5); g.moveTo(cx + Math.cos(Math.PI - 0.5) * 40 * k, cy + Math.sin(Math.PI - 0.5) * 40 * k); g.arc(cx, cy, 40 * k, Math.PI - 0.5, Math.PI + 0.5); g.stroke(); g.globalAlpha = 1;
+      if (!mejor || bloq) return;
+      a = mejor.a; v3.set(a.x - P.x, a.y - P.y, a.z - P.z).project(cam); if (v3.z > 1) return;
+      var bx = (v3.x * 0.5 + 0.5) * w, by = (-v3.y * 0.5 + 0.5) * h, rr = Math.max(14 * k, Math.min(80 * k, Math.atan(a.r / mejor.d) * h * 0.688)), q = rr * 0.45;
+      g.strokeStyle = '#ffd447'; g.fillStyle = '#ffd447'; g.lineWidth = 2 * k;
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (c) { g.beginPath(); g.moveTo(bx + c[0] * rr, by + c[1] * (rr - q)); g.lineTo(bx + c[0] * rr, by + c[1] * rr); g.lineTo(bx + c[0] * (rr - q), by + c[1] * rr); g.stroke(); });
+      /* punto de adelanto: donde tienes que apuntar para que el disparo (1300 m/s + tu velocidad) alcance al asteroide en movimiento */
+      var px = a.x - P.x, py = a.y - P.y, pz = a.z - P.z, wx = a.vx - V.x, wy = a.vy - V.y, wz = a.vz - V.z, t = mejor.d / 1300, it;
+      for (it = 0; it < 3; it++) t = Math.sqrt((px + wx * t) * (px + wx * t) + (py + wy * t) * (py + wy * t) + (pz + wz * t) * (pz + wz * t)) / 1300;
+      v3.set(px + wx * t, py + wy * t, pz + wz * t).project(cam);
+      if (v3.z < 1) { var lx = (v3.x * 0.5 + 0.5) * w, ly = (-v3.y * 0.5 + 0.5) * h, s = 6 * k; g.lineWidth = 1.8 * k; g.beginPath(); g.moveTo(lx, ly - s); g.lineTo(lx + s, ly); g.lineTo(lx, ly + s); g.lineTo(lx - s, ly); g.closePath(); g.stroke(); }
+      g.font = '600 ' + (12 * k) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(esp.nombreTipo(a.tipo) + ' · ' + Math.round(mejor.d) + ' m', bx, by + rr + 15 * k);
+    }
     function dibujarBalizas() {
       var g = beaconG.getContext('2d'), w = beaconG.width, h = beaconG.height, i, o, cand = [];
       g.clearRect(0, 0, w, h); g.font = (12 * DPRH) + 'px system-ui,sans-serif'; g.textAlign = 'center';
@@ -451,6 +482,7 @@
         else { var q = 8 * DPRH; g.beginPath(); g.moveTo(X, Y - q); g.lineTo(X + q, Y); g.lineTo(X, Y + q); g.lineTo(X - q, Y); g.closePath(); g.stroke(); }
         var ty = Y + (fuera ? (Y < h / 2 ? 22 : -12) : 24) * DPRH; g.fillText((c.meta ? '★ ' : '') + o.nombre + ' · ' + fmtDist(Math.max(0, c.s)), clamp(X, 80 * DPRH, w - 80 * DPRH), clamp(ty, 16 * DPRH, h - 8 * DPRH));
       }
+      dibujarMira(g, w, h);
     }
     function actualizarTextos(dt) {
       hud.vel.innerHTML = Math.round(vel) + ' <small>m/s' + (turboOn ? ' · TURBO' : '') + '</small>';
@@ -488,6 +520,7 @@
     /* ---------- escena: ciclo de vida ---------- */
     function redimensionar4(w, h) {
       if (!cam) return; cam.aspect = w / h; cam.updateProjectionMatrix();
+      if (hud.bFu) E.aplicarLayout(DOMcapas.hud);
       DPRH = Math.min(global.devicePixelRatio || 1, 1.5); if (beaconG) { beaconG.width = Math.round(w * DPRH); beaconG.height = Math.round(h * DPRH); }
     }
     return {

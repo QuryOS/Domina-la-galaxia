@@ -36,13 +36,20 @@
   var jug = {   // preferencias del jugador (se guardan en el navegador)
     nombre: leer('nombre', 'Piloto'), nave: leer('nave', 'sombra'), acento: leer('acento', ACENTOS[0]),
     calidad: leer('calidad', 'media'), invertirY: leer('invY', false),
-    sensGiro: leer('sensGiro', 1), sensCam: leer('sensCam', 1), pruebas: leer('pruebas', false)
+    layout: leer('layout', {}) || {}, sensGiro: leer('sensGiro', 1), sensCam: leer('sensCam', 1), pruebas: leer('pruebas', false)
   };
   var escenas = {};
   var disponibles = {};     // id de nave -> true si su .js cargó
   var cache = {};           // id -> modelo creado (se reutiliza entre lobby y mundo)
   var planetaTex = {};      // texturas de planetas pregeneradas
 
+  /* Posición y tamaño de los controles del juego (los guarda el editor del lobby). Cada control lleva data-ctl="id";
+     dx/dy son fracciones del ancho/alto de pantalla respecto a su sitio original y s es la escala. */
+  function aplicarLayout(raiz) {
+    if (!raiz) return; var W = E.ancho || 1, H = E.alto || 1, l = jug.layout || {}, n = raiz.querySelectorAll('[data-ctl]'), i, c, e;
+    for (i = 0; i < n.length; i++) { e = n[i]; c = l[e.getAttribute('data-ctl')]; e.style.transform = c ? 'translate(' + Math.round((c.dx || 0) * W) + 'px,' + Math.round((c.dy || 0) * H) + 'px) scale(' + (c.s || 1) + ')' : ''; }
+  }
+  E.aplicarLayout = aplicarLayout;
   E.PI = PI;
   E.TAU = TAU;
   E.clamp = clamp;
