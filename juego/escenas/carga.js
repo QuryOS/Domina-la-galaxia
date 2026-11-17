@@ -36,7 +36,7 @@
       var c = el('div', 'c', L);
       el('div', 'jn-titulo', c, esc(CONFIG.titulo)); el('div', 'jn-sub', c, esc(CONFIG.subtitulo));
       barra = el('i', '', el('div', 'jn-barra', c)); estado = el('div', 'jn-estado', c, 'Iniciando…');
-      consejo = el('div', 'jn-consejo', L, CONSEJOS[0]); el('div', 'jn-ver', L, 'v' + CONFIG.version);
+      consejo = el('div', 'jn-consejo', L, CONSEJOS[0]); el('div', 'jn-ver', L, 'v' + CONFIG.version + (global.JN_V ? ' · ' + esc(global.JN_V) : ''));
       g2 = cv.getContext('2d'); estrellas = [];
       for (var i = 0; i < 150; i++) estrellas.push({ a: Math.random() * TAU, d: Math.random(), v: 0.05 + Math.random() * 0.25 });
       redimensionar2(E.ancho, E.alto);

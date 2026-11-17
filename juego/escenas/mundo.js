@@ -34,7 +34,7 @@
     var SOL_DIR = null, sc, cam, cielo, solSp, polvo, polvoPos, polvoN = 0, SG, geoAnillo, matAnillo, matAtm = {}, geosRoca = [], matsRoca = [];
     var pivote = null, inclinar = null, escalarN = null, modelo = null, nSel = null, med = null;
     var P = { x: 0, y: 0, z: 0 }, Q, V, qCam, qa, v1, v2, v3, fwd, vObj, AX, AY, AZ, dummy, mInv;
-    var celdas = {}, listaEst = [], esp = null, botFu = false, botGr = false, listaPl = [], listaRo = [], camposVis = [], ucx = 1e9, ucy = 1e9, ucz = 1e9;
+    var celdas = {}, listaEst = [], esp = null, botFu = false, botGr = false, atracado = false, estCerca = null, estVista = '', listaPl = [], listaRo = [], camposVis = [], ucx = 1e9, ucy = 1e9, ucz = 1e9;
     var camYaw = 0, camPitch = 0, camPtr = null, camX0 = 0, camY0 = 0, camYaw0 = 0, camPitch0 = 0, qo = null, rYaw = 0, rPitch = 0, rRoll = 0, acelerador = 0.3, turboE = 1, turboBloq = false, turboOn = false, vel = 0, shake = 0, pausado = false, modo = 'solo', tMundo = 0, tHud = 0, fps = 60, tRed = 0, tToast = 0, planCercano = null;
     var teclas = {}, stick = { id: null, x0: 0, y0: 0, ax: 0, ay: 0 }, botT = false, botF = false, palId = null;
     var hud = {}, radarG, radarS = 132, beaconG, remotos = {}, construido = false, DPRH = 1;
@@ -92,12 +92,37 @@
       ['pointerup', 'pointercancel'].forEach(function (n) { pal.addEventListener(n, function () { palId = null; }); });
       hud.palanca = el('div', 'jn-palanca', L, '<i></i>'); hud.palI2 = hud.palanca.querySelector('i');
       hud.toast = el('div', 'jn-toast', L, '');
+      hud.bAtr = el('div', 'jn-atracar', L, 'ATRACAR'); hud.bAtr.onclick = function () { atracar(); };
+      hud.merc = el('div', 'jn-pmenu jn-merc', L, '');
       hud.menu = el('div', 'jn-pmenu', L, '<h3>PAUSA</h3>');
       var bc = el('button', 'jn-btn jn-grande', hud.menu, 'CONTINUAR'); bc.onclick = function () { pausar(false); };
       var bh = el('button', 'jn-btn', hud.menu, 'VOLVER AL HANGAR'); bh.onclick = function () { irA('lobby'); };
     }
     function toast(txt, ms) { hud.toast.textContent = txt; hud.toast.style.opacity = 1; tToast = ms || 1.1; }
-    function pausar(p) { pausado = p; if (p) hud.menu.classList.add('on'); else hud.menu.classList.remove('on'); }
+    function atracar() {
+      if (atracado || !estCerca) return;
+      atracado = true; pausado = true; V.set(0, 0, 0); acelerador = 0; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null;
+      hud.bAtr.style.display = 'none'; estVista = ''; pintarMercado(); hud.merc.classList.add('on'); toast('ATRACADO', 1);
+    }
+    function desatracar() { if (!atracado) return; atracado = false; pausado = false; hud.merc.classList.remove('on'); acelerador = 0.3; }
+    function pintarMercado() {
+      var M = hud.merc, k, orden = ['hierro', 'cobre', 'titanio', 'oro', 'piezas'];
+      M.innerHTML = '';
+      el('h3', '', M, esc(estCerca ? estCerca.nombre : 'Estación').toUpperCase() + ' · MERCADO');
+      el('div', 'jn-cred', M, '◎ ' + esp.creditos() + ' créditos');
+      var tabla = el('div', 'jn-tabla', M), total = 0;
+      orden.forEach(function (k) {
+        var n = esp.inv[k] || 0, pr = esp.precios[k], f = el('div', 'jn-venta', tabla);
+        total += n * pr;
+        el('span', 'n', f, '<i style="background:' + esp.colorTipo(k) + '"></i>' + esp.nombreTipo(k)); el('span', 'q', f, n + ' × ' + pr); 
+        var b = el('button', 'jn-btn', f, n ? 'VENDER ' + (n * pr) : '—'); if (!n) b.disabled = true;
+        b.onclick = function () { var g = esp.vender(k); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
+      });
+      var bt = el('button', 'jn-btn jn-grande', M, total ? 'VENDER TODO (' + total + ')' : 'NADA QUE VENDER'); if (!total) bt.disabled = true;
+      bt.onclick = function () { var g = esp.venderTodo(); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
+      var bs = el('button', 'jn-btn', M, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
+    }
+    function pausar(p) { if (atracado) return; pausado = p; if (p) hud.menu.classList.add('on'); else hud.menu.classList.remove('on'); }
 
     /* ---------- generación del universo por celdas ---------- */
     var SIL = ['ka', 'ro', 've', 'lu', 'mi', 'tor', 'zen', 'ar', 'ix', 'on', 'da', 'sel', 'vor', 'nem', 'ul', 'cor', 'phe', 'tis', 'ba', 'rin', 'qua', 'dre', 'sha', 'lom'], ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
@@ -327,7 +352,7 @@
       hud.mv.firstChild.style.width = Math.round(clamp(vel / (nSel.vmax * 2.6), 0, 1) * 100) + '%'; hud.mt.firstChild.style.width = Math.round(turboE * 100) + '%';
       hud.palI.style.height = Math.round(acelerador * 100) + '%';
       var C = 1000; hud.hd.innerHTML = 'X ' + (P.x / C).toFixed(1) + ' · Y ' + (P.y / C).toFixed(1) + ' · Z ' + (P.z / C).toFixed(1) + ' km<br>' + Math.round(fps) + ' FPS' + (Red.activo ? ' · en línea (' + Object.keys(remotos).length + ')' : '');
-      hud.inv.innerHTML = esp.textoInv();
+      hud.inv.innerHTML = '<b style="color:#ffe27a">◎ ' + esp.creditos() + '</b><br>' + esp.textoInv();
       hud.estado.textContent = planCercano ? 'Planeta cercano: ' + planCercano.o.nombre + ' (' + fmtDist(Math.max(0, planCercano.s)) + ')' : '';
     }
 
@@ -372,7 +397,7 @@
         radarG = hud.radar.getContext('2d'); var dpr = Math.min(global.devicePixelRatio || 1, 2); hud.radar.width = radarS * dpr; hud.radar.height = radarS * dpr; radarG.setTransform(dpr, 0, 0, dpr, 0, 0);
         crearPolvo(); redimensionar4(E.ancho, E.alto);
         posicionInicial(); actualizarCeldas(true); esp.entrar(med.radio);
-        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; turboE = 1; turboBloq = false; shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = botFu = botGr = false; camYaw = camPitch = 0; camPtr = null; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
+        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; turboE = 1; turboBloq = false; shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = atracado = false; hud.merc.classList.remove('on'); botFu = botGr = false; camYaw = camPitch = 0; camPtr = null; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
         if (modo === 'red') {
           toast('CONECTANDO…', 3);
           Red.onEstado = recibirEstado; Red.onSalio = quitarRemoto;
@@ -381,12 +406,14 @@
       },
       salir: function () {
         if (esp) esp.limpiar();
-        if (pivote) { sc.remove(pivote); pivote = null; } Red.cerrar(); limpiarRemotos(); palancaVisual(false); pausar(false);
+        if (pivote) { sc.remove(pivote); pivote = null; } Red.cerrar(); limpiarRemotos(); palancaVisual(false); atracado = false; pausar(false);
         var k; for (k in celdas) { var c = celdas[k]; if (c.planeta) quitarPlaneta(c.planeta); if (c.campo) quitarCampo(c.campo); } celdas = {}; ucx = 1e9;
         if (polvo) { sc.remove(polvo); polvo.geometry.dispose(); polvo.material.dispose(); polvo = null; }
       },
       tecla: function (e, abajo) {
         teclas[e.code] = abajo;
+        if (abajo && atracado && (e.code === 'Escape' || e.code === 'KeyH')) { desatracar(); return; }
+        if (abajo && e.code === 'KeyH' && !pausado) atracar();
         if (abajo && (e.code === 'Escape' || e.code === 'KeyP')) pausar(!pausado);
         if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
       },
@@ -420,7 +447,8 @@
           o.g.position.set(o.x - P.x, o.y - P.y, o.z - P.z); o.g.scale.setScalar(o.r * (0.6 + 0.4 * ek)); o.g.userData.cuerpo.rotation.y += o.giro * dt;
         }
         for (i = 0; i < camposVis.length; i++) { o = camposVis[i]; if (o.g) o.g.position.set(o.x - P.x, o.y - P.y, o.z - P.z); }
-        esp.fuego(!pausado && !!(teclas.KeyF || botFu)); esp.agarrar(!pausado && !!(teclas.KeyG || botGr)); esp.actualizar(pausado ? 0 : dt, t, fwd);
+        esp.fuego(!pausado && !!(teclas.KeyF || botFu)); esp.agarrar(!pausado && !!(teclas.KeyG || botGr));
+        if (!atracado) { estCerca = pausado ? null : esp.estacionCerca(); var ev = estCerca ? estCerca.nombre : ''; if (ev !== estVista) { estVista = ev; hud.bAtr.style.display = ev ? 'flex' : 'none'; hud.bAtr.textContent = ev ? 'ATRACAR · ' + ev : ''; } } esp.actualizar(pausado ? 0 : dt, t, fwd);
         actualizarModelo(modelo, t, clamp(vel / nSel.vmax, 0, 1));
         moverPolvo(pausado ? 0 : dt, clamp(vel / (nSel.vmax * 2.0), 0, 1)); polvo.position.set(0, 0, 0);
         camara(pausado ? 0.0001 : dt, t); actualizarRemotos(dt, t);

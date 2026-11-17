@@ -12,6 +12,7 @@
     oro:     { n: 'Oro',     c: 0xe3b630, e: 0x3a2800, css: '#ffd447', peso: 5,  vel: [50, 95], r: [7, 18],  hpK: 1.7, botin: [1, 3] }
   };
   var ORDEN = ['hierro', 'cobre', 'titanio', 'oro'];
+  var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45 }, R_ATRAQUE = 520;
   var COLOR_PIEZA = { c: 0x9aa7b8, css: '#c9d6e6' };
   var R_TRACTOR = 450, MAX_AST = 26, R_SPAWN_MIN = 900, R_SPAWN_MAX = 2300, R_DESPAWN = 3300, MAX_DISP = 48, CADENCIA = 0.15, DANO = 12;
 
@@ -29,6 +30,7 @@
     var geos = [], mats = {}, ast = [], disp = [], bot = [], boom = [], estac = {}, fuego = false, enfr = 0, lado = 1, radio = 6, tDeb = 0, nuevo = true;
     var inv = leer('inv', null) || { hierro: 0, cobre: 0, titanio: 0, oro: 0, piezas: 0 };
     ['hierro', 'cobre', 'titanio', 'oro', 'piezas'].forEach(function (k) { if (typeof inv[k] !== 'number') inv[k] = 0; });
+    var creditos = leer('cred', 0);
     var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), q1 = new THREE.Quaternion();
     var agarrando = false, cand = null, aro = null, rayo = null, geoBot, matBot, geoBot2, geoPza, matPza, geoPieza, matPieza;
 
@@ -203,6 +205,18 @@
       var i, a, dx, dy, dz, rr;
       for (i = 0; i < ast.length; i++) { a = ast[i]; dx = P.x - a.x; if (dx > 200 || dx < -200) continue; dy = P.y - a.y; dz = P.z - a.z; rr = a.r * 0.9 + R; if (dx * dx + dy * dy + dz * dz < rr * rr) impacto(a, dx, dy, dz, rr, a.vx, a.vy, a.vz); }
     }
+    function estacionCerca() {   // estación a menos de R_ATRAQUE m del centro (el anillo mide ~110 m)
+      var k, s, dx, dy, dz, d, mej = null, md = R_ATRAQUE;
+      for (k in estac) { s = estac[k]; dx = s.o.x - P.x; dy = s.o.y - P.y; dz = s.o.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < md) { md = d; mej = s.o; } }
+      return mej;
+    }
+    function vender(tipo) {
+      var n = inv[tipo] || 0, g = n * (PRECIOS[tipo] || 0); if (n <= 0) return 0;
+      inv[tipo] = 0; creditos += g; guardar('inv', inv); guardar('cred', creditos); return g;
+    }
+    function venderTodo() { var t = 0, k; for (k in PRECIOS) t += vender(k); return t; }
+    function nombreTipo(k) { return k === 'piezas' ? 'Piezas de nave' : TIPOS[k].n; }
+    function colorTipo(k) { return k === 'piezas' ? COLOR_PIEZA.css : TIPOS[k].css; }
     function radar() {
       var l = [], i;
       for (i = 0; i < ast.length; i++) l.push({ x: ast[i].x, y: ast[i].y, z: ast[i].z, c: TIPOS[ast[i].tipo].css, r: 2.2 });
@@ -215,7 +229,7 @@
     }
     return {
       entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv,
-      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst
+      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst
     };
   }
   E.Espacio = { crear: crear, TIPOS: TIPOS };
