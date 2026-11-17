@@ -131,7 +131,7 @@
     function abrirMapa() {
       if (mapaAbierto || atracado || pausado) return;
       mapaAbierto = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false;
-      mapaLista = estacionesEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]).map(function (q) { return { t: 'estacion', d: q.d, o: q.o }; }).concat(cuerposEn(P.x, P.y, P.z, R_CUERPOS));
+      mapaLista = lugaresEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]).map(function (q) { return { t: q.o.tipo, d: q.d, o: q.o }; }).concat(cuerposEn(P.x, P.y, P.z, R_CUERPOS));
       mapaLista.sort(function (u, v) { return u.d - v.d; });
       hud.mapa.classList.add('on'); pintarMapa();
     }
@@ -156,7 +156,7 @@
         mapaPuntos.push({ o: o, x: sx, y: sy });
         if (esMeta) { g.strokeStyle = '#ffe27a'; g.lineWidth = 2; g.beginPath(); g.arc(sx, sy, 19, 0, TAU); g.stroke(); g.lineWidth = 1; }
         if (im && im.complete && im.naturalWidth) g.drawImage(im, sx - 12, sy - 12, 24, 24); else { g.fillStyle = col; g.fillRect(sx - 6, sy - 6, 12, 12); }
-        if (etiquetas < 26 || esMeta) { etiquetas++; g.fillStyle = esMeta ? '#ffe27a' : (v.t === 'estacion' ? '#ffe9a0' : '#cfdcec'); g.fillText(o.nombre, sx, sy - 17); }
+        if (etiquetas < 26 || esMeta) { etiquetas++; g.fillStyle = esMeta ? '#ffe27a' : (v.t === 'estacion' ? '#ffe9a0' : v.t === 'astillero' ? '#9ff5dc' : '#cfdcec'); g.fillText(o.nombre, sx, sy - 17); }
       }
       g.fillStyle = '#7fe3ff'; g.beginPath(); g.moveTo(cx, cy - 15); g.lineTo(cx - 10, cy + 11); g.lineTo(cx + 10, cy + 11); g.closePath(); g.fill();
       cv.onclick = function (ev) {
@@ -187,7 +187,7 @@
     function atracar() {
       if (mapaAbierto || atracado || !estCerca) return;
       atracado = true; pausado = true; V.set(0, 0, 0); acelerador = 0; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null;
-      hud.bAtr.style.display = 'none'; estVista = ''; pintarMercado(); hud.merc.classList.add('on'); toast('ATRACADO', 1);
+      hud.bAtr.style.display = 'none'; estVista = ''; if (estCerca.tipo === 'astillero') pintarAstillero(); else pintarMercado(); hud.merc.classList.add('on'); toast('ATRACADO', 1);
     }
     function desatracar() { if (!atracado) return; atracado = false; pausado = false; hud.merc.classList.remove('on'); acelerador = 0.3; }
     function pintarMercado() {
@@ -206,6 +206,20 @@
       var bt = el('button', 'jn-btn jn-grande', izq, total ? 'VENDER TODO (' + total + ')' : 'NADA QUE VENDER'); if (!total) bt.disabled = true;
       bt.onclick = function () { var g = esp.venderTodo(); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
       var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
+    }
+    function pintarAstillero() {
+      var M = hud.merc; M.innerHTML = ''; var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M), pz = esp.inv.piezas || 0;
+      el('h3', '', izq, esc(estCerca ? estCerca.nombre : 'Astillero').toUpperCase());
+      el('div', 'jn-cred', izq, '⬢ ' + pz + ' trozos metálicos');
+      el('div', 'jn-ayuda', izq, 'Aquí se canjean los trozos metálicos que encuentras flotando por partes de nave. Con las partes podrás armar naves nuevas (muy pronto).');
+      var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
+      var tabla = el('div', 'jn-tabla', der);
+      esp.PARTES.forEach(function (q) {
+        var f = el('div', 'jn-venta', tabla), tiene = esp.partes[q.id] || 0;
+        el('span', 'n', f, esc(q.n) + ' <small>(tienes ' + tiene + ')</small>'); el('span', 'q', f, q.c + ' ⬢');
+        var b = el('button', 'jn-btn', f, pz >= q.c ? 'CANJEAR' : 'FALTAN ' + (q.c - pz)); if (pz < q.c) b.disabled = true;
+        b.onclick = function () { if (esp.canjear(q.id)) toast('+1 ' + q.n.toUpperCase(), 1); pintarAstillero(); };
+      });
     }
     function pausar(p) { if (atracado || mapaAbierto) return; pausado = p; if (p) hud.menu.classList.add('on'); else hud.menu.classList.remove('on'); }
 
@@ -226,8 +240,24 @@
       }
       out.sort(function (u, v) { return u.d - v.d; }); return out;
     }
-    function chocaEstacion(x, y, z, rad) {   // ¿algo de ese radio pisaría una estación?
-      var l = estacionesEn(x, y, z, rad + CONFIG.radioEstacion + 800); return l.length > 0;
+    /* Astilleros: misma idea que las estaciones pero en su propia rejilla (70 km). Ahí se canjean los trozos metálicos por partes de nave. */
+    function astilleroSuper(sx, sy, sz) {
+      var S = CONFIG.espaciadoAstilleros, r = mulberry32(hash3(sx, sy, sz, (CONFIG.semilla ^ 0xA571) | 0)), J = 0.3;
+      var o = { key: 'A' + sx + ',' + sy + ',' + sz, x: (sx + 0.5 + (r() - 0.5) * 2 * J) * S, y: (sy + 0.5 + (r() - 0.5) * 2 * J) * S, z: (sz + 0.5 + (r() - 0.5) * 2 * J) * S, r: CONFIG.radioAstillero, giro: r() * TAU, nombre: 'Astillero ' + nombrePlaneta(r).split(' ')[0], tipo: 'astillero' };
+      var ce = estacionesEn(o.x, o.y, o.z, 6000); return ce.length ? null : o;   // nunca pegado a una estación
+    }
+    function astillerosEn(x, y, z, R) {
+      var S = CONFIG.espaciadoAstilleros, n = Math.ceil(R / S) + 1, cx = Math.floor(x / S), cy = Math.floor(y / S), cz = Math.floor(z / S), out = [], a, b, c, e, d, dx, dy, dz;
+      for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) {
+        e = astilleroSuper(cx + a, cy + b, cz + c); if (!e) continue; dx = e.x - x; dy = e.y - y; dz = e.z - z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d <= R) out.push({ o: e, d: d });
+      }
+      return out;
+    }
+    function lugaresEn(x, y, z, R) {   // estaciones + astilleros, del más cercano al más lejano
+      var l = estacionesEn(x, y, z, R).concat(astillerosEn(x, y, z, R)); l.sort(function (u, v) { return u.d - v.d; }); return l;
+    }
+    function chocaEstacion(x, y, z, rad) {   // ¿algo de ese radio pisaría una estación o un astillero?
+      return estacionesEn(x, y, z, rad + CONFIG.radioEstacion + 800).length > 0 || astillerosEn(x, y, z, rad + CONFIG.radioAstillero + 800).length > 0;
     }
     function generar(ix, iy, iz, ligero) {   // ligero: sin rocas (para el mapa)
       var C = CONFIG.celda, r = mulberry32(hash3(ix, iy, iz, CONFIG.semilla)), cel = { key: ix + ',' + iy + ',' + iz, ix: ix, iy: iy, iz: iz, planeta: null, campo: null };
@@ -296,8 +326,8 @@
         }
       }
       for (k in celdas) if (!keep[k]) { c = celdas[k]; if (c.planeta) quitarPlaneta(c.planeta); if (c.campo) quitarCampo(c.campo); delete celdas[k]; }
-      listaEst = estacionesEn(P.x, P.y, P.z, 36000).map(function (q) { return q.o; });   // las que están lo bastante cerca para dibujarse
-      estLejanas = estacionesEn(P.x, P.y, P.z, 130000);                                    // para radar y baliza
+      listaEst = lugaresEn(P.x, P.y, P.z, 36000).map(function (q) { return q.o; });   // las que están lo bastante cerca para dibujarse
+      estLejanas = lugaresEn(P.x, P.y, P.z, 130000);                                    // para radar y baliza
       if (esp) esp.estaciones(listaEst);
       camposVis.forEach(function (cp) { cp.rocas.forEach(function (ro) { listaRo.push({ x: cp.x + ro.lx, y: cp.y + ro.ly, z: cp.z + ro.lz, r: ro.s * 0.9 }); }); });
     }
@@ -422,7 +452,7 @@
         if (Math.sqrt(zx * zx + zy * zy) < R + zr) { g.strokeStyle = 'rgba(90,255,190,0.55)'; g.beginPath(); g.arc(c + zx, c + zy, zr, 0, TAU); g.stroke(); }
       });
       for (i = 0; i < listaPl.length; i++) { o = listaPl[i]; punto(o.x, o.y, o.z, o.r, '#ffb766', 3); }
-      for (i = 0; i < estLejanas.length; i++) { o = estLejanas[i].o; punto(o.x, o.y, o.z, 0, '#4df2d6', 4); }
+      for (i = 0; i < estLejanas.length; i++) { o = estLejanas[i].o; punto(o.x, o.y, o.z, 0, o.tipo === 'astillero' ? '#ffa43a' : '#4df2d6', 4); }
       esp.radar().forEach(function (q) { punto(q.x, q.y, q.z, 0, q.c, q.r); });
       for (i = 0; i < camposVis.length; i++) { o = camposVis[i]; punto(o.x, o.y, o.z, o.a * 0.4, 'rgba(180,180,180,0.7)', 2); }
       for (var id in remotos) { o = remotos[id]; punto(o.rp.x, o.rp.y, o.rp.z, 0, '#5dff8a', 3); }
@@ -524,7 +554,7 @@
       DPRH = Math.min(global.devicePixelRatio || 1, 1.5); if (beaconG) { beaconG.width = Math.round(w * DPRH); beaconG.height = Math.round(h * DPRH); }
     }
     return {
-      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
+      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _astillerosEn: astillerosEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
       entrar: function (d) {
         modo = (d && d.modo) || 'solo'; nSel = naveDe(jug.nave); modelo = obtenerModelo(jug.nave); med = medidas[jug.nave];
         if (!modelo) { irA('lobby'); return; }

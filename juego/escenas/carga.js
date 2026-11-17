@@ -111,6 +111,10 @@
       ['militares', 'carreras', 'carga', 'exploracion'].forEach(function (c) {
         p.push({ txt: 'Cargando motores: ' + c, run: function (ok) { cargarScript(CONFIG.rutaMotores + 'motores_' + c + '.js', ok, function () { cargarScript('motores_' + c + '.js', ok, ok); }); } });
       });
+      p.push({ txt: 'Cargando astilleros', run: function (ok) {
+        if (typeof global.createAstillero === 'function') return ok();
+        cargarScript(CONFIG.rutaEdificios + 'astillero.js', ok, function () { cargarScript('astillero.js', ok, ok); });
+      } });
       p.push({ txt: 'Cargando personaje', run: function (ok) {
         if (typeof global.createSoldadoEspacialV2 === 'function') return ok();
         cargarScript(CONFIG.rutaPersonajes + 'soldado_espacial_v2.js', ok, function () { cargarScript('soldado_espacial_v2.js', ok, ok); });

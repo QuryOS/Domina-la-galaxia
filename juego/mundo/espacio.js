@@ -32,7 +32,7 @@
     ['hierro', 'cobre', 'titanio', 'oro', 'piezas'].forEach(function (k) { if (typeof inv[k] !== 'number') inv[k] = 0; });
     var creditos = leer('cred', 0);
     var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), q1 = new THREE.Quaternion();
-    var zonasExtra = [], enZona = null, agarrando = false, cand = null, aro = null, rayo = null, geoBot, matBot, geoBot2, geoPza, matPza, geoPieza, matPieza;
+    var zonasExtra = [], enZona = null, partes = leer('partes', null) || {}, agarrando = false, cand = null, aro = null, rayo = null, geoBot, matBot, geoBot2, geoPza, matPza, geoPieza, matPieza;
 
     function trozoGeo() {   // chatarra metálica irregular y angulosa
       var g = new THREE.DodecahedronGeometry(1, 0), p = g.attributes.position, i, x, y, z, f;
@@ -113,14 +113,21 @@
     }
 
     /* ----- estaciones (las coloca el mundo; aquí se dibujan) ----- */
+    var PARTES = [{ id: 'fuselaje', n: 'Fuselaje', c: 12 }, { id: 'alas', n: 'Alas', c: 10 }, { id: 'cabina', n: 'Cabina', c: 8 }, { id: 'soporte', n: 'Soporte de motor', c: 8 }, { id: 'blindaje', n: 'Placas de blindaje', c: 6 }];
+    function canjear(id) {
+      var q = PARTES.filter(function (x) { return x.id === id; })[0]; if (!q || (inv.piezas || 0) < q.c) return false;
+      inv.piezas -= q.c; partes[id] = (partes[id] || 0) + 1; guardar('inv', inv); guardar('partes', partes); return true;
+    }
     function estaciones(lista) {
       var keep = {}, i, o, k;
       for (i = 0; i < lista.length; i++) {
         o = lista[i]; keep[o.key] = 1;
         if (!estac[o.key]) {
           var g = new THREE.Group(), mod = null;
-          try { if (typeof global.createStation === 'function') mod = global.createStation(THREE, { accent: 0x1fd1b5, spin: 0.05 }); } catch (e) { mod = null; }
-          if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(21); w.add(mod.group); g.add(w); }
+          var astl = o.tipo === 'astillero';
+          try { if (astl) { if (typeof global.createAstillero === 'function') { mod = global.createAstillero(THREE, { accent: 0xff9f2f }); if (mod.drone) mod.drone.visible = false; } } else if (typeof global.createStation === 'function') mod = global.createStation(THREE, { accent: 0x1fd1b5, spin: 0.05 }); } catch (e) { mod = null; }
+          if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(astl ? 18 : 21); w.add(mod.group); g.add(w); }
+          else if (astl) { var cb = new THREE.Mesh(new THREE.BoxGeometry(320, 40, 320), new THREE.MeshStandardMaterial({ color: 0x8a6a3a, metalness: 0.5, roughness: 0.6 })); g.add(cb); }
           else { var an = new THREE.Mesh(new THREE.TorusGeometry(190, 21, 10, 36), new THREE.MeshStandardMaterial({ color: 0x9fb3c4, metalness: 0.6, roughness: 0.5 })); an.rotation.x = Math.PI / 2; g.add(an); }
           g.rotation.y = o.giro; g.frustumCulled = false; sc.add(g); estac[o.key] = { o: o, g: g, mod: mod };
         }
@@ -223,8 +230,8 @@
     }
     function zonas() { var l = [], k; for (k in estac) l.push({ x: estac[k].o.x, y: estac[k].o.y, z: estac[k].o.z, r: R_ZONA }); return l.concat(zonasExtra); }
     function estacionCerca() {   // estación a menos de R_ATRAQUE m del centro (el anillo mide ~110 m)
-      var k, s, dx, dy, dz, d, mej = null, md = R_ATRAQUE;
-      for (k in estac) { s = estac[k]; dx = s.o.x - P.x; dy = s.o.y - P.y; dz = s.o.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < md) { md = d; mej = s.o; } }
+      var k, s, dx, dy, dz, d, mej = null, md = 1e12;
+      for (k in estac) { s = estac[k]; dx = s.o.x - P.x; dy = s.o.y - P.y; dz = s.o.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < (s.o.r || R_CASCO) + D_ATRAQUE && d < md) { md = d; mej = s.o; } }
       return mej;
     }
     function vender(tipo) {
@@ -246,7 +253,7 @@
     }
     return {
       entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv,
-      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
+      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, PARTES: PARTES, partes: partes, canjear: canjear, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
     };
   }
   E.Espacio = { crear: crear, TIPOS: TIPOS };

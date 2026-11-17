@@ -13,6 +13,8 @@
     rutaPersonajes: 'personajes/',  // el soldado y futuros personajes
     rutaEdificios: 'edificios/',  // estación Ágora y demás construcciones (station.js)
     espaciadoEstaciones: 55000,  // una estación por cada cubo de 55 km (con desplazamiento al azar): ~3-5 min de vuelo a 220 m/s
+    espaciadoAstilleros: 70000,  // un astillero por cada cubo de 70 km (posición al azar)
+    radioAstillero: 230,
     radioEstacion: 260,          // tamaño de la estación (m)
     autodescubrir: true,        // detecta solo los .js nuevos de esa carpeta (ver descubrirNaves)
     manifiesto: 'naves.json',   // opcional: lista de archivos ["mi_nave.js", ...] dentro de la carpeta
