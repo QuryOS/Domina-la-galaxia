@@ -20,11 +20,24 @@
     if (!corriendo) return;
     global.requestAnimationFrame(bucle);
     var t = ms / 1000, dt = Math.min(0.05, Math.max(0, t - tPrev)); tPrev = t;
+    // el juego es horizontal: en vertical se congela el vuelo y se muestra el aviso "Gira tu teléfono"
+    if (actual && actual.nombre === 'mundo' && global.innerHeight > global.innerWidth * 1.05) return;
     if (actual && actual.actualizar) {
       try { actual.actualizar(dt, t); } catch (e) { if (global.console) console.error(e); }
     }
   }
+  function bloquearHorizontal() {
+    try { if (global.screen && global.screen.orientation && global.screen.orientation.lock) global.screen.orientation.lock('landscape').catch(function () { }); } catch (e) { }
+  }
+  function pantallaCompleta() {   // se pide con el primer toque (los navegadores lo exigen): pantalla completa + bloqueo en horizontal
+    try {
+      var d = document.documentElement, p = d.requestFullscreen ? d.requestFullscreen() : (d.webkitRequestFullscreen ? d.webkitRequestFullscreen() : null);
+      if (p && p.then) p.then(bloquearHorizontal, function () { bloquearHorizontal(); }); else bloquearHorizontal();
+    } catch (e) { bloquearHorizontal(); }
+  }
   function enlazarEntrada() {
+    var primero = function () { global.removeEventListener('pointerdown', primero, true); pantallaCompleta(); };
+    global.addEventListener('pointerdown', primero, true);
     function ruta(tipo) {
       return function (e) { if (actual && actual.puntero) actual.puntero(tipo, e); };
     }

@@ -109,9 +109,9 @@
     }
     function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); }
     function pintarMapa() {   // el radar, en grande: arriba es hacia donde apunta tu nave
-      var M = hud.mapa, R = ZOOMS[mapaZ], lado = Math.floor(Math.min(E.ancho * 0.92, E.alto * 0.52, 440)), vis = mapaLista.filter(function (x) { return x.d <= R; });
-      M.innerHTML = ''; el('h3', '', M, 'RADAR DE LARGO ALCANCE');
-      var cv = el('canvas', 'jn-mapacv', M); cv.width = lado * 2; cv.height = lado * 2; cv.style.width = lado + 'px'; cv.style.height = lado + 'px';
+      var M = hud.mapa, R = ZOOMS[mapaZ], lado = Math.floor(Math.min(E.alto * 0.8, E.ancho * 0.56, 520)), vis = mapaLista.filter(function (x) { return x.d <= R; });
+      M.innerHTML = ''; var izq = el('div', 'jn-mapa-izq', M), der = el('div', 'jn-mapa-der', M); el('h3', '', der, 'RADAR DE LARGO ALCANCE');
+      var cv = el('canvas', 'jn-mapacv', izq); cv.width = lado * 2; cv.height = lado * 2; cv.style.width = lado + 'px'; cv.style.height = lado + 'px';
       var g = cv.getContext('2d'), S = cv.width, c = S / 2, Rp = c - 10, esc2 = Rp / R, i, o;
       g.beginPath(); g.arc(c, c, Rp, 0, TAU); g.fillStyle = 'rgba(4,12,26,0.92)'; g.fill(); g.strokeStyle = 'rgba(120,200,255,0.45)'; g.lineWidth = 3; g.stroke();
       g.lineWidth = 2; g.strokeStyle = 'rgba(120,200,255,0.2)'; g.font = '22px system-ui,sans-serif'; g.fillStyle = 'rgba(160,200,240,0.7)'; g.textAlign = 'left';
@@ -134,17 +134,17 @@
         for (k = 0; k < mapaPuntos.length; k++) { var q = mapaPuntos[k], dd = Math.hypot(q.x - x, q.y - y); if (dd < md) { md = dd; mejor = q.o; } }
         if (mejor) { meta = (meta && meta.key === mejor.key) ? null : mejor; pintarMapa(); }
       };
-      var z = el('div', 'jn-zoom', M), bm = el('button', 'jn-btn', z, '−'), tz = el('span', '', z, 'Alcance ' + fmtDist(R)), bp = el('button', 'jn-btn', z, '+');
+      var z = el('div', 'jn-zoom', der), bm = el('button', 'jn-btn', z, '−'), tz = el('span', '', z, 'Alcance ' + fmtDist(R)), bp = el('button', 'jn-btn', z, '+');
       bm.onclick = function () { mapaZ = Math.min(ZOOMS.length - 1, mapaZ + 1); pintarMapa(); }; bp.onclick = function () { mapaZ = Math.max(0, mapaZ - 1); pintarMapa(); };
-      el('div', 'jn-ayuda', M, 'Arriba es hacia donde apunta tu nave. Toca una estación (aquí o en la lista) para marcarla como destino: su flecha te guiará.');
-      var lista = el('div', 'jn-tabla', M);
+      el('div', 'jn-ayuda', der, 'Arriba = hacia donde apunta tu nave. Toca una estación para marcarla como destino.');
+      var lista = el('div', 'jn-tabla', der);
       if (!vis.length) el('div', 'jn-ayuda', lista, 'No hay estaciones en este alcance. Aleja el radar con “−”.');
       vis.slice(0, 12).forEach(function (v) {
         var f = el('div', 'jn-venta', lista), esMeta = meta && meta.key === v.o.key, dy = v.dy || 0;
         el('span', 'n', f, esc(v.o.nombre)); el('span', 'q', f, fmtDist(v.d) + ' · ' + (dy >= 0 ? '↑' : '↓') + fmtDist(Math.abs(dy)));
         var b = el('button', 'jn-btn', f, esMeta ? 'QUITAR' : 'MARCAR'); b.onclick = function () { meta = esMeta ? null : v.o; pintarMapa(); };
       });
-      var bc = el('button', 'jn-btn jn-grande', M, 'CERRAR'); bc.onclick = cerrarMapa;
+      var bc = el('button', 'jn-btn jn-grande', der, 'CERRAR'); bc.onclick = cerrarMapa;
     }
     function atracar() {
       if (mapaAbierto || atracado || !estCerca) return;
@@ -154,10 +154,10 @@
     function desatracar() { if (!atracado) return; atracado = false; pausado = false; hud.merc.classList.remove('on'); acelerador = 0.3; }
     function pintarMercado() {
       var M = hud.merc, k, orden = ['hierro', 'cobre', 'titanio', 'oro', 'piezas'];
-      M.innerHTML = '';
-      el('h3', '', M, esc(estCerca ? estCerca.nombre : 'Estación').toUpperCase() + ' · MERCADO');
-      el('div', 'jn-cred', M, '◎ ' + esp.creditos() + ' créditos');
-      var tabla = el('div', 'jn-tabla', M), total = 0;
+      M.innerHTML = ''; var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M);
+      el('h3', '', izq, esc(estCerca ? estCerca.nombre : 'Estación').toUpperCase() + ' · MERCADO');
+      el('div', 'jn-cred', izq, '◎ ' + esp.creditos() + ' créditos');
+      var tabla = el('div', 'jn-tabla', der), total = 0;
       orden.forEach(function (k) {
         var n = esp.inv[k] || 0, pr = esp.precios[k], f = el('div', 'jn-venta', tabla);
         total += n * pr;
@@ -165,9 +165,9 @@
         var b = el('button', 'jn-btn', f, n ? 'VENDER ' + (n * pr) : '—'); if (!n) b.disabled = true;
         b.onclick = function () { var g = esp.vender(k); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
       });
-      var bt = el('button', 'jn-btn jn-grande', M, total ? 'VENDER TODO (' + total + ')' : 'NADA QUE VENDER'); if (!total) bt.disabled = true;
+      var bt = el('button', 'jn-btn jn-grande', izq, total ? 'VENDER TODO (' + total + ')' : 'NADA QUE VENDER'); if (!total) bt.disabled = true;
       bt.onclick = function () { var g = esp.venderTodo(); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
-      var bs = el('button', 'jn-btn', M, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
+      var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
     }
     function pausar(p) { if (atracado || mapaAbierto) return; pausado = p; if (p) hud.menu.classList.add('on'); else hud.menu.classList.remove('on'); }
 

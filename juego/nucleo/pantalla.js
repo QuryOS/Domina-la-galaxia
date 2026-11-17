@@ -15,6 +15,7 @@
     DOMcapas.carga = el('div', 'jn-capa jn-carga', raiz);
     DOMcapas.lobby = el('div', 'jn-capa jn-lobby', raiz);
     DOMcapas.hud = el('div', 'jn-capa jn-hud', raiz);
+    var girar = el('div', 'jn-girar', raiz, '<div class="ico">⟳</div><div>Gira tu teléfono a<br><b>horizontal</b></div>');
     raiz.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
   function crearRenderer() {

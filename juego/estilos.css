@@ -75,3 +75,21 @@
 .jn-mapa h3{margin:0;font-size:14px}.jn-mapacv{border-radius:12px;border:1px solid rgba(120,200,255,.35);touch-action:manipulation}
 .jn-zoom{display:flex;align-items:center;gap:12px;font:600 13px system-ui,sans-serif;color:#cfe0ff}.jn-zoom .jn-btn{width:44px;padding:8px 0;font-size:18px}
 .jn-ayuda{font:12px system-ui,sans-serif;color:#9fb4d8;text-align:center;max-width:420px}
+
+/* ---- juego solo horizontal: aviso en vertical ---- */
+.jn-girar{position:absolute;left:0;top:0;width:100%;height:100%;z-index:99;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#02030a;color:#cfe0ff;font:600 18px/1.4 system-ui,sans-serif;text-align:center}
+.jn-girar .ico{font-size:64px;animation:jngirar 2s ease-in-out infinite}
+@keyframes jngirar{0%,100%{transform:rotate(0)}50%{transform:rotate(90deg)}}
+@media (orientation:portrait){.jn-girar{display:flex}}
+/* ---- radar ampliado y mercado: pantalla horizontal, mapa grande + panel compacto al costado ---- */
+.jn-mapa,.jn-merc{flex-direction:row!important;align-items:center!important;justify-content:center!important;gap:18px;padding:calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left));overflow:hidden}
+.jn-mapa-izq{flex:0 0 auto}
+.jn-mapa-der,.jn-merc-der{flex:0 1 270px;min-width:200px;max-height:92vh;display:flex;flex-direction:column;gap:8px;align-items:stretch;overflow:hidden}
+.jn-mapa-der .jn-tabla,.jn-merc-der .jn-tabla{width:100%;overflow:auto;flex:1 1 auto;min-height:0;gap:6px}
+.jn-mapa-der h3{margin:0;text-align:center}.jn-mapa-der .jn-zoom{justify-content:center}.jn-mapa-der .jn-ayuda{font-size:11px;line-height:1.3}
+.jn-mapa-der .jn-venta{padding:6px 8px;font-size:12px}.jn-mapa-der .jn-venta .jn-btn{min-width:68px;padding:6px 8px;font-size:11px}
+.jn-mapa-der .jn-grande{padding:10px 0;font-size:14px}
+.jn-merc-izq{flex:0 1 240px;display:flex;flex-direction:column;gap:10px;align-items:stretch;text-align:center}
+.jn-merc-der{flex:0 1 380px}
+.jn-merc .jn-venta{padding:6px 8px}
+.jn-hud .jn-mapacv{position:static;pointer-events:auto;flex:none}
