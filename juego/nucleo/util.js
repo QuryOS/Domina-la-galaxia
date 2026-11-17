@@ -34,8 +34,9 @@
   /* ===================== ESTADO COMPARTIDO ===================== */
   var DOMcapas = {};
   var jug = {   // preferencias del jugador (se guardan en el navegador)
-    nombre: leer('nombre', 'Piloto'), nave: leer('nave', 'centinela'), acento: leer('acento', ACENTOS[0]),
-    calidad: leer('calidad', 'media'), invertirY: leer('invY', false)
+    nombre: leer('nombre', 'Piloto'), nave: leer('nave', 'sombra'), acento: leer('acento', ACENTOS[0]),
+    calidad: leer('calidad', 'media'), invertirY: leer('invY', false),
+    sensGiro: leer('sensGiro', 1), sensCam: leer('sensCam', 1), pruebas: leer('pruebas', false)
   };
   var escenas = {};
   var disponibles = {};     // id de nave -> true si su .js cargó

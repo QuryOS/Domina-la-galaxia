@@ -9,6 +9,7 @@
     titulo: 'UNIVERSO ABIERTO',
     subtitulo: 'Esqueleto del juego de naves',
     rutaModelos: 'naves/',      // carpeta donde están los .js de las naves (con barra final)
+    rutaPersonajes: 'personajes/',  // el soldado y futuros personajes
     rutaEdificios: 'edificios/',  // estación Ágora y demás construcciones (station.js)
     espaciadoEstaciones: 55000,  // una estación por cada cubo de 55 km (con desplazamiento al azar): ~3-5 min de vuelo a 220 m/s
     radioEstacion: 260,          // tamaño de la estación (m)
@@ -25,10 +26,10 @@
   /* ===================== CATÁLOGO DE NAVES ===================== */
   // m = metros por unidad del modelo; vmax en m/s; agil y blind de 0 a 1 (solo para las barras y el manejo).
   var NAVES = [
+    { id: 'sombra', nombre: 'Sombra', archivo: 'sombra.js', fn: 'createSombra', m: 4, clase: 'Bombardero furtivo', vmax: 190, agil: 0.80, blind: 0.40, desc: 'Ala volante de perfil bajo con dos bodegas.' },
     { id: 'centinela', nombre: 'Centinela', archivo: 'ship.js', fn: 'createShip', m: 3, clase: 'Caza ligero', vmax: 220, agil: 1.0, blind: 0.30, desc: 'Ágil y versátil. La mejor para aprender a volar.' },
     { id: 'aguijon', nombre: 'Aguijón', archivo: 'aguijon.js', fn: 'createAguijon', m: 2, clase: 'Interceptor', vmax: 300, agil: 1.25, blind: 0.20, desc: 'Pequeño y rapidísimo. Casi no aguanta golpes.' },
     { id: 'halcon', nombre: 'Halcón', archivo: 'halcon.js', fn: 'createHalcon', m: 4, clase: 'Fragata', vmax: 150, agil: 0.60, blind: 0.60, desc: 'Fragata con torretas y misiles. Equilibrada.' },
-    { id: 'sombra', nombre: 'Sombra', archivo: 'sombra.js', fn: 'createSombra', m: 4, clase: 'Bombardero furtivo', vmax: 190, agil: 0.80, blind: 0.40, desc: 'Ala volante de perfil bajo con dos bodegas.' },
     { id: 'martillo', nombre: 'Martillo', archivo: 'martillo.js', fn: 'createMartillo', m: 4, clase: 'Cañonera pesada', vmax: 140, agil: 0.55, blind: 0.75, desc: 'Un cañón enorme y mucho blindaje.' },
     { id: 'ariete', nombre: 'Ariete', archivo: 'ariete.js', fn: 'createAriete', m: 4, clase: 'Nave de asalto', vmax: 160, agil: 0.60, blind: 0.70, desc: 'Abordaje y asalto con cápsulas de desembarco.' },
     { id: 'mastodonte', nombre: 'Mastodonte', archivo: 'cargo.js', fn: 'createCargoShip', m: 5, clase: 'Carguero', vmax: 110, agil: 0.45, blind: 0.55, desc: 'Lento y enorme: 24 contenedores de carga.' },
@@ -38,6 +39,7 @@
     { id: 'prospector', nombre: 'Prospector', archivo: 'extractor.js', fn: 'createProspector', m: 4, clase: 'Minera', vmax: 120, agil: 0.55, blind: 0.6, desc: 'Nave minera con brazos robóticos para rocas quietas.' },
     { id: 'leviatan', nombre: 'Leviatán', archivo: 'leviatan.js', fn: 'createLeviatan', m: 10, clase: 'Acorazado', vmax: 60, agil: 0.20, blind: 1.00, desc: 'El acorazado: 520 m de acero.' }
   ];
+  var NAVES_INICIALES = ['sombra'];   // las demás se desbloquean jugando (astilleros / tienda)
   var ACENTOS = [0x2f7bff, 0xd7263d, 0xf08a1e, 0x35c46a, 0xa45cff, 0xe9edf5];
   var CALIDAD = {
     alta:  { dpr: 2,   cielo: 2048, planeta: 512, polvo: 700, radioPlanetas: 3 },
@@ -54,6 +56,7 @@
 
   E.CONFIG = CONFIG;
   E.NAVES = NAVES;
+  E.NAVES_INICIALES = NAVES_INICIALES;
   E.ACENTOS = ACENTOS;
   E.CALIDAD = CALIDAD;
   E.CONSEJOS = CONSEJOS;

@@ -527,13 +527,13 @@
       puntero: function (tipo, e) {
         if (pausado) return;
         if (tipo === 'abajo' && camPtr === null && e.clientX > E.ancho * 0.55) { camPtr = e.pointerId; camX0 = e.clientX; camY0 = e.clientY; camYaw0 = camYaw; camPitch0 = camPitch; return; }
-        if (tipo === 'mueve' && camPtr === e.pointerId) { camYaw = camYaw0 - (e.clientX - camX0) * 0.009; camPitch = clamp(camPitch0 + (e.clientY - camY0) * 0.006, -1.25, 1.25); return; }
+        if (tipo === 'mueve' && camPtr === e.pointerId) { camYaw = camYaw0 - (e.clientX - camX0) * 0.009 * jug.sensCam; camPitch = clamp(camPitch0 + (e.clientY - camY0) * 0.006 * jug.sensCam, -1.25, 1.25); return; }
         if (tipo === 'arriba' && camPtr === e.pointerId) { camPtr = null; return; }
         if (tipo === 'abajo' && stick.id === null) { stick.id = e.pointerId; stick.x0 = e.clientX; stick.y0 = e.clientY; stick.ax = stick.ay = 0; palancaVisual(true); }
         else if (tipo === 'mueve' && stick.id === e.pointerId) {
           var R = 60, dx = e.clientX - stick.x0, dy = e.clientY - stick.y0, d = Math.sqrt(dx * dx + dy * dy);
           if (d > R) { dx *= R / d; dy *= R / d; }
-          var ax = dx / R, ay = dy / R; stick.ax = Math.abs(ax) < 0.08 ? 0 : ax; stick.ay = Math.abs(ay) < 0.08 ? 0 : ay; palancaVisual(true);
+          var ax = clamp(dx / R * jug.sensGiro, -1, 1), ay = clamp(dy / R * jug.sensGiro, -1, 1); stick.ax = Math.abs(ax) < 0.08 ? 0 : ax; stick.ay = Math.abs(ay) < 0.08 ? 0 : ay; palancaVisual(true);
           hud.palI2.style.transform = 'translate(' + (dx * 0.7) + 'px,' + (dy * 0.7) + 'px)';
         }
         else if (tipo === 'arriba' && stick.id === e.pointerId) { stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); }

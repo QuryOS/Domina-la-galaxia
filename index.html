@@ -16,6 +16,7 @@
 <body>
 <div id="jn-aviso">Cargando…</div>
 <script>
+window.JN_instalar = null; window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.JN_instalar = e; });
 if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () { }); });
 /* Cargador: pide version.json SIN caché y carga todo con ?v=versión, así cada publicación
    se ve al instante (GitHub Pages cachea 10 min los archivos con la misma URL). */

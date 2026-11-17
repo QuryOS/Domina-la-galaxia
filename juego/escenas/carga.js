@@ -108,6 +108,10 @@
         if (typeof global.createStation === 'function') return ok();
         cargarScript(CONFIG.rutaEdificios + 'station.js', ok, function () { cargarScript('station.js', ok, ok); });
       } });
+      p.push({ txt: 'Cargando personaje', run: function (ok) {
+        if (typeof global.createSoldadoEspacialV2 === 'function') return ok();
+        cargarScript(CONFIG.rutaPersonajes + 'soldado_espacial_v2.js', ok, function () { cargarScript('soldado_espacial_v2.js', ok, ok); });
+      } });
       p.push({ txt: 'Iniciando gráficos', critico: true, run: function (ok, fallo) {
         if (!global.THREE) return fallo(new Error('Three.js no está disponible'));
         if (!E.renderer && !crearRenderer()) return fallo(new Error('Este dispositivo no admite WebGL'));
