@@ -111,7 +111,7 @@
       campo: { n: 'Campo de asteroides', c: '#c6ced8', svg: '<path d="M4 9l3.5-3.5 4 1 1 4-3 3.2-4.2-1z" fill="C" fill-opacity=".4" stroke="C" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 14.5l3-1.8 3.5 1.5.5 3.6-3.3 2.2-3.6-1.2z" fill="C" fill-opacity=".4" stroke="C" stroke-width="1.6" stroke-linejoin="round"/><circle cx="17" cy="6.5" r="2.3" fill="C"/>' },
       astillero: { n: 'Astillero', c: '#5cf2c8', svg: '<path d="M12 2.5c3 3 4.2 7 3.4 11.5H8.6C7.8 9.5 9 5.5 12 2.5z" fill="C" fill-opacity=".35" stroke="C" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 12L5 16.5h4.2M15.4 12l3.6 4.5h-4.2M10 17.5l2 3.5 2-3.5" fill="none" stroke="C" stroke-width="1.8" stroke-linejoin="round"/>' }
     };
-    var iconosImg = {}, mapaFiltro = { estacion: true, planeta: true, minero: true, campo: true, astillero: true };
+    var iconosImg = {}, mapaFiltro = { estacion: false, planeta: false, minero: false, campo: false, astillero: false };   // el mapa empieza limpio: tú eliges qué ver
     function svgIcono(tipo, col, px) { return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="' + px + '" height="' + px + '">' + TIPOS_MAPA[tipo].svg.replace(/"C"/g, '"' + col + '"') + '</svg>'; }
     function imgIcono(tipo, col) {
       var k = tipo + col; if (iconosImg[k]) return iconosImg[k]; if (typeof Image === 'undefined') return null;
@@ -138,7 +138,7 @@
     function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); }
     function pintarMapa() {   // arriba = hacia donde apunta tu nave
       var M = hud.mapa, R = ZOOMS[mapaZ], W = E.ancho, H = E.alto, dpr = Math.min(2, global.devicePixelRatio || 1), i, o;
-      var vis = mapaLista.filter(function (x) { return x.d <= R * 2.2 && mapaFiltro[x.t] && !(x.t === 'campo' && R > 40000); });   // los campos son miles: solo con el alcance corto
+      var vis = mapaLista.filter(function (x) { return x.d <= R * 2.2 && (mapaFiltro[x.t] || (meta && meta.key === x.o.key)) && !(x.t === 'campo' && R > 40000); });   // los campos son miles: solo con el alcance corto
       M.innerHTML = '';
       var cv = el('canvas', 'jn-mapafull', M); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
       var g = cv.getContext('2d'), cx = W / 2, cy = (H - 100) / 2 + 24, escala = ((H - 150) / 2) / R;
@@ -177,7 +177,7 @@
       var bx = el('button', 'jn-mapa-x', M, '✕'); bx.onclick = cerrarMapa;
       /* barra inferior: lista por distancia con icono, nombre y tipo */
       var barra = el('div', 'jn-mapa-barra', M);
-      if (!vis.length) el('div', 'jn-ayuda', barra, 'Nada en este alcance. Aléjalo con “+”/“−” o activa más filtros.');
+      if (!vis.length) el('div', 'jn-ayuda', barra, (mapaFiltro.estacion || mapaFiltro.planeta || mapaFiltro.minero || mapaFiltro.campo || mapaFiltro.astillero) ? 'Nada en este alcance. Cambia el alcance con “+”/“−”.' : 'Mapa limpio. Toca los iconos de arriba para mostrar estaciones, planetas, mineros, campos o astilleros.');
       vis.slice(0, 40).forEach(function (v) {
         var esMeta = meta && meta.key === v.o.key, dy = v.dy || 0, T = TIPOS_MAPA[v.t];
         var f = el('div', 'jn-mapa-card' + (esMeta ? ' meta' : ''), barra, '<span class="ic">' + svgIcono(v.t, esMeta ? '#ffe27a' : T.c, 30) + '</span><span class="tx"><b>' + esc(v.o.nombre) + '</b><small>' + T.n + ' · ' + fmtDist(v.d) + ' · ' + (dy >= 0 ? '↑' : '↓') + fmtDist(Math.abs(dy)) + '</small></span>' + (esMeta ? '<span class="st">★</span>' : ''));
