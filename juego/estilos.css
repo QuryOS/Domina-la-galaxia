@@ -93,3 +93,20 @@
 .jn-merc-der{flex:0 1 380px}
 .jn-merc .jn-venta{padding:6px 8px}
 .jn-hud .jn-mapacv{position:static;pointer-events:auto;flex:none}
+
+/* ---- mapa a pantalla completa ---- */
+.jn-pmenu.jn-mapa{background:#02050d;padding:0!important;gap:0!important;overflow:hidden!important}
+.jn-pmenu.jn-mapa.on{display:block!important}
+.jn-hud .jn-mapafull{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:auto;touch-action:manipulation}
+.jn-mapa-top{position:absolute;left:calc(10px + env(safe-area-inset-left));right:calc(64px + env(safe-area-inset-right));top:calc(8px + env(safe-area-inset-top));display:flex;align-items:center;gap:14px;pointer-events:none}
+.jn-mapa-top>*{pointer-events:auto}
+.jn-mapa-tit{font:800 15px system-ui,sans-serif;letter-spacing:.3em;color:#cfe0ff}
+.jn-mapa-top .jn-zoom{gap:8px}.jn-mapa-top .jn-zoom .jn-btn{width:40px;padding:6px 0;font-size:18px}
+.jn-mapa-filtros{display:flex;gap:6px;margin-left:auto}
+.jn-mapa-f{width:38px;height:38px;border-radius:10px;border:1px solid rgba(120,170,255,.25);background:rgba(10,20,38,.8);display:flex;align-items:center;justify-content:center;padding:0;opacity:.5;cursor:pointer}
+.jn-mapa-f.on{opacity:1;border-color:rgba(160,200,255,.6)}
+.jn-mapa-x{position:absolute;right:calc(10px + env(safe-area-inset-right));top:calc(8px + env(safe-area-inset-top));width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(20,30,52,.9);color:#fff;font:700 22px system-ui,sans-serif;cursor:pointer;pointer-events:auto}
+.jn-mapa-barra{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));background:linear-gradient(0deg,rgba(2,5,13,.96),rgba(2,5,13,.78));border-top:1px solid rgba(120,170,255,.2);pointer-events:auto;-webkit-overflow-scrolling:touch}
+.jn-mapa-card{flex:0 0 auto;display:flex;align-items:center;gap:8px;min-width:170px;max-width:240px;padding:8px 12px;border:1px solid #888;border-radius:12px;background:rgba(14,26,48,.85);color:#e8f0ff;cursor:pointer;font:13px system-ui,sans-serif}
+.jn-mapa-card .tx{display:flex;flex-direction:column;min-width:0}.jn-mapa-card b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.jn-mapa-card small{opacity:.75;font-size:11px;white-space:nowrap}
+.jn-mapa-card .st{color:#ffe27a;font-size:18px}.jn-mapa-card.meta{background:rgba(70,55,10,.7)}

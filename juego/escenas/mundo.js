@@ -100,51 +100,87 @@
       var bh = el('button', 'jn-btn', hud.menu, 'VOLVER AL HANGAR'); bh.onclick = function () { irA('lobby'); };
     }
     function toast(txt, ms) { hud.toast.textContent = txt; hud.toast.style.opacity = 1; tToast = ms || 1.1; }
-    /* ---------- mapa: muestra todas las estaciones del universo cercano y permite marcar un destino ---------- */
-    var ZOOMS = [40000, 100000, 200000];
+    /* ---------- mapa a pantalla completa: estaciones, planetas, planetas mineros, campos de asteroides y (pronto) astilleros ---------- */
+    var ZOOMS = [40000, 100000, 200000], R_CUERPOS = 100000;
+    var TIPOS_MAPA = {
+      estacion: { n: 'Estación', c: '#ffd447', svg: '<circle cx="12" cy="12" r="7.5" fill="none" stroke="C" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="C"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" stroke="C" stroke-width="2" stroke-linecap="round"/>' },
+      planeta: { n: 'Planeta', c: '#8fc8ff', svg: '<circle cx="12" cy="12" r="5.6" fill="C" fill-opacity=".35" stroke="C" stroke-width="2"/><ellipse cx="12" cy="12" rx="10.5" ry="3.4" fill="none" stroke="C" stroke-width="1.6" transform="rotate(-22 12 12)"/>' },
+      minero: { n: 'Planeta minero', c: '#ff9a5c', svg: '<circle cx="12" cy="12" r="8" fill="C" fill-opacity=".3" stroke="C" stroke-width="2"/><path d="M7 17l9-9" stroke="C" stroke-width="2.2" stroke-linecap="round"/><path d="M12.5 5.5c3.5-.2 6 2.3 6 5.8" fill="none" stroke="C" stroke-width="2.2" stroke-linecap="round"/>' },
+      campo: { n: 'Campo de asteroides', c: '#c6ced8', svg: '<path d="M4 9l3.5-3.5 4 1 1 4-3 3.2-4.2-1z" fill="C" fill-opacity=".4" stroke="C" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 14.5l3-1.8 3.5 1.5.5 3.6-3.3 2.2-3.6-1.2z" fill="C" fill-opacity=".4" stroke="C" stroke-width="1.6" stroke-linejoin="round"/><circle cx="17" cy="6.5" r="2.3" fill="C"/>' },
+      astillero: { n: 'Astillero', c: '#5cf2c8', svg: '<path d="M12 2.5c3 3 4.2 7 3.4 11.5H8.6C7.8 9.5 9 5.5 12 2.5z" fill="C" fill-opacity=".35" stroke="C" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 12L5 16.5h4.2M15.4 12l3.6 4.5h-4.2M10 17.5l2 3.5 2-3.5" fill="none" stroke="C" stroke-width="1.8" stroke-linejoin="round"/>' }
+    };
+    var iconosImg = {}, mapaFiltro = { estacion: true, planeta: true, minero: true, campo: true, astillero: true };
+    function svgIcono(tipo, col, px) { return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="' + px + '" height="' + px + '">' + TIPOS_MAPA[tipo].svg.replace(/"C"/g, '"' + col + '"') + '</svg>'; }
+    function imgIcono(tipo, col) {
+      var k = tipo + col; if (iconosImg[k]) return iconosImg[k]; if (typeof Image === 'undefined') return null;
+      var im = new Image(); im.onload = function () { if (mapaAbierto) pintarMapa(); }; im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcono(tipo, col, 48)); iconosImg[k] = im; return im;
+    }
+    function tipoDePlaneta(tp) { return (tp === 'gaseoso' || tp === 'gaseoso2' || tp === 'tormenta') ? 'planeta' : 'minero'; }
+    function cuerposEn(x, y, z, R) {   // planetas y campos (sin crear nada en pantalla) a menos de R metros
+      var C = CONFIG.celda, n = Math.ceil(R / C) + 1, cx = Math.floor(x / C), cy = Math.floor(y / C), cz = Math.floor(z / C), out = [], a, b, c, cel, o, d, r2, nm;
+      function poner(q, tipo, nombre, key, rad) { var dx = q.x - x, dy = q.y - y, dz = q.z - z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d <= R) out.push({ t: tipo, d: d, o: { key: key, x: q.x, y: q.y, z: q.z, r: rad, nombre: nombre, tipo: tipo } }); }
+      for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) {
+        cel = generar(cx + a, cy + b, cz + c, true);
+        if (cel.planeta) poner(cel.planeta, tipoDePlaneta(cel.planeta.tipo), cel.planeta.nombre, 'P' + cel.key, cel.planeta.r);
+        if (cel.campo) { r2 = mulberry32(hash3(cel.ix, cel.iy, cel.iz, 991)); nm = 'Cinturón ' + nombrePlaneta(r2).split(' ')[0]; poner(cel.campo, 'campo', nm, 'C' + cel.key, cel.campo.a); }
+      }
+      return out;
+    }
     function abrirMapa() {
       if (mapaAbierto || atracado || pausado) return;
       mapaAbierto = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false;
-      mapaLista = estacionesEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]); hud.mapa.classList.add('on'); pintarMapa();
+      mapaLista = estacionesEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]).map(function (q) { return { t: 'estacion', d: q.d, o: q.o }; }).concat(cuerposEn(P.x, P.y, P.z, R_CUERPOS));
+      mapaLista.sort(function (u, v) { return u.d - v.d; });
+      hud.mapa.classList.add('on'); pintarMapa();
     }
     function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); }
-    function pintarMapa() {   // el radar, en grande: arriba es hacia donde apunta tu nave
-      var M = hud.mapa, R = ZOOMS[mapaZ], lado = Math.floor(Math.min(E.alto * 0.8, E.ancho * 0.56, 520)), vis = mapaLista.filter(function (x) { return x.d <= R; });
-      M.innerHTML = ''; var izq = el('div', 'jn-mapa-izq', M), der = el('div', 'jn-mapa-der', M); el('h3', '', der, 'RADAR DE LARGO ALCANCE');
-      var cv = el('canvas', 'jn-mapacv', izq); cv.width = lado * 2; cv.height = lado * 2; cv.style.width = lado + 'px'; cv.style.height = lado + 'px';
-      var g = cv.getContext('2d'), S = cv.width, c = S / 2, Rp = c - 10, esc2 = Rp / R, i, o;
-      g.beginPath(); g.arc(c, c, Rp, 0, TAU); g.fillStyle = 'rgba(4,12,26,0.92)'; g.fill(); g.strokeStyle = 'rgba(120,200,255,0.45)'; g.lineWidth = 3; g.stroke();
-      g.lineWidth = 2; g.strokeStyle = 'rgba(120,200,255,0.2)'; g.font = '22px system-ui,sans-serif'; g.fillStyle = 'rgba(160,200,240,0.7)'; g.textAlign = 'left';
-      for (i = 1; i <= 2; i++) { g.beginPath(); g.arc(c, c, Rp * i / 3, 0, TAU); g.stroke(); g.fillText(fmtDist(R * i / 3), c + 6, c - Rp * i / 3 + 22); }
-      g.beginPath(); g.moveTo(c, c - Rp); g.lineTo(c, c + Rp); g.moveTo(c - Rp, c); g.lineTo(c + Rp, c); g.stroke();
+    function pintarMapa() {   // arriba = hacia donde apunta tu nave
+      var M = hud.mapa, R = ZOOMS[mapaZ], W = E.ancho, H = E.alto, dpr = Math.min(2, global.devicePixelRatio || 1), i, o;
+      var vis = mapaLista.filter(function (x) { return x.d <= R * 2.2 && mapaFiltro[x.t] && !(x.t === 'campo' && R > 40000); });   // los campos son miles: solo con el alcance corto
+      M.innerHTML = '';
+      var cv = el('canvas', 'jn-mapafull', M); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      var g = cv.getContext('2d'), cx = W / 2, cy = (H - 100) / 2 + 24, escala = ((H - 150) / 2) / R;
+      g.scale(dpr, dpr); g.fillStyle = '#02050d'; g.fillRect(0, 0, W, H);
+      g.lineWidth = 1; g.font = '11px system-ui,sans-serif'; g.textAlign = 'left';
+      for (i = 1; i <= 3; i++) { g.strokeStyle = 'rgba(120,200,255,' + (i === 3 ? 0.4 : 0.18) + ')'; g.beginPath(); g.arc(cx, cy, R / 3 * i * escala, 0, TAU); g.stroke(); g.fillStyle = 'rgba(160,200,240,0.65)'; g.fillText(fmtDist(R / 3 * i), cx + 5, cy - R / 3 * i * escala - 4); }
+      g.strokeStyle = 'rgba(120,200,255,0.14)'; g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx, H); g.moveTo(0, cy); g.lineTo(W, cy); g.stroke();
       mInv.copy(Q).invert(); mapaPuntos = [];
-      for (i = 0; i < listaPl.length; i++) { o = listaPl[i]; v3.set(o.x - P.x, o.y - P.y, o.z - P.z).applyQuaternion(mInv); var px = c + v3.x * esc2, py = c + v3.z * esc2; if (Math.hypot(px - c, py - c) < Rp) { g.fillStyle = '#ffb766'; g.beginPath(); g.arc(px, py, 7, 0, TAU); g.fill(); } }
-      g.textAlign = 'center';
+      var etiquetas = 0; g.textAlign = 'center'; g.font = '600 12px system-ui,sans-serif';
       for (i = 0; i < vis.length; i++) {
-        o = vis[i].o; v3.set(o.x - P.x, o.y - P.y, o.z - P.z).applyQuaternion(mInv);
-        var sx = c + v3.x * esc2, sy = c + v3.z * esc2, esMeta = meta && meta.key === o.key; vis[i].dy = v3.y;
-        mapaPuntos.push({ o: o, x: sx / 2, y: sy / 2 });
-        g.fillStyle = esMeta ? '#ffe27a' : '#4df2d6'; g.fillRect(sx - 9, sy - 9, 18, 18);
-        if (esMeta) { g.strokeStyle = '#ffe27a'; g.lineWidth = 3; g.beginPath(); g.arc(sx, sy, 18, 0, TAU); g.stroke(); }
-        if (i < 14) { g.fillStyle = esMeta ? '#ffe27a' : '#bff7ec'; g.fillText(o.nombre.replace('Ágora ', ''), sx, sy - 16); }
+        var v = vis[i]; o = v.o; v3.set(o.x - P.x, o.y - P.y, o.z - P.z).applyQuaternion(mInv); v.dy = v3.y;
+        var sx = cx + v3.x * escala, sy = cy + v3.z * escala;
+        if (sx < 14 || sx > W - 14 || sy < 40 || sy > H - 104) continue;
+        var T = TIPOS_MAPA[v.t], esMeta = meta && meta.key === o.key, col = esMeta ? '#ffe27a' : T.c, im = imgIcono(v.t, col);
+        mapaPuntos.push({ o: o, x: sx, y: sy });
+        if (esMeta) { g.strokeStyle = '#ffe27a'; g.lineWidth = 2; g.beginPath(); g.arc(sx, sy, 19, 0, TAU); g.stroke(); g.lineWidth = 1; }
+        if (im && im.complete && im.naturalWidth) g.drawImage(im, sx - 12, sy - 12, 24, 24); else { g.fillStyle = col; g.fillRect(sx - 6, sy - 6, 12, 12); }
+        if (etiquetas < 26 || esMeta) { etiquetas++; g.fillStyle = esMeta ? '#ffe27a' : (v.t === 'estacion' ? '#ffe9a0' : '#cfdcec'); g.fillText(o.nombre, sx, sy - 17); }
       }
-      g.fillStyle = '#7fe3ff'; g.beginPath(); g.moveTo(c, c - 17); g.lineTo(c - 11, c + 12); g.lineTo(c + 11, c + 12); g.closePath(); g.fill();
+      g.fillStyle = '#7fe3ff'; g.beginPath(); g.moveTo(cx, cy - 15); g.lineTo(cx - 10, cy + 11); g.lineTo(cx + 10, cy + 11); g.closePath(); g.fill();
       cv.onclick = function (ev) {
-        var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, mejor = null, md = 30, k;
+        var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, mejor = null, md = 34, k;
         for (k = 0; k < mapaPuntos.length; k++) { var q = mapaPuntos[k], dd = Math.hypot(q.x - x, q.y - y); if (dd < md) { md = dd; mejor = q.o; } }
         if (mejor) { meta = (meta && meta.key === mejor.key) ? null : mejor; pintarMapa(); }
       };
-      var z = el('div', 'jn-zoom', der), bm = el('button', 'jn-btn', z, '−'), tz = el('span', '', z, 'Alcance ' + fmtDist(R)), bp = el('button', 'jn-btn', z, '+');
+      /* barra superior: título, alcance, filtros y la X para salir */
+      var top = el('div', 'jn-mapa-top', M);
+      el('span', 'jn-mapa-tit', top, 'MAPA');
+      var z = el('div', 'jn-zoom', top), bm = el('button', 'jn-btn', z, '−'), tz = el('span', '', z, fmtDist(R)), bp = el('button', 'jn-btn', z, '+');
       bm.onclick = function () { mapaZ = Math.min(ZOOMS.length - 1, mapaZ + 1); pintarMapa(); }; bp.onclick = function () { mapaZ = Math.max(0, mapaZ - 1); pintarMapa(); };
-      el('div', 'jn-ayuda', der, 'Arriba = hacia donde apunta tu nave. Toca una estación para marcarla como destino.');
-      var lista = el('div', 'jn-tabla', der);
-      if (!vis.length) el('div', 'jn-ayuda', lista, 'No hay estaciones en este alcance. Aleja el radar con “−”.');
-      vis.slice(0, 12).forEach(function (v) {
-        var f = el('div', 'jn-venta', lista), esMeta = meta && meta.key === v.o.key, dy = v.dy || 0;
-        el('span', 'n', f, esc(v.o.nombre)); el('span', 'q', f, fmtDist(v.d) + ' · ' + (dy >= 0 ? '↑' : '↓') + fmtDist(Math.abs(dy)));
-        var b = el('button', 'jn-btn', f, esMeta ? 'QUITAR' : 'MARCAR'); b.onclick = function () { meta = esMeta ? null : v.o; pintarMapa(); };
+      var fl = el('div', 'jn-mapa-filtros', top);
+      ['estacion', 'planeta', 'minero', 'campo', 'astillero'].forEach(function (k) {
+        var b = el('button', 'jn-mapa-f' + (mapaFiltro[k] ? ' on' : ''), fl, svgIcono(k, mapaFiltro[k] ? TIPOS_MAPA[k].c : '#6c7a90', 22)); b.title = TIPOS_MAPA[k].n;
+        b.onclick = function () { mapaFiltro[k] = !mapaFiltro[k]; pintarMapa(); };
       });
-      var bc = el('button', 'jn-btn jn-grande', der, 'CERRAR'); bc.onclick = cerrarMapa;
+      var bx = el('button', 'jn-mapa-x', M, '✕'); bx.onclick = cerrarMapa;
+      /* barra inferior: lista por distancia con icono, nombre y tipo */
+      var barra = el('div', 'jn-mapa-barra', M);
+      if (!vis.length) el('div', 'jn-ayuda', barra, 'Nada en este alcance. Aléjalo con “+”/“−” o activa más filtros.');
+      vis.slice(0, 40).forEach(function (v) {
+        var esMeta = meta && meta.key === v.o.key, dy = v.dy || 0, T = TIPOS_MAPA[v.t];
+        var f = el('div', 'jn-mapa-card' + (esMeta ? ' meta' : ''), barra, '<span class="ic">' + svgIcono(v.t, esMeta ? '#ffe27a' : T.c, 30) + '</span><span class="tx"><b>' + esc(v.o.nombre) + '</b><small>' + T.n + ' · ' + fmtDist(v.d) + ' · ' + (dy >= 0 ? '↑' : '↓') + fmtDist(Math.abs(dy)) + '</small></span>' + (esMeta ? '<span class="st">★</span>' : ''));
+        f.style.borderColor = esMeta ? '#ffe27a' : T.c; f.onclick = function () { meta = esMeta ? null : v.o; pintarMapa(); };
+      });
     }
     function atracar() {
       if (mapaAbierto || atracado || !estCerca) return;
@@ -191,7 +227,7 @@
     function chocaEstacion(x, y, z, rad) {   // ¿algo de ese radio pisaría una estación?
       var l = estacionesEn(x, y, z, rad + CONFIG.radioEstacion + 800); return l.length > 0;
     }
-    function generar(ix, iy, iz) {
+    function generar(ix, iy, iz, ligero) {   // ligero: sin rocas (para el mapa)
       var C = CONFIG.celda, r = mulberry32(hash3(ix, iy, iz, CONFIG.semilla)), cel = { key: ix + ',' + iy + ',' + iz, ix: ix, iy: iy, iz: iz, planeta: null, campo: null };
       if (r() < 0.06) {
         var tp = tipoPlaneta(r), gas = tp === 'gaseoso' || tp === 'gaseoso2', rad = gas ? 1500 + r() * 1700 : 500 + r() * 1400;
@@ -204,7 +240,7 @@
         if (ok && chocaEstacion(cx, cy, cz, a + 200)) ok = false;
         if (ok) {
           var n = 28 + ((r() * 32) | 0), rocas = [], i, b = a * (0.35 + 0.4 * r()), c3 = a * (0.6 + 0.4 * r());
-          for (i = 0; i < n; i++) {
+          for (i = 0; i < (ligero ? 0 : n); i++) {
             var th = r() * TAU, ph = Math.acos(2 * r() - 1), rr = Math.pow(r(), 0.6);
             rocas.push({ lx: a * rr * Math.sin(ph) * Math.cos(th), ly: b * rr * Math.cos(ph), lz: c3 * rr * Math.sin(ph) * Math.sin(th), s: 8 + Math.pow(r(), 3) * 95, sx: 0.8 + r() * 0.5, sy: 0.6 + r() * 0.5, sz: 0.8 + r() * 0.5, e: [r() * TAU, r() * TAU, r() * TAU], v: (r() * 3) | 0 });
           }
@@ -455,7 +491,7 @@
       DPRH = Math.min(global.devicePixelRatio || 1, 1.5); if (beaconG) { beaconG.width = Math.round(w * DPRH); beaconG.height = Math.round(h * DPRH); }
     }
     return {
-      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
+      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
       entrar: function (d) {
         modo = (d && d.modo) || 'solo'; nSel = naveDe(jug.nave); modelo = obtenerModelo(jug.nave); med = medidas[jug.nave];
         if (!modelo) { irA('lobby'); return; }

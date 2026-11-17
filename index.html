@@ -4,11 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Universo Abierto</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#02030a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="icono-192.png">
+<link rel="apple-touch-icon" href="icono-192.png">
 <style>html,body{margin:0;height:100%;background:#02030a;color:#9fb4d8;font:14px system-ui,sans-serif}#jn-aviso{padding:24px}</style>
 </head>
 <body>
 <div id="jn-aviso">Cargando…</div>
 <script>
+if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () { }); });
 /* Cargador: pide version.json SIN caché y carga todo con ?v=versión, así cada publicación
    se ve al instante (GitHub Pages cachea 10 min los archivos con la misma URL). */
 (function () {

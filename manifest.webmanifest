@@ -1,0 +1,36 @@
+{
+ "name": "Universo Abierto",
+ "short_name": "Universo",
+ "description": "Juego espacial de minería, comercio y combate",
+ "start_url": "./",
+ "scope": "./",
+ "display": "fullscreen",
+ "display_override": [
+  "fullscreen",
+  "standalone"
+ ],
+ "orientation": "landscape",
+ "background_color": "#02030a",
+ "theme_color": "#02030a",
+ "lang": "es",
+ "icons": [
+  {
+   "src": "icono-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icono-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icono-512-mask.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}
