@@ -12,7 +12,7 @@
     oro:     { n: 'Oro',     c: 0xe3b630, e: 0x3a2800, css: '#ffd447', peso: 5,  vel: [50, 95], r: [7, 18],  hpK: 1.7, botin: [1, 3] }
   };
   var ORDEN = ['hierro', 'cobre', 'titanio', 'oro'];
-  var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45 }, R_ATRAQUE = 1500;
+  var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45 }, R_CASCO = 260, D_ATRAQUE = 100, R_ZONA = 1000, R_ATRAQUE = R_CASCO + D_ATRAQUE;   // atraque: a 100 m del casco
   var COLOR_PIEZA = { c: 0x9aa7b8, css: '#c9d6e6' };
   var R_TRACTOR = 450, MAX_AST = 26, R_SPAWN_MIN = 900, R_SPAWN_MAX = 2300, R_DESPAWN = 3300, MAX_DISP = 48, CADENCIA = 0.15, DANO = 12;
 
@@ -32,8 +32,13 @@
     ['hierro', 'cobre', 'titanio', 'oro', 'piezas'].forEach(function (k) { if (typeof inv[k] !== 'number') inv[k] = 0; });
     var creditos = leer('cred', 0);
     var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), q1 = new THREE.Quaternion();
-    var agarrando = false, cand = null, aro = null, rayo = null, geoBot, matBot, geoBot2, geoPza, matPza, geoPieza, matPieza;
+    var zonasExtra = [], enZona = null, agarrando = false, cand = null, aro = null, rayo = null, geoBot, matBot, geoBot2, geoPza, matPza, geoPieza, matPieza;
 
+    function trozoGeo() {   // chatarra metálica irregular y angulosa
+      var g = new THREE.DodecahedronGeometry(1, 0), p = g.attributes.position, i, x, y, z, f;
+      for (i = 0; i < p.count; i++) { x = p.getX(i); y = p.getY(i); z = p.getZ(i); f = 0.75 + 0.5 * Math.abs(Math.sin(x * 7.1 + y * 3.3 + z * 5.7)); p.setXYZ(i, x * f * 1.5, y * f * 0.6, z * f); }
+      g.computeVertexNormals(); return g;
+    }
     function iniciarRecursos() {
       if (geos.length) return;
       var v, i, g, p, x, y, z, f;
@@ -45,7 +50,7 @@
       ORDEN.forEach(function (k) { mats[k] = new THREE.MeshStandardMaterial({ color: TIPOS[k].c, emissive: TIPOS[k].e, roughness: k === 'oro' ? 0.45 : 0.9, metalness: k === 'oro' ? 0.8 : (k === 'hierro' ? 0.2 : 0.4), flatShading: true }); });
       geoBot = new THREE.BoxGeometry(1, 1, 1); matBot = new THREE.MeshBasicMaterial({ color: 0x7affea, toneMapped: false });
       geoPza = new THREE.OctahedronGeometry(1, 0);
-      geoPieza = new THREE.BoxGeometry(1.6, 0.7, 2.6); matPieza = new THREE.MeshStandardMaterial({ color: COLOR_PIEZA.c, emissive: 0x0b2a3a, roughness: 0.5, metalness: 0.7, flatShading: true });
+      geoPieza = trozoGeo(); matPieza = new THREE.MeshStandardMaterial({ color: COLOR_PIEZA.c, emissive: 0x1d3a52, emissiveIntensity: 0.8, roughness: 0.4, metalness: 0.8, flatShading: true });
       aro = new THREE.Sprite(new THREE.SpriteMaterial({ map: E.glowTex, color: 0xffee88, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, transparent: true, toneMapped: false }));
       aro.visible = false; aro.frustumCulled = false; aro.renderOrder = 20; sc.add(aro);
       rayo = new THREE.Mesh(geoBot, new THREE.MeshBasicMaterial({ color: 0x74ffb0, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -73,7 +78,11 @@
     /* ----- botín, explosiones ----- */
     function nuevoBotin(tipo, x, y, z, vx, vy, vz) {
       var m;
-      if (tipo === 'piezas') { m = new THREE.Mesh(geoPieza, matPieza); m.scale.setScalar(2.4); }
+      if (tipo === 'piezas') {
+        m = new THREE.Mesh(geoPieza, matPieza); m.scale.setScalar(5);
+        var h = new THREE.Sprite(new THREE.SpriteMaterial({ map: E.glowTex, color: 0x8fd8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.8, toneMapped: false }));
+        h.scale.setScalar(4.5); m.add(h);
+      }
       else { m = new THREE.Mesh(geoPza, new THREE.MeshStandardMaterial({ color: TIPOS[tipo].c, emissive: TIPOS[tipo].c, emissiveIntensity: 0.55, roughness: 0.4, metalness: 0.5, flatShading: true })); m.scale.set(2.2, 3.2, 2.2); }
       m.frustumCulled = false; sc.add(m);
       bot.push({ tipo: tipo, x: x, y: y, z: z, vx: vx, vy: vy, vz: vz, t: 150, m: m, rx: Math.random() * TAU, ry: Math.random() * TAU });
@@ -86,11 +95,11 @@
       var T = TIPOS[a.tipo], n = T.botin[0] + ((Math.random() * (T.botin[1] - T.botin[0] + 1)) | 0) + ((a.r / 22) | 0), i;
       explosion(a.x, a.y, a.z, a.r, a.tipo === 'oro' ? 0xffd060 : 0xffa860);
       for (i = 0; i < n; i++) nuevoBotin(a.tipo, a.x + rnd(-a.r, a.r) * 0.6, a.y + rnd(-a.r, a.r) * 0.6, a.z + rnd(-a.r, a.r) * 0.6, a.vx * 0.5 + rnd(-14, 14), a.vy * 0.5 + rnd(-14, 14), a.vz * 0.5 + rnd(-14, 14));
-      if (Math.random() < 0.16) nuevoBotin('piezas', a.x, a.y, a.z, a.vx * 0.4 + rnd(-10, 10), a.vy * 0.4 + rnd(-10, 10), a.vz * 0.4 + rnd(-10, 10));
+      if (Math.random() < 0.22) nuevoBotin('piezas', a.x, a.y, a.z, a.vx * 0.4 + rnd(-10, 10), a.vy * 0.4 + rnd(-10, 10), a.vz * 0.4 + rnd(-10, 10));
     }
     function recoger(b) {
       inv[b.tipo]++; guardar('inv', inv);
-      var nom = b.tipo === 'piezas' ? 'Pieza de nave' : TIPOS[b.tipo].n;
+      var nom = b.tipo === 'piezas' ? 'Trozo metálico' : TIPOS[b.tipo].n;
       ctx.toast('+1 ' + nom.toUpperCase(), 0.7);
     }
 
@@ -123,7 +132,7 @@
     function entrar(r) {
       iniciarRecursos(); radio = r || 6; limpiar(true);
       var i; for (i = 0; i < MAX_AST; i++) ast.push(nuevoAst(true));
-      for (i = 0; i < 2; i++) piezaFlotante();
+      for (i = 0; i < 4; i++) piezaFlotante();
     }
     function limpiar(conservarEstaciones) {
       cand = null; if (aro) aro.visible = false; if (rayo) rayo.visible = false;
@@ -134,13 +143,14 @@
       if (!conservarEstaciones) { for (k in estac) sc.remove(estac[k].g); estac = {}; }
     }
     function piezaFlotante() {
-      v1.set(Math.random() - 0.5, (Math.random() - 0.5) * 0.5, Math.random() - 0.5).normalize().multiplyScalar(rnd(700, 2200));
+      v1.set(Math.random() - 0.5, (Math.random() - 0.5) * 0.5, Math.random() - 0.5).normalize().multiplyScalar(rnd(450, 1800));
       nuevoBotin('piezas', P.x + v1.x, P.y + v1.y, P.z + v1.z, rnd(-6, 6), rnd(-6, 6), rnd(-6, 6));
     }
     function actualizar(dt, t, fwd) {
       var i, j, a, b, d, dx, dy, dz, rr;
       // disparos
-      enfr -= dt; if (fuego && enfr <= 0) { enfr = CADENCIA; disparar(fwd); }
+      enfr -= dt; enZona = zonaEn(P.x, P.y, P.z);
+      if (fuego && enfr <= 0) { enfr = CADENCIA; if (!enZona) disparar(fwd); }
       for (i = 0; i < disp.length; i++) {
         d = disp[i]; if (!d.on) continue;
         d.t -= dt; if (d.t <= 0) { d.on = false; d.m.visible = false; continue; }
@@ -164,7 +174,7 @@
         if (dx * dx + dy * dy + dz * dz > R_DESPAWN * R_DESPAWN) { quitarAst(i); ast.push(nuevoAst(false)); }
       }
       // botín + rayo tractor: se resalta lo agarrable que tienes cerca; con AGARRAR lo atraes a la parte de abajo de la nave
-      v2.set(0, -radio * 0.55, 0).applyQuaternion(Q); var ux = P.x + v2.x, uy = P.y + v2.y, uz = P.z + v2.z, mejor = null, md = R_TRACTOR;
+      v2.set(0, -radio * 0.18, 0).applyQuaternion(Q); var ux = P.x + v2.x, uy = P.y + v2.y, uz = P.z + v2.z, mejor = null, md = R_TRACTOR;
       for (i = bot.length - 1; i >= 0; i--) {
         b = bot[i]; b.t -= dt; dx = P.x - b.x; dy = P.y - b.y; dz = P.z - b.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (b.t <= 0 || d > 6000) { sc.remove(b.m); bot.splice(i, 1); if (cand === b) cand = null; continue; }
@@ -179,7 +189,7 @@
         cand.vx += (V.x + dx / d * vel - cand.vx) * kv; cand.vy += (V.y + dy / d * vel - cand.vy) * kv; cand.vz += (V.z + dz / d * vel - cand.vz) * kv;
         if (d < Math.max(5, radio * 0.4)) { recoger(cand); sc.remove(cand.m); bot.splice(bot.indexOf(cand), 1); cand = null; }
       }
-      tDeb -= dt; if (tDeb <= 0) { tDeb = 25; var nPz = 0; for (i = 0; i < bot.length; i++) if (bot[i].tipo === 'piezas') nPz++; if (nPz < 3) piezaFlotante(); }
+      tDeb -= dt; if (tDeb <= 0) { tDeb = 12; var nPz = 0; for (i = 0; i < bot.length; i++) if (bot[i].tipo === 'piezas') nPz++; if (nPz < 5) piezaFlotante(); }
       // explosiones
       for (i = boom.length - 1; i >= 0; i--) { var e = boom[i]; e.t += dt; if (e.t > 0.55) { sc.remove(e.s); e.s.material.dispose(); boom.splice(i, 1); } }
       // estaciones
@@ -195,7 +205,7 @@
       if (aro) {
         if (cand) { aro.visible = true; aro.position.set(cand.x - P.x, cand.y - P.y, cand.z - P.z); aro.scale.setScalar((cand.tipo === 'piezas' ? 26 : 20) * (1 + 0.12 * Math.sin(performance_now() * 0.008))); aro.material.color.setHex(agarrando ? 0x74ffb0 : 0xffee88); } else aro.visible = false;
         if (cand && agarrando) {
-          v1.set(0, -radio * 0.55, 0).applyQuaternion(Q); v2.set(cand.x - P.x - v1.x, cand.y - P.y - v1.y, cand.z - P.z - v1.z);
+          v1.set(0, -radio * 0.18, 0).applyQuaternion(Q); v2.set(cand.x - P.x - v1.x, cand.y - P.y - v1.y, cand.z - P.z - v1.z);
           var ln = v2.length(); rayo.visible = true; rayo.position.set(v1.x + v2.x * 0.5, v1.y + v2.y * 0.5, v1.z + v2.z * 0.5); rayo.lookAt(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z); rayo.scale.set(0.5 + Math.random() * 0.4, 0.5 + Math.random() * 0.4, ln);
         } else rayo.visible = false;
       }
@@ -205,6 +215,13 @@
       var i, a, dx, dy, dz, rr;
       for (i = 0; i < ast.length; i++) { a = ast[i]; dx = P.x - a.x; if (dx > 200 || dx < -200) continue; dy = P.y - a.y; dz = P.z - a.z; rr = a.r * 0.9 + R; if (dx * dx + dy * dy + dz * dz < rr * rr) impacto(a, dx, dy, dz, rr, a.vx, a.vy, a.vz); }
     }
+    function zonaEn(x, y, z) {   // zona segura (esfera de 1 km: estaciones y astilleros); null si estás fuera
+      var k, s, dx, dy, dz, i, o, rz;
+      for (k in estac) { s = estac[k].o; dx = s.x - x; dy = s.y - y; dz = s.z - z; if (dx * dx + dy * dy + dz * dz < R_ZONA * R_ZONA) return s; }
+      for (i = 0; i < zonasExtra.length; i++) { o = zonasExtra[i]; rz = o.r || R_ZONA; dx = o.x - x; dy = o.y - y; dz = o.z - z; if (dx * dx + dy * dy + dz * dz < rz * rz) return o; }
+      return null;
+    }
+    function zonas() { var l = [], k; for (k in estac) l.push({ x: estac[k].o.x, y: estac[k].o.y, z: estac[k].o.z, r: R_ZONA }); return l.concat(zonasExtra); }
     function estacionCerca() {   // estación a menos de R_ATRAQUE m del centro (el anillo mide ~110 m)
       var k, s, dx, dy, dz, d, mej = null, md = R_ATRAQUE;
       for (k in estac) { s = estac[k]; dx = s.o.x - P.x; dy = s.o.y - P.y; dz = s.o.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < md) { md = d; mej = s.o; } }
@@ -215,7 +232,7 @@
       inv[tipo] = 0; creditos += g; guardar('inv', inv); guardar('cred', creditos); return g;
     }
     function venderTodo() { var t = 0, k; for (k in PRECIOS) t += vender(k); return t; }
-    function nombreTipo(k) { return k === 'piezas' ? 'Piezas de nave' : TIPOS[k].n; }
+    function nombreTipo(k) { return k === 'piezas' ? 'Trozos metálicos' : TIPOS[k].n; }
     function colorTipo(k) { return k === 'piezas' ? COLOR_PIEZA.css : TIPOS[k].css; }
     function radar() {
       var l = [], i;
@@ -225,11 +242,11 @@
     }
     function textoInv() {
       var s = '', k; for (k = 0; k < ORDEN.length; k++) s += '<span style="color:' + TIPOS[ORDEN[k]].css + '">' + TIPOS[ORDEN[k]].n + ' ' + inv[ORDEN[k]] + '</span> · ';
-      return s + '<span style="color:' + COLOR_PIEZA.css + '">Piezas ' + inv.piezas + '</span>';
+      return s + '<span style="color:' + COLOR_PIEZA.css + '">Trozos ' + inv.piezas + '</span>';
     }
     return {
       entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv,
-      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst
+      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
     };
   }
   E.Espacio = { crear: crear, TIPOS: TIPOS };

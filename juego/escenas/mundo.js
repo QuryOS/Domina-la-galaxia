@@ -378,6 +378,11 @@
         if (d > R) { px *= R / d; py *= R / d; alpha = 0.45; }
         g.globalAlpha = alpha; g.fillStyle = col; g.beginPath(); g.arc(c + px, c - (-py), rad, 0, TAU); g.fill(); g.globalAlpha = 1;
       }
+      esp.zonas().forEach(function (z) {   // anillo de zona segura (1 km)
+        v3.set(z.x - P.x, z.y - P.y, z.z - P.z).applyQuaternion(mInv);
+        var zr = z.r / rango * R, zx = v3.x / rango * R, zy = v3.z / rango * R;
+        if (Math.sqrt(zx * zx + zy * zy) < R + zr) { g.strokeStyle = 'rgba(90,255,190,0.55)'; g.beginPath(); g.arc(c + zx, c + zy, zr, 0, TAU); g.stroke(); }
+      });
       for (i = 0; i < listaPl.length; i++) { o = listaPl[i]; punto(o.x, o.y, o.z, o.r, '#ffb766', 3); }
       for (i = 0; i < estLejanas.length; i++) { o = estLejanas[i].o; punto(o.x, o.y, o.z, 0, '#4df2d6', 4); }
       esp.radar().forEach(function (q) { punto(q.x, q.y, q.z, 0, q.c, q.r); });
@@ -417,7 +422,7 @@
       hud.palI.style.height = Math.round(acelerador * 100) + '%';
       var C = 1000; hud.hd.innerHTML = 'X ' + (P.x / C).toFixed(1) + ' · Y ' + (P.y / C).toFixed(1) + ' · Z ' + (P.z / C).toFixed(1) + ' km<br>' + Math.round(fps) + ' FPS' + (Red.activo ? ' · en línea (' + Object.keys(remotos).length + ')' : '');
       hud.inv.innerHTML = '<b style="color:#ffe27a">◎ ' + esp.creditos() + '</b><br>' + esp.textoInv();
-      hud.estado.textContent = planCercano ? 'Planeta cercano: ' + planCercano.o.nombre + ' (' + fmtDist(Math.max(0, planCercano.s)) + ')' : '';
+      hud.estado.textContent = esp.segura() ? 'ZONA SEGURA · armas bloqueadas' : planCercano ? 'Planeta cercano: ' + planCercano.o.nombre + ' (' + fmtDist(Math.max(0, planCercano.s)) + ')' : '';
     }
 
     /* ---------- jugadores remotos ---------- */
