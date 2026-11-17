@@ -118,22 +118,41 @@
       var im = new Image(); im.onload = function () { if (mapaAbierto) pintarMapa(); }; im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcono(tipo, col, 48)); iconosImg[k] = im; return im;
     }
     function tipoDePlaneta(tp) { return (tp === 'gaseoso' || tp === 'gaseoso2' || tp === 'tormenta') ? 'planeta' : 'minero'; }
+    function ligera(ix, iy, iz) {   // la celda sin rocas, con memoria
+      var kc = ix + ',' + iy + ',' + iz, h = cacheLig[kc]; if (h) return h;
+      h = generar(ix, iy, iz, true); if (++nCacheLig > 20000) { cacheLig = {}; nCacheLig = 0; } cacheLig[kc] = h; return h;
+    }
+    function cuerposDeCelda(cel, x, y, z, R, out) {
+      function poner(q, tipo, nombre, key, rad) { var dx = q.x - x, dy = q.y - y, dz = q.z - z, d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d <= R) out.push({ t: tipo, d: d, o: { key: key, x: q.x, y: q.y, z: q.z, r: rad, nombre: nombre, tipo: tipo } }); }
+      if (cel.planeta) poner(cel.planeta, tipoDePlaneta(cel.planeta.tipo), cel.planeta.nombre, 'P' + cel.key, cel.planeta.r);
+      if (cel.campo) { var r2 = mulberry32(hash3(cel.ix, cel.iy, cel.iz, 991)); poner(cel.campo, 'campo', 'Cinturón ' + nombrePlaneta(r2).split(' ')[0], 'C' + cel.key, cel.campo.a); }
+    }
     function cuerposEn(x, y, z, R) {   // planetas y campos (sin crear nada en pantalla) a menos de R metros
-      var C = CONFIG.celda, n = Math.ceil(R / C) + 1, cx = Math.floor(x / C), cy = Math.floor(y / C), cz = Math.floor(z / C), out = [], a, b, c, cel, o, d, r2, nm;
-      function poner(q, tipo, nombre, key, rad) { var dx = q.x - x, dy = q.y - y, dz = q.z - z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d <= R) out.push({ t: tipo, d: d, o: { key: key, x: q.x, y: q.y, z: q.z, r: rad, nombre: nombre, tipo: tipo } }); }
-      for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) {
-        cel = generar(cx + a, cy + b, cz + c, true);
-        if (cel.planeta) poner(cel.planeta, tipoDePlaneta(cel.planeta.tipo), cel.planeta.nombre, 'P' + cel.key, cel.planeta.r);
-        if (cel.campo) { r2 = mulberry32(hash3(cel.ix, cel.iy, cel.iz, 991)); nm = 'Cinturón ' + nombrePlaneta(r2).split(' ')[0]; poner(cel.campo, 'campo', nm, 'C' + cel.key, cel.campo.a); }
-      }
+      var C = CONFIG.celda, n = Math.ceil(R / C) + 1, cx = Math.floor(x / C), cy = Math.floor(y / C), cz = Math.floor(z / C), out = [], a, b, c;
+      for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) cuerposDeCelda(ligera(cx + a, cy + b, cz + c), x, y, z, R, out);
       return out;
+    }
+    var mapaTok = 0, mapaCuerpos = 0;   // 0 sin pedir, 1 calculando, 2 listo
+    function pedirCuerpos() {   // planetas y campos se calculan por tandas, para que el juego no se congele
+      if (mapaCuerpos) return; mapaCuerpos = 1;
+      var tok = ++mapaTok, x = P.x, y = P.y, z = P.z, C = CONFIG.celda, n = Math.ceil(R_CUERPOS / C) + 1, cx = Math.floor(x / C), cy = Math.floor(y / C), cz = Math.floor(z / C), cl = [], out = [], a, b, c, i = 0;
+      for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) cl.push([cx + a, cy + b, cz + c]);
+      function paso() {
+        if (tok !== mapaTok || !mapaAbierto) return;
+        var fin = Math.min(i + 120, cl.length);
+        for (; i < fin; i++) cuerposDeCelda(ligera(cl[i][0], cl[i][1], cl[i][2]), x, y, z, R_CUERPOS, out);
+        if (i < cl.length) { setTimeout(paso, 0); return; }
+        mapaLista = mapaLista.concat(out); mapaLista.sort(function (u, v) { return u.d - v.d; }); mapaCuerpos = 2; pintarMapa();
+      }
+      paso();
     }
     function abrirMapa() {
       if (mapaAbierto || atracado || pausado) return;
       mapaAbierto = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false;
-      mapaLista = lugaresEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]).map(function (q) { return { t: q.o.tipo, d: q.d, o: q.o }; }).concat(cuerposEn(P.x, P.y, P.z, R_CUERPOS));
-      mapaLista.sort(function (u, v) { return u.d - v.d; });
+      mapaLista = lugaresEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]).map(function (q) { return { t: q.o.tipo, d: q.d, o: q.o }; });
+      mapaCuerpos = 0; mapaTok++;
       hud.mapa.classList.add('on'); pintarMapa();
+      if (mapaFiltro.planeta || mapaFiltro.minero || mapaFiltro.campo) pedirCuerpos();
     }
     function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); }
     function pintarMapa() {   // arriba = hacia donde apunta tu nave
@@ -166,13 +185,13 @@
       };
       /* barra superior: título, alcance, filtros y la X para salir */
       var top = el('div', 'jn-mapa-top', M);
-      el('span', 'jn-mapa-tit', top, 'MAPA');
+      el('span', 'jn-mapa-tit', top, 'MAPA' + (mapaCuerpos === 1 ? ' · calculando…' : ''));
       var z = el('div', 'jn-zoom', top), bm = el('button', 'jn-btn', z, '−'), tz = el('span', '', z, fmtDist(R)), bp = el('button', 'jn-btn', z, '+');
       bm.onclick = function () { mapaZ = Math.min(ZOOMS.length - 1, mapaZ + 1); pintarMapa(); }; bp.onclick = function () { mapaZ = Math.max(0, mapaZ - 1); pintarMapa(); };
       var fl = el('div', 'jn-mapa-filtros', top);
       ['estacion', 'planeta', 'minero', 'campo', 'astillero'].forEach(function (k) {
         var b = el('button', 'jn-mapa-f' + (mapaFiltro[k] ? ' on' : ''), fl, svgIcono(k, mapaFiltro[k] ? TIPOS_MAPA[k].c : '#6c7a90', 22)); b.title = TIPOS_MAPA[k].n;
-        b.onclick = function () { mapaFiltro[k] = !mapaFiltro[k]; pintarMapa(); };
+        b.onclick = function () { mapaFiltro[k] = !mapaFiltro[k]; if (mapaFiltro[k] && (k === 'planeta' || k === 'minero' || k === 'campo')) pedirCuerpos(); pintarMapa(); };
       });
       var bx = el('button', 'jn-mapa-x', M, '✕'); bx.onclick = cerrarMapa;
       /* barra inferior: lista por distancia con icono, nombre y tipo */
@@ -229,9 +248,12 @@
     function tipoPlaneta(r) { var u = r(); return u < 0.22 ? 'arido' : u < 0.42 ? 'rocoso' : u < 0.56 ? 'hielo' : u < 0.68 ? 'gaseoso' : u < 0.78 ? 'gaseoso2' : u < 0.86 ? 'lava' : 'tormenta'; }
     /* Estaciones: una por cada "supercelda" de 55 km con posición desplazada al azar. A la velocidad de la nave inicial (220 m/s)
        eso son unos 3-5 minutos de vuelo entre estaciones. Es una función pura: sirve para el mundo, el radar ampliado y la baliza. */
+    var cacheEst = {}, nCacheEst = 0, cacheAst = {}, nCacheAst = 0, cacheLig = {}, nCacheLig = 0;   // memoria de cálculos (son funciones puras, no cambian)
     function estacionSuper(sx, sy, sz) {
+      var kc = sx + ',' + sy + ',' + sz, hit = cacheEst[kc]; if (hit) return hit;
       var S = CONFIG.espaciadoEstaciones, r = mulberry32(hash3(sx, sy, sz, (CONFIG.semilla ^ 0x57A7) | 0)), J = 0.3;
-      return { key: 'E' + sx + ',' + sy + ',' + sz, x: (sx + 0.5 + (r() - 0.5) * 2 * J) * S, y: (sy + 0.5 + (r() - 0.5) * 2 * J) * S, z: (sz + 0.5 + (r() - 0.5) * 2 * J) * S, r: CONFIG.radioEstacion, giro: r() * TAU, nombre: 'Ágora ' + nombrePlaneta(r).split(' ')[0], tipo: 'estacion' };
+      var res = { key: 'E' + sx + ',' + sy + ',' + sz, x: (sx + 0.5 + (r() - 0.5) * 2 * J) * S, y: (sy + 0.5 + (r() - 0.5) * 2 * J) * S, z: (sz + 0.5 + (r() - 0.5) * 2 * J) * S, r: CONFIG.radioEstacion, giro: r() * TAU, nombre: 'Ágora ' + nombrePlaneta(r).split(' ')[0], tipo: 'estacion' };
+      if (++nCacheEst > 6000) { cacheEst = {}; nCacheEst = 0; } cacheEst[kc] = res; return res;
     }
     function estacionesEn(x, y, z, R) {   // estaciones a menos de R metros, de la más cercana a la más lejana
       var S = CONFIG.espaciadoEstaciones, n = Math.ceil(R / S) + 1, cx = Math.floor(x / S), cy = Math.floor(y / S), cz = Math.floor(z / S), out = [], a, b, c, e, dx, dy, dz, d;
@@ -242,9 +264,11 @@
     }
     /* Astilleros: misma idea que las estaciones pero en su propia rejilla (70 km). Ahí se canjean los trozos metálicos por partes de nave. */
     function astilleroSuper(sx, sy, sz) {
+      var kc = sx + ',' + sy + ',' + sz; if (kc in cacheAst) return cacheAst[kc];
       var S = CONFIG.espaciadoAstilleros, r = mulberry32(hash3(sx, sy, sz, (CONFIG.semilla ^ 0xA571) | 0)), J = 0.3;
       var o = { key: 'A' + sx + ',' + sy + ',' + sz, x: (sx + 0.5 + (r() - 0.5) * 2 * J) * S, y: (sy + 0.5 + (r() - 0.5) * 2 * J) * S, z: (sz + 0.5 + (r() - 0.5) * 2 * J) * S, r: CONFIG.radioAstillero, giro: r() * TAU, nombre: 'Astillero ' + nombrePlaneta(r).split(' ')[0], tipo: 'astillero' };
-      var ce = estacionesEn(o.x, o.y, o.z, 6000); return ce.length ? null : o;   // nunca pegado a una estación
+      var ce = estacionesEn(o.x, o.y, o.z, 6000), res = ce.length ? null : o;   // nunca pegado a una estación
+      if (++nCacheAst > 6000) { cacheAst = {}; nCacheAst = 0; } cacheAst[kc] = res; return res;
     }
     function astillerosEn(x, y, z, R) {
       var S = CONFIG.espaciadoAstilleros, n = Math.ceil(R / S) + 1, cx = Math.floor(x / S), cy = Math.floor(y / S), cz = Math.floor(z / S), out = [], a, b, c, e, d, dx, dy, dz;
@@ -326,7 +350,7 @@
         }
       }
       for (k in celdas) if (!keep[k]) { c = celdas[k]; if (c.planeta) quitarPlaneta(c.planeta); if (c.campo) quitarCampo(c.campo); delete celdas[k]; }
-      listaEst = lugaresEn(P.x, P.y, P.z, 36000).map(function (q) { return q.o; });   // las que están lo bastante cerca para dibujarse
+      listaEst = lugaresEn(P.x, P.y, P.z, 36000).filter(function (q) { return q.o.tipo !== 'astillero' || q.d < 15000; }).map(function (q) { return q.o; });   // el astillero (modelo pesado) solo se construye cuando ya está cerca   // las que están lo bastante cerca para dibujarse
       estLejanas = lugaresEn(P.x, P.y, P.z, 130000);                                    // para radar y baliza
       if (esp) esp.estaciones(listaEst);
       camposVis.forEach(function (cp) { cp.rocas.forEach(function (ro) { listaRo.push({ x: cp.x + ro.lx, y: cp.y + ro.ly, z: cp.z + ro.lz, r: ro.s * 0.9 }); }); });

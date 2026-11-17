@@ -200,7 +200,7 @@
       // explosiones
       for (i = boom.length - 1; i >= 0; i--) { var e = boom[i]; e.t += dt; if (e.t > 0.55) { sc.remove(e.s); e.s.material.dispose(); boom.splice(i, 1); } }
       // estaciones
-      for (var k2 in estac) { var s = estac[k2]; if (s.mod && s.mod.update) { try { s.mod.update(t, 0); } catch (er) { } } }
+      for (var k2 in estac) { var s = estac[k2]; if (s.mod && s.mod.update) { if (s.o.tipo === 'astillero') { var ax = s.o.x - P.x, ay = s.o.y - P.y, az = s.o.z - P.z; if (ax * ax + ay * ay + az * az > 9e6) continue; } try { s.mod.update(t, 0); } catch (er) { } } }
       colocar();
     }
     function colocar() {   // origen flotante: todo se coloca relativo a la nave
