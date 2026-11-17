@@ -1,0 +1,50 @@
+name: Publicar en GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Si subiste un .zip a la raíz, descomprimirlo sobre el proyecto
+        run: |
+          shopt -s nullglob
+          zips=(*.zip)
+          if [ ${#zips[@]} -gt 0 ]; then
+            for z in "${zips[@]}"; do
+              echo "Descomprimiendo $z"
+              unzip -o -q "$z" -x '.github/*' '__MACOSX/*'
+              git rm -q --cached "$z" || true
+              rm -f "$z"
+            done
+            git config user.name "github-actions"
+            git config user.email "actions@users.noreply.github.com"
+            git add -A
+            git commit -m "Actualización desde zip" || true
+            git push || true
+          fi
+      - name: Versión nueva en cada publicación (rompe la caché)
+        run: |
+          echo "{ \"v\": \"${GITHUB_SHA::10}-${GITHUB_RUN_NUMBER}\" }" > version.json
+      - name: Lista de naves (naves/naves.json)
+        run: |
+          mkdir -p naves
+          (cd naves && ls *.js 2>/dev/null | jq -R . | jq -s .) > naves/naves.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: despliegue
+        uses: actions/deploy-pages@v4￼Enter
