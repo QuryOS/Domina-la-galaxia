@@ -12,7 +12,7 @@
     oro:     { n: 'Oro',     c: 0xe3b630, e: 0x3a2800, css: '#ffd447', peso: 5,  vel: [50, 95], r: [7, 18],  hpK: 1.7, botin: [1, 3] }
   };
   var ORDEN = ['hierro', 'cobre', 'titanio', 'oro'];
-  var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45 }, R_ATRAQUE = 520;
+  var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45 }, R_ATRAQUE = 1500;
   var COLOR_PIEZA = { c: 0x9aa7b8, css: '#c9d6e6' };
   var R_TRACTOR = 450, MAX_AST = 26, R_SPAWN_MIN = 900, R_SPAWN_MAX = 2300, R_DESPAWN = 3300, MAX_DISP = 48, CADENCIA = 0.15, DANO = 12;
 
@@ -111,8 +111,8 @@
         if (!estac[o.key]) {
           var g = new THREE.Group(), mod = null;
           try { if (typeof global.createStation === 'function') mod = global.createStation(THREE, { accent: 0x1fd1b5, spin: 0.05 }); } catch (e) { mod = null; }
-          if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(6); w.add(mod.group); g.add(w); }
-          else { var an = new THREE.Mesh(new THREE.TorusGeometry(54, 6, 10, 36), new THREE.MeshStandardMaterial({ color: 0x9fb3c4, metalness: 0.6, roughness: 0.5 })); an.rotation.x = Math.PI / 2; g.add(an); }
+          if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(21); w.add(mod.group); g.add(w); }
+          else { var an = new THREE.Mesh(new THREE.TorusGeometry(190, 21, 10, 36), new THREE.MeshStandardMaterial({ color: 0x9fb3c4, metalness: 0.6, roughness: 0.5 })); an.rotation.x = Math.PI / 2; g.add(an); }
           g.rotation.y = o.giro; g.frustumCulled = false; sc.add(g); estac[o.key] = { o: o, g: g, mod: mod };
         }
       }

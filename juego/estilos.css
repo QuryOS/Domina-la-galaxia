@@ -42,7 +42,7 @@
 .jn-mini{width:150px;height:5px;border-radius:3px;background:rgba(255,255,255,.15);margin-top:4px;overflow:hidden}.jn-mini i{display:block;height:100%;width:0;background:#7fe3ff}.jn-mini.t i{background:#ffb347}
 .jn-hd{position:absolute;right:calc(70px + env(safe-area-inset-right));top:calc(12px + env(safe-area-inset-top));text-align:right;font-size:12px;opacity:.85;text-shadow:0 0 6px #000;line-height:1.4}
 .jn-pausa{position:absolute;right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));pointer-events:auto!important}
-.jn-radar{position:absolute;left:calc(12px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));border-radius:50%;background:rgba(6,14,28,.55);border:1px solid rgba(120,200,255,.35)}
+.jn-radar{pointer-events:auto;position:absolute;left:calc(12px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));border-radius:50%;background:rgba(6,14,28,.55);border:1px solid rgba(120,200,255,.35)}
 .jn-acel{position:absolute;right:calc(16px + env(safe-area-inset-right));bottom:calc(16px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:flex-end;pointer-events:none}
 .jn-pal{width:46px;height:190px;border-radius:23px;background:rgba(10,18,34,.55);border:1px solid rgba(120,170,255,.35);position:relative;pointer-events:auto;touch-action:none}
 .jn-pal i{position:absolute;left:4px;right:4px;bottom:4px;border-radius:19px;background:linear-gradient(0deg,#2358d8,#7fe3ff);height:30%}
