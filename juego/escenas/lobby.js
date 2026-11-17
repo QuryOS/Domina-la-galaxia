@@ -31,13 +31,13 @@
     { n: 'Lanzamisiles', d: 'Misiles guiados para combate entre jugadores.' },
     { n: 'Cañón de plasma', d: 'Disparo lento y devastador.' }
   ];
-  var MOTORES = [
-    { n: 'Motor cilíndrico', d: 'El motor pequeño de arranque. Empuje básico y poco consumo.', libre: true },
-    { n: 'Motores militares', d: 'Pequeño, mediano y grande. Más empuje y turbo.' },
-    { n: 'Motores de carreras', d: 'Pequeño, mediano y grande. Máxima velocidad.' },
-    { n: 'Motores de carga', d: 'Pequeño, mediano y grande. Para naves pesadas.' },
-    { n: 'Motores de exploración', d: 'Pequeño, mediano y grande. Largo alcance.' }
-  ];
+  var CATS = { militar: ['MILITAR', 'Blindados y con mucho empuje.'], carreras: ['CARRERAS', 'Ligeros, máxima velocidad.'], carga: ['CARGA', 'Fuertes y resistentes, para naves pesadas.'], exploracion: ['EXPLORACIÓN', 'Eficientes, de largo alcance.'] }, TAMS = { pequeno: 'Pequeño', mediano: 'Mediano', grande: 'Grande' };
+  var MOTORES = [   // los 12 motores del juego: 4 categorías × 3 tamaños. El de arranque es el Colmillo (el más pequeño).
+    ['Colmillo', 'militar', 'pequeno', 'createMotorColmillo'], ['Tenaza', 'militar', 'mediano', 'createMotorTenaza'], ['Coloso', 'militar', 'grande', 'createMotorColoso'],
+    ['Centella', 'carreras', 'pequeno', 'createMotorCentella'], ['Relámpago', 'carreras', 'mediano', 'createMotorRelampago'], ['Cometa', 'carreras', 'grande', 'createMotorCometa'],
+    ['Mula', 'carga', 'pequeno', 'createMotorMula'], ['Buey', 'carga', 'mediano', 'createMotorBuey'], ['Mamut', 'carga', 'grande', 'createMotorMamut'],
+    ['Sonda', 'exploracion', 'pequeno', 'createMotorSonda'], ['Peregrino', 'exploracion', 'mediano', 'createMotorPeregrino'], ['Horizonte', 'exploracion', 'grande', 'createMotorHorizonte']
+  ].map(function (q) { return { n: q[0], cat: q[1], tam: q[2], fn: q[3], libre: q[0] === 'Colmillo' }; });
   var ICONOS = {
     inicio: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     naves: '<path d="M12 2l4 9 5 4-1 2-4-1-1 5h-6l-1-5-4 1-1-2 5-4z"/>',
@@ -49,13 +49,15 @@
   var TABS = [['inicio', 'INICIO'], ['naves', 'NAVES'], ['arsenal', 'ARSENAL'], ['motores', 'MOTORES'], ['tienda', 'TIENDA'], ['ajustes', 'AJUSTES']];
   function svg(k) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">' + ICONOS[k] + '</svg>'; }
 
+  jug.motor = leer('motor', 'Colmillo');
+  function motorLibre(q) { return !!jug.pruebas || q.libre; }
   function naveLibre(id) { return !!jug.pruebas || E.NAVES_INICIALES.indexOf(id) >= 0 || (leer('desbloq', []) || []).indexOf(id) >= 0; }
   E.naveLibre = naveLibre;
 
   /* ===================== ESCENA: LOBBY ===================== */
   escenas.lobby = (function () {
     var sc, cam, girar, escalar = null, plataforma, matAc, luzAc, cielo, idx = 0, vel = 0.25, arr = null, uiHecha = false, ui = {}, modeloAct = null, ambiente = [];
-    var tab = 'inicio', soldado = null, escSoldado = null;
+    var tab = 'inicio', soldado = null, escSoldado = null, mIdx = 0, motorMods = {};
 
     function construir() {
       sc = new THREE.Scene(); cam = new THREE.PerspectiveCamera(40, 1, 0.1, 3000);
@@ -105,8 +107,17 @@
       try { if (m.setAccent) m.setAccent(jug.acento); } catch (e) { }
       return true;
     }
+    function mostrarMotor(k) {
+      var q = MOTORES[k], m = motorMods[q.n]; if (typeof global[q.fn] !== 'function') return false;
+      if (!m) { try { m = global[q.fn](THREE, {}); } catch (e) { if (global.console) console.error('Motor ' + q.n, e); return false; } motorMods[q.n] = m; }
+      quitarEscena(); modeloAct = null;
+      var w = new THREE.Group(); w.add(m.group); w.updateMatrixWorld(true);
+      var b = new THREE.Box3().setFromObject(w), sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), r = Math.max(sz.x, sz.y, sz.z) / 2 || 1, s = 5 / r;
+      escalar = new THREE.Group(); escalar.scale.setScalar(s); w.position.copy(c).multiplyScalar(-1); escalar.add(w); girar.add(escalar);
+      plataforma.position.y = -(sz.y * s) / 2 - 1.0; mIdx = k; return true;
+    }
     function escenario() {
-      if (tab === 'naves' || tab === 'arsenal' || tab === 'motores') { if (!mostrarNave(idx)) mostrarSoldado(); } else mostrarSoldado();
+      if (tab === 'motores') { if (!mostrarMotor(mIdx)) mostrarSoldado(); } else if (tab === 'naves' || tab === 'arsenal') { if (!mostrarNave(idx)) mostrarSoldado(); } else mostrarSoldado();
       encuadrar();
     }
     function indiceNaveElegida() { var k; for (k = 0; k < NAVES.length; k++) if (NAVES[k].id === jug.nave && disponibles[NAVES[k].id]) return k; k = primeraDisponible(); return k < 0 ? 0 : k; }
@@ -120,8 +131,8 @@
     function colores(padre) {
       var fc = el('div', 'jn-fila', padre); el('span', 'jn-lb-rot', fc, 'COLOR');
       ACENTOS.forEach(function (c) {
-        var d = el('div', 'jn-col' + (c === jug.acento ? ' on' : ''), fc); d.style.background = '#' + ('000000' + c.toString(16)).slice(-6);
-        d.onclick = function () { jug.acento = c; guardar('acento', c); aplicarAcento(); pintarPanel(); };
+        var d = el('div', 'jn-col' + (c === jug.acento ? ' on' : ''), fc); d.setAttribute('data-c', c); d.style.background = '#' + ('000000' + c.toString(16)).slice(-6);
+        d.onclick = function () { jug.acento = c; guardar('acento', c); aplicarAcento(); var t = DOMcapas.lobby.querySelectorAll('.jn-col'), q; for (q = 0; q < t.length; q++) t[q].className = 'jn-col' + (Number(t[q].getAttribute('data-c')) === c ? ' on' : ''); };
       });
     }
     function pintarPanel() {
@@ -141,11 +152,18 @@
         var st = el('div', 'jn-stats', cont, '<b>Velocidad</b><span><i></i></span><b>Agilidad</b><span><i></i></span><b>Blindaje</b><span><i></i></span><b>Datos</b><em style="font-style:normal">' + (md ? Math.round(md.largo) + ' m · ' : '') + n.vmax + ' m/s</em>'), bar = st.querySelectorAll('i');
         bar[0].style.width = Math.round(n.vmax / 300 * 100) + '%'; bar[1].style.width = Math.round(clamp(n.agil / 1.25, 0.08, 1) * 100) + '%'; bar[2].style.width = Math.round(n.blind * 100) + '%';
         var b = el('button', 'jn-btn jn-lb-sel', cont, elegida ? 'EQUIPADA' : libre ? 'USAR ESTA NAVE' : '🔒 BLOQUEADA'); b.disabled = elegida || !libre; b.onclick = function () { elegirNave(idx); pintarPanel(); };
-        if (!libre) el('div', 'jn-lb-nota', cont, 'Se consigue en los astilleros o en la tienda. Aquí puedes verla y girarla.');
         colores(cont);
-      } else if (tab === 'arsenal' || tab === 'motores') {
-        var cat = tab === 'arsenal' ? ARMAS : MOTORES; el('div', 'jn-lb-nota', cont, tab === 'arsenal' ? 'Armas de tu nave. Solo la de serie está disponible por ahora.' : 'Motores de tu nave. Solo el cilíndrico está disponible por ahora.');
-        cat.forEach(function (q) { tarjeta(cont, q.n, q.d, q.libre ? 'EQUIPADO' : '🔒', q.libre ? 'sel' : 'bloq'); });
+      } else if (tab === 'arsenal') {
+        el('div', 'jn-lb-nota', cont, 'Armas de tu nave. Solo la de serie está disponible por ahora.');
+        ARMAS.forEach(function (q) { tarjeta(cont, q.n, q.d, q.libre ? 'EQUIPADA' : '🔒', q.libre ? 'sel' : 'bloq'); });
+      } else if (tab === 'motores') {
+        var lm = el('div', 'jn-lb-lista hor', cont);
+        MOTORES.forEach(function (q, k) { var lb = motorLibre(q); tarjeta(lm, q.n, CATS[q.cat][0] + ' · ' + TAMS[q.tam], jug.motor === q.n ? '✔' : lb ? '' : '🔒', (k === mIdx ? 'sel ' : '') + (lb ? '' : 'bloq'), function () { mIdx = k; mostrarMotor(k); encuadrar(); pintarPanel(); }); });
+        var mq = MOTORES[mIdx], mm = motorMods[mq.n], mlib = motorLibre(mq), meq = jug.motor === mq.n;
+        el('div', 'jn-nom', cont, esc(mq.n.toUpperCase())); el('div', 'jn-clase', cont, 'Motor ' + CATS[mq.cat][0].toLowerCase() + ' · ' + TAMS[mq.tam].toLowerCase()); el('div', 'jn-desc', cont, esc(CATS[mq.cat][1]));
+        if (mm) el('div', 'jn-lb-nota', cont, 'Largo ' + Math.round(mm.length * 4) + ' m · ancho ' + Math.round(mm.width * 4) + ' m');
+        var bm = el('button', 'jn-btn jn-lb-sel', cont, meq ? 'EQUIPADO' : mlib ? 'USAR ESTE MOTOR' : '🔒 BLOQUEADO'); bm.disabled = meq || !mlib; bm.onclick = function () { jug.motor = mq.n; guardar('motor', mq.n); pintarPanel(); };
+        el('div', 'jn-lb-nota', cont, '12 motores en total: 4 categorías × 3 tamaños. De momento no cambian el manejo.');
       } else if (tab === 'tienda') {
         el('div', 'jn-lb-cred', cont, '◎ ' + (leer('cred', 0) || 0) + ' <small>créditos</small>');
         el('div', 'jn-lb-nota', cont, 'La tienda abrirá pronto: naves, motores, armas y aspectos. Los créditos se ganan minando y vendiendo en las estaciones.');
@@ -187,7 +205,7 @@
       marcarSeg(c);
     }
 
-    function cambiarTab(t) { tab = t; idx = indiceNaveElegida(); marcarTabs(); escenario(); pintarPanel(); }
+    function cambiarTab(t) { tab = t; idx = indiceNaveElegida(); if (t === 'motores') { mIdx = 0; MOTORES.forEach(function (q, k) { if (q.n === jug.motor) mIdx = k; }); } marcarTabs(); escenario(); pintarPanel(); }
     function marcarTabs() { ui.tabs.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-t') === tab); }); }
 
     function construirUI() {

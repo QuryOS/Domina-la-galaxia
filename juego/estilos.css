@@ -146,3 +146,4 @@
 .jn-lb-lista.hor .jn-lb-card{flex:0 0 auto;min-width:118px;padding:7px 10px}
 .jn-lb-lista.hor .jn-lb-card small{display:none}
 .jn-lb-panel{width:min(50vw,420px)}
+.jn-col{transition:transform .12s}.jn-col.on{transform:scale(1.18);border-color:#fff;box-shadow:0 0 0 3px #3d8bff,0 0 12px rgba(120,180,255,.8)}

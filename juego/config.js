@@ -9,6 +9,7 @@
     titulo: 'UNIVERSO ABIERTO',
     subtitulo: 'Esqueleto del juego de naves',
     rutaModelos: 'naves/',      // carpeta donde están los .js de las naves (con barra final)
+    rutaMotores: 'motores/',        // los 12 motores (4 categorías × 3 tamaños)
     rutaPersonajes: 'personajes/',  // el soldado y futuros personajes
     rutaEdificios: 'edificios/',  // estación Ágora y demás construcciones (station.js)
     espaciadoEstaciones: 55000,  // una estación por cada cubo de 55 km (con desplazamiento al azar): ~3-5 min de vuelo a 220 m/s

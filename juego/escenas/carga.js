@@ -108,6 +108,9 @@
         if (typeof global.createStation === 'function') return ok();
         cargarScript(CONFIG.rutaEdificios + 'station.js', ok, function () { cargarScript('station.js', ok, ok); });
       } });
+      ['militares', 'carreras', 'carga', 'exploracion'].forEach(function (c) {
+        p.push({ txt: 'Cargando motores: ' + c, run: function (ok) { cargarScript(CONFIG.rutaMotores + 'motores_' + c + '.js', ok, function () { cargarScript('motores_' + c + '.js', ok, ok); }); } });
+      });
       p.push({ txt: 'Cargando personaje', run: function (ok) {
         if (typeof global.createSoldadoEspacialV2 === 'function') return ok();
         cargarScript(CONFIG.rutaPersonajes + 'soldado_espacial_v2.js', ok, function () { cargarScript('soldado_espacial_v2.js', ok, ok); });
