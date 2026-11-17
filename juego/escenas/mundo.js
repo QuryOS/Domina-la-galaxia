@@ -34,8 +34,8 @@
     var SOL_DIR = null, sc, cam, cielo, solSp, polvo, polvoPos, polvoN = 0, SG, geoAnillo, matAnillo, matAtm = {}, geosRoca = [], matsRoca = [];
     var pivote = null, inclinar = null, escalarN = null, modelo = null, nSel = null, med = null;
     var P = { x: 0, y: 0, z: 0 }, Q, V, qCam, qa, v1, v2, v3, fwd, vObj, AX, AY, AZ, dummy, mInv;
-    var celdas = {}, listaEst = [], esp = null, botFu = false, listaPl = [], listaRo = [], camposVis = [], ucx = 1e9, ucy = 1e9, ucz = 1e9;
-    var rYaw = 0, rPitch = 0, rRoll = 0, acelerador = 0.3, turboE = 1, turboBloq = false, turboOn = false, vel = 0, shake = 0, pausado = false, modo = 'solo', tMundo = 0, tHud = 0, fps = 60, tRed = 0, tToast = 0, planCercano = null;
+    var celdas = {}, listaEst = [], esp = null, botFu = false, botGr = false, listaPl = [], listaRo = [], camposVis = [], ucx = 1e9, ucy = 1e9, ucz = 1e9;
+    var camYaw = 0, camPitch = 0, camPtr = null, camX0 = 0, camY0 = 0, camYaw0 = 0, camPitch0 = 0, qo = null, rYaw = 0, rPitch = 0, rRoll = 0, acelerador = 0.3, turboE = 1, turboBloq = false, turboOn = false, vel = 0, shake = 0, pausado = false, modo = 'solo', tMundo = 0, tHud = 0, fps = 60, tRed = 0, tToast = 0, planCercano = null;
     var teclas = {}, stick = { id: null, x0: 0, y0: 0, ax: 0, ay: 0 }, botT = false, botF = false, palId = null;
     var hud = {}, radarG, radarS = 132, beaconG, remotos = {}, construido = false, DPRH = 1;
 
@@ -66,6 +66,7 @@
         }
         [0x8c8378, 0x6d655c, 0x9a7e68].forEach(function (c) { matsRoca.push(new THREE.MeshStandardMaterial({ color: c, roughness: 0.96, metalness: 0.05, flatShading: true })); });
       })();
+      qo = new THREE.Quaternion();
       esp = E.Espacio.crear({ sc: sc, P: P, V: V, Q: Q, toast: toast });
       construirHUD(); construido = true;
     }
@@ -80,9 +81,10 @@
       hud.pausa = el('div', 'jn-ico jn-pausa', L, '❚❚'); hud.pausa.onclick = function () { pausar(true); };
       var rc = el('canvas', 'jn-radar', L); rc.style.width = radarS + 'px'; rc.style.height = radarS + 'px'; hud.radar = rc;
       var ac = el('div', 'jn-acel', L), pal = el('div', 'jn-pal', ac, '<u>ACEL</u><i></i>'); hud.pal = pal; hud.palI = pal.querySelector('i');
-      var bots = el('div', 'jn-bots', ac); hud.bFu = el('div', 'jn-bot fu', bots, 'FUEGO'); hud.bT = el('div', 'jn-bot', bots, 'TURBO'); hud.bF = el('div', 'jn-bot f', bots, 'FRENO');
+      var bots = el('div', 'jn-bots', ac); hud.bFu = el('div', 'jn-bot fu', bots, 'FUEGO'); hud.bGr = el('div', 'jn-bot gr', bots, 'AGARRAR'); hud.bT = el('div', 'jn-bot', bots, 'TURBO'); hud.bF = el('div', 'jn-bot f', bots, 'FRENO');
       function pulsar(e, b, f) { e.addEventListener('pointerdown', function (ev) { f(true); b.classList.add('on'); try { b.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); }); ['pointerup', 'pointercancel'].forEach(function (n) { e.addEventListener(n, function () { f(false); b.classList.remove('on'); }); }); }
       pulsar(hud.bFu, hud.bFu, function (v) { botFu = v; });
+      pulsar(hud.bGr, hud.bGr, function (v) { botGr = v; });
       pulsar(hud.bT, hud.bT, function (v) { botT = v; }); pulsar(hud.bF, hud.bF, function (v) { botF = v; });
       function setPal(ev) { var r = pal.getBoundingClientRect(); acelerador = clamp(1 - (ev.clientY - r.top - 4) / (r.height - 8), 0, 1); }
       pal.addEventListener('pointerdown', function (ev) { palId = ev.pointerId; try { pal.setPointerCapture(ev.pointerId); } catch (x) { } setPal(ev); ev.preventDefault(); });
@@ -262,8 +264,14 @@
     function camara(dt, t) {
       qCam.slerp(Q, 1 - Math.exp(-dt * 5.5));
       var L = med.largo, dist = L * 1.15 + 9, alt = L * 0.26 + 2.6, ef = clamp(vel / (nSel.vmax * 2.6), 0, 1);
-      v1.set(0, alt, dist * (1 + ef * 0.12)).applyQuaternion(qCam);
-      v2.set(0, alt * 0.4, -L * 2.2).applyQuaternion(qCam);
+      // cámara libre: arrastra con el dedo en la mitad derecha (o teclas J/L/I/K); al soltar vuelve sola detrás de la nave
+      var tk = (teclas.KeyJ ? 1 : 0) - (teclas.KeyL ? 1 : 0), tp = (teclas.KeyI ? 1 : 0) - (teclas.KeyK ? 1 : 0);
+      if (tk || tp) { camYaw += tk * 2.2 * dt; camPitch = clamp(camPitch + tp * 1.6 * dt, -1.25, 1.25); }
+      else if (camPtr === null) { var rk = Math.exp(-dt * 1.6); camYaw *= rk; camPitch *= rk; if (Math.abs(camYaw) < 0.002) camYaw = 0; if (Math.abs(camPitch) < 0.002) camPitch = 0; }
+      if (camYaw > PI) camYaw -= TAU; else if (camYaw < -PI) camYaw += TAU;
+      qo.setFromAxisAngle(AY, camYaw); qa.setFromAxisAngle(AX, -camPitch); qo.multiply(qa);
+      v1.set(0, alt, dist * (1 + ef * 0.12)).applyQuaternion(qo).applyQuaternion(qCam);
+      v2.set(0, alt * 0.4, -L * 2.2); var kk = Math.min(1, (Math.abs(camYaw) + Math.abs(camPitch)) * 1.6); v2.multiplyScalar(1 - kk).applyQuaternion(qCam);
       cam.position.copy(v1); cam.up.set(0, 1, 0).applyQuaternion(qCam);
       if (shake > 0.001) { cam.position.x += (Math.random() - 0.5) * shake * L * 0.12; cam.position.y += (Math.random() - 0.5) * shake * L * 0.12; shake *= Math.exp(-dt * 5); }
       cam.lookAt(v2);
@@ -364,7 +372,7 @@
         radarG = hud.radar.getContext('2d'); var dpr = Math.min(global.devicePixelRatio || 1, 2); hud.radar.width = radarS * dpr; hud.radar.height = radarS * dpr; radarG.setTransform(dpr, 0, 0, dpr, 0, 0);
         crearPolvo(); redimensionar4(E.ancho, E.alto);
         posicionInicial(); actualizarCeldas(true); esp.entrar(med.radio);
-        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; turboE = 1; turboBloq = false; shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = false; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
+        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; turboE = 1; turboBloq = false; shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = botFu = botGr = false; camYaw = camPitch = 0; camPtr = null; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
         if (modo === 'red') {
           toast('CONECTANDO…', 3);
           Red.onEstado = recibirEstado; Red.onSalio = quitarRemoto;
@@ -384,6 +392,9 @@
       },
       puntero: function (tipo, e) {
         if (pausado) return;
+        if (tipo === 'abajo' && camPtr === null && e.clientX > E.ancho * 0.55) { camPtr = e.pointerId; camX0 = e.clientX; camY0 = e.clientY; camYaw0 = camYaw; camPitch0 = camPitch; return; }
+        if (tipo === 'mueve' && camPtr === e.pointerId) { camYaw = camYaw0 - (e.clientX - camX0) * 0.009; camPitch = clamp(camPitch0 + (e.clientY - camY0) * 0.006, -1.25, 1.25); return; }
+        if (tipo === 'arriba' && camPtr === e.pointerId) { camPtr = null; return; }
         if (tipo === 'abajo' && stick.id === null) { stick.id = e.pointerId; stick.x0 = e.clientX; stick.y0 = e.clientY; stick.ax = stick.ay = 0; palancaVisual(true); }
         else if (tipo === 'mueve' && stick.id === e.pointerId) {
           var R = 60, dx = e.clientX - stick.x0, dy = e.clientY - stick.y0, d = Math.sqrt(dx * dx + dy * dy);
@@ -409,7 +420,7 @@
           o.g.position.set(o.x - P.x, o.y - P.y, o.z - P.z); o.g.scale.setScalar(o.r * (0.6 + 0.4 * ek)); o.g.userData.cuerpo.rotation.y += o.giro * dt;
         }
         for (i = 0; i < camposVis.length; i++) { o = camposVis[i]; if (o.g) o.g.position.set(o.x - P.x, o.y - P.y, o.z - P.z); }
-        esp.fuego(!pausado && !!(teclas.KeyF || botFu)); esp.actualizar(pausado ? 0 : dt, t, fwd);
+        esp.fuego(!pausado && !!(teclas.KeyF || botFu)); esp.agarrar(!pausado && !!(teclas.KeyG || botGr)); esp.actualizar(pausado ? 0 : dt, t, fwd);
         actualizarModelo(modelo, t, clamp(vel / nSel.vmax, 0, 1));
         moverPolvo(pausado ? 0 : dt, clamp(vel / (nSel.vmax * 2.0), 0, 1)); polvo.position.set(0, 0, 0);
         camara(pausado ? 0.0001 : dt, t); actualizarRemotos(dt, t);
