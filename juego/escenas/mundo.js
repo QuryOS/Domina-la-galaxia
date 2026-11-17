@@ -109,9 +109,10 @@
       planeta: { n: 'Planeta', c: '#8fc8ff', svg: '<circle cx="12" cy="12" r="5.6" fill="C" fill-opacity=".35" stroke="C" stroke-width="2"/><ellipse cx="12" cy="12" rx="10.5" ry="3.4" fill="none" stroke="C" stroke-width="1.6" transform="rotate(-22 12 12)"/>' },
       minero: { n: 'Planeta minero', c: '#ff9a5c', svg: '<circle cx="12" cy="12" r="8" fill="C" fill-opacity=".3" stroke="C" stroke-width="2"/><path d="M7 17l9-9" stroke="C" stroke-width="2.2" stroke-linecap="round"/><path d="M12.5 5.5c3.5-.2 6 2.3 6 5.8" fill="none" stroke="C" stroke-width="2.2" stroke-linecap="round"/>' },
       campo: { n: 'Campo de asteroides', c: '#c6ced8', svg: '<path d="M4 9l3.5-3.5 4 1 1 4-3 3.2-4.2-1z" fill="C" fill-opacity=".4" stroke="C" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 14.5l3-1.8 3.5 1.5.5 3.6-3.3 2.2-3.6-1.2z" fill="C" fill-opacity=".4" stroke="C" stroke-width="1.6" stroke-linejoin="round"/><circle cx="17" cy="6.5" r="2.3" fill="C"/>' },
+      cantera: { n: 'Cantera minera', c: '#ff7b2e', svg: '<path d="M3.5 17l3-8 5-3 6 2 3.5 6-4 4h-9z" fill="C" fill-opacity=".3" stroke="C" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v7M9 5l3-2 3 2" fill="none" stroke="C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' },
       astillero: { n: 'Astillero', c: '#5cf2c8', svg: '<path d="M12 2.5c3 3 4.2 7 3.4 11.5H8.6C7.8 9.5 9 5.5 12 2.5z" fill="C" fill-opacity=".35" stroke="C" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 12L5 16.5h4.2M15.4 12l3.6 4.5h-4.2M10 17.5l2 3.5 2-3.5" fill="none" stroke="C" stroke-width="1.8" stroke-linejoin="round"/>' }
     };
-    var iconosImg = {}, mapaFiltro = { estacion: false, planeta: false, minero: false, campo: false, astillero: false };   // el mapa empieza limpio: tú eliges qué ver
+    var iconosImg = {}, mapaFiltro = { estacion: false, planeta: false, minero: false, campo: false, astillero: false, cantera: false };   // el mapa empieza limpio: tú eliges qué ver
     function svgIcono(tipo, col, px) { return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="' + px + '" height="' + px + '">' + TIPOS_MAPA[tipo].svg.replace(/"C"/g, '"' + col + '"') + '</svg>'; }
     function imgIcono(tipo, col) {
       var k = tipo + col; if (iconosImg[k]) return iconosImg[k]; if (typeof Image === 'undefined') return null;
@@ -189,14 +190,14 @@
       var z = el('div', 'jn-zoom', top), bm = el('button', 'jn-btn', z, '−'), tz = el('span', '', z, fmtDist(R)), bp = el('button', 'jn-btn', z, '+');
       bm.onclick = function () { mapaZ = Math.min(ZOOMS.length - 1, mapaZ + 1); pintarMapa(); }; bp.onclick = function () { mapaZ = Math.max(0, mapaZ - 1); pintarMapa(); };
       var fl = el('div', 'jn-mapa-filtros', top);
-      ['estacion', 'planeta', 'minero', 'campo', 'astillero'].forEach(function (k) {
+      ['estacion', 'planeta', 'minero', 'campo', 'astillero', 'cantera'].forEach(function (k) {
         var b = el('button', 'jn-mapa-f' + (mapaFiltro[k] ? ' on' : ''), fl, svgIcono(k, mapaFiltro[k] ? TIPOS_MAPA[k].c : '#6c7a90', 22)); b.title = TIPOS_MAPA[k].n;
         b.onclick = function () { mapaFiltro[k] = !mapaFiltro[k]; if (mapaFiltro[k] && (k === 'planeta' || k === 'minero' || k === 'campo')) pedirCuerpos(); pintarMapa(); };
       });
       var bx = el('button', 'jn-mapa-x', M, '✕'); bx.onclick = cerrarMapa;
       /* barra inferior: lista por distancia con icono, nombre y tipo */
       var barra = el('div', 'jn-mapa-barra', M);
-      if (!vis.length) el('div', 'jn-ayuda', barra, (mapaFiltro.estacion || mapaFiltro.planeta || mapaFiltro.minero || mapaFiltro.campo || mapaFiltro.astillero) ? 'Nada en este alcance. Cambia el alcance con “+”/“−”.' : 'Mapa limpio. Toca los iconos de arriba para mostrar estaciones, planetas, mineros, campos o astilleros.');
+      if (!vis.length) el('div', 'jn-ayuda', barra, (mapaFiltro.estacion || mapaFiltro.planeta || mapaFiltro.minero || mapaFiltro.campo || mapaFiltro.astillero || mapaFiltro.cantera) ? 'Nada en este alcance. Cambia el alcance con “+”/“−”.' : 'Mapa limpio. Toca los iconos de arriba para mostrar estaciones, planetas, mineros, campos o astilleros.');
       vis.slice(0, 40).forEach(function (v) {
         var esMeta = meta && meta.key === v.o.key, dy = v.dy || 0, T = TIPOS_MAPA[v.t];
         var f = el('div', 'jn-mapa-card' + (esMeta ? ' meta' : ''), barra, '<span class="ic">' + svgIcono(v.t, esMeta ? '#ffe27a' : T.c, 30) + '</span><span class="tx"><b>' + esc(v.o.nombre) + '</b><small>' + T.n + ' · ' + fmtDist(v.d) + ' · ' + (dy >= 0 ? '↑' : '↓') + fmtDist(Math.abs(dy)) + '</small></span>' + (esMeta ? '<span class="st">★</span>' : ''));
@@ -212,7 +213,7 @@
     function pintarMercado() {
       var M = hud.merc, k, orden = ['hierro', 'cobre', 'titanio', 'oro', 'piezas'];
       M.innerHTML = ''; var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M);
-      el('h3', '', izq, esc(estCerca ? estCerca.nombre : 'Estación').toUpperCase() + ' · MERCADO');
+      el('h3', '', izq, esc(estCerca ? estCerca.nombre : 'Estación').toUpperCase() + ' · ' + (estCerca && estCerca.tipo === 'cantera' ? 'COMPRA DE MINERAL' : 'MERCADO'));
       el('div', 'jn-cred', izq, '◎ ' + esp.creditos() + ' créditos');
       var tabla = el('div', 'jn-tabla', der), total = 0;
       orden.forEach(function (k) {
@@ -248,7 +249,7 @@
     function tipoPlaneta(r) { var u = r(); return u < 0.22 ? 'arido' : u < 0.42 ? 'rocoso' : u < 0.56 ? 'hielo' : u < 0.68 ? 'gaseoso' : u < 0.78 ? 'gaseoso2' : u < 0.86 ? 'lava' : 'tormenta'; }
     /* Estaciones: una por cada "supercelda" de 55 km con posición desplazada al azar. A la velocidad de la nave inicial (220 m/s)
        eso son unos 3-5 minutos de vuelo entre estaciones. Es una función pura: sirve para el mundo, el radar ampliado y la baliza. */
-    var cacheEst = {}, nCacheEst = 0, cacheAst = {}, nCacheAst = 0, cacheLig = {}, nCacheLig = 0;   // memoria de cálculos (son funciones puras, no cambian)
+    var cacheEst = {}, nCacheEst = 0, cacheAst = {}, nCacheAst = 0, cacheLig = {}, nCacheLig = 0, cacheCan = {}, nCacheCan = 0;   // memoria de cálculos (son funciones puras, no cambian)
     function estacionSuper(sx, sy, sz) {
       var kc = sx + ',' + sy + ',' + sz, hit = cacheEst[kc]; if (hit) return hit;
       var S = CONFIG.espaciadoEstaciones, r = mulberry32(hash3(sx, sy, sz, (CONFIG.semilla ^ 0x57A7) | 0)), J = 0.3;
@@ -270,6 +271,20 @@
       var ce = estacionesEn(o.x, o.y, o.z, 6000), res = ce.length ? null : o;   // nunca pegado a una estación
       if (++nCacheAst > 6000) { cacheAst = {}; nCacheAst = 0; } cacheAst[kc] = res; return res;
     }
+    function canteraSuper(sx, sy, sz) {
+      var kc = sx + ',' + sy + ',' + sz; if (kc in cacheCan) return cacheCan[kc];
+      var S = CONFIG.espaciadoCanteras, r = mulberry32(hash3(sx, sy, sz, (CONFIG.semilla ^ 0xCA17) | 0)), J = 0.3;
+      var o = { key: 'Q' + kc, x: (sx + 0.5 + (r() - 0.5) * 2 * J) * S, y: (sy + 0.5 + (r() - 0.5) * 2 * J) * S, z: (sz + 0.5 + (r() - 0.5) * 2 * J) * S, r: CONFIG.radioCantera, giro: r() * TAU, nombre: 'Cantera ' + nombrePlaneta(r).split(' ')[0], tipo: 'cantera' };
+      var res = (estacionesEn(o.x, o.y, o.z, 7000).length || astillerosEn(o.x, o.y, o.z, 7000).length) ? null : o;
+      if (++nCacheCan > 6000) { cacheCan = {}; nCacheCan = 0; } cacheCan[kc] = res; return res;
+    }
+    function canterasEn(x, y, z, R) {
+      var S = CONFIG.espaciadoCanteras, n = Math.ceil(R / S) + 1, cx = Math.floor(x / S), cy = Math.floor(y / S), cz = Math.floor(z / S), out = [], a, b, c, e, d, dx, dy, dz;
+      for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) {
+        e = canteraSuper(cx + a, cy + b, cz + c); if (!e) continue; dx = e.x - x; dy = e.y - y; dz = e.z - z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d <= R) out.push({ o: e, d: d });
+      }
+      return out;
+    }
     function astillerosEn(x, y, z, R) {
       var S = CONFIG.espaciadoAstilleros, n = Math.ceil(R / S) + 1, cx = Math.floor(x / S), cy = Math.floor(y / S), cz = Math.floor(z / S), out = [], a, b, c, e, d, dx, dy, dz;
       for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) {
@@ -278,10 +293,10 @@
       return out;
     }
     function lugaresEn(x, y, z, R) {   // estaciones + astilleros, del más cercano al más lejano
-      var l = estacionesEn(x, y, z, R).concat(astillerosEn(x, y, z, R)); l.sort(function (u, v) { return u.d - v.d; }); return l;
+      var l = estacionesEn(x, y, z, R).concat(astillerosEn(x, y, z, R), canterasEn(x, y, z, R)); l.sort(function (u, v) { return u.d - v.d; }); return l;
     }
     function chocaEstacion(x, y, z, rad) {   // ¿algo de ese radio pisaría una estación o un astillero?
-      return estacionesEn(x, y, z, rad + CONFIG.radioEstacion + 800).length > 0 || astillerosEn(x, y, z, rad + CONFIG.radioAstillero + 800).length > 0;
+      return estacionesEn(x, y, z, rad + CONFIG.radioEstacion + 800).length > 0 || astillerosEn(x, y, z, rad + CONFIG.radioAstillero + 800).length > 0 || canterasEn(x, y, z, rad + CONFIG.radioCantera + 800).length > 0;
     }
     function generar(ix, iy, iz, ligero) {   // ligero: sin rocas (para el mapa)
       var C = CONFIG.celda, r = mulberry32(hash3(ix, iy, iz, CONFIG.semilla)), cel = { key: ix + ',' + iy + ',' + iz, ix: ix, iy: iy, iz: iz, planeta: null, campo: null };
@@ -350,7 +365,7 @@
         }
       }
       for (k in celdas) if (!keep[k]) { c = celdas[k]; if (c.planeta) quitarPlaneta(c.planeta); if (c.campo) quitarCampo(c.campo); delete celdas[k]; }
-      listaEst = lugaresEn(P.x, P.y, P.z, 36000).filter(function (q) { return q.o.tipo !== 'astillero' || q.d < 15000; }).map(function (q) { return q.o; });   // el astillero (modelo pesado) solo se construye cuando ya está cerca   // las que están lo bastante cerca para dibujarse
+      listaEst = lugaresEn(P.x, P.y, P.z, 36000).filter(function (q) { return (q.o.tipo !== 'astillero' && q.o.tipo !== 'cantera') || q.d < 15000; }).map(function (q) { return q.o; });   // el astillero (modelo pesado) solo se construye cuando ya está cerca   // las que están lo bastante cerca para dibujarse
       estLejanas = lugaresEn(P.x, P.y, P.z, 130000);                                    // para radar y baliza
       if (esp) esp.estaciones(listaEst);
       camposVis.forEach(function (cp) { cp.rocas.forEach(function (ro) { listaRo.push({ x: cp.x + ro.lx, y: cp.y + ro.ly, z: cp.z + ro.lz, r: ro.s * 0.9 }); }); });
@@ -476,7 +491,7 @@
         if (Math.sqrt(zx * zx + zy * zy) < R + zr) { g.strokeStyle = 'rgba(90,255,190,0.55)'; g.beginPath(); g.arc(c + zx, c + zy, zr, 0, TAU); g.stroke(); }
       });
       for (i = 0; i < listaPl.length; i++) { o = listaPl[i]; punto(o.x, o.y, o.z, o.r, '#ffb766', 3); }
-      for (i = 0; i < estLejanas.length; i++) { o = estLejanas[i].o; punto(o.x, o.y, o.z, 0, o.tipo === 'astillero' ? '#ffa43a' : '#4df2d6', 4); }
+      for (i = 0; i < estLejanas.length; i++) { o = estLejanas[i].o; punto(o.x, o.y, o.z, 0, o.tipo === 'astillero' ? '#ffa43a' : o.tipo === 'cantera' ? '#ff7b2e' : '#4df2d6', 4); }
       esp.radar().forEach(function (q) { punto(q.x, q.y, q.z, 0, q.c, q.r); });
       for (i = 0; i < camposVis.length; i++) { o = camposVis[i]; punto(o.x, o.y, o.z, o.a * 0.4, 'rgba(180,180,180,0.7)', 2); }
       for (var id in remotos) { o = remotos[id]; punto(o.rp.x, o.rp.y, o.rp.z, 0, '#5dff8a', 3); }
@@ -578,7 +593,7 @@
       DPRH = Math.min(global.devicePixelRatio || 1, 1.5); if (beaconG) { beaconG.width = Math.round(w * DPRH); beaconG.height = Math.round(h * DPRH); }
     }
     return {
-      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _astillerosEn: astillerosEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
+      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _astillerosEn: astillerosEn, _canterasEn: canterasEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
       entrar: function (d) {
         modo = (d && d.modo) || 'solo'; nSel = naveDe(jug.nave); modelo = obtenerModelo(jug.nave); med = medidas[jug.nave];
         if (!modelo) { irA('lobby'); return; }

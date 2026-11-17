@@ -124,10 +124,14 @@
         o = lista[i]; keep[o.key] = 1;
         if (!estac[o.key]) {
           var g = new THREE.Group(), mod = null;
-          var astl = o.tipo === 'astillero';
-          try { if (astl) { if (typeof global.createAstillero === 'function') { mod = global.createAstillero(THREE, { accent: 0xff9f2f }); if (mod.drone) mod.drone.visible = false; } } else if (typeof global.createStation === 'function') mod = global.createStation(THREE, { accent: 0x1fd1b5, spin: 0.05 }); } catch (e) { mod = null; }
-          if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(astl ? 18 : 21); w.add(mod.group); g.add(w); }
-          else if (astl) { var cb = new THREE.Mesh(new THREE.BoxGeometry(320, 40, 320), new THREE.MeshStandardMaterial({ color: 0x8a6a3a, metalness: 0.5, roughness: 0.6 })); g.add(cb); }
+          var astl = o.tipo === 'astillero', cant = o.tipo === 'cantera';
+          try {
+            if (astl) { if (typeof global.createForja === 'function') mod = global.createForja(THREE, { accent: 0xffc21a }); else if (typeof global.createAstillero === 'function') { mod = global.createAstillero(THREE, { accent: 0xff9f2f }); if (mod.drone) mod.drone.visible = false; } }
+            else if (cant) { if (typeof global.createCantera === 'function') mod = global.createCantera(THREE, { accent: 0xff8a1f, spin: 0.02 }); }
+            else if (typeof global.createStation === 'function') mod = global.createStation(THREE, { accent: 0x1fd1b5, spin: 0.05 });
+          } catch (e) { mod = null; }
+          if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(astl ? (global.createForja ? 6 : 18) : cant ? 8 : 21); w.add(mod.group); g.add(w); }
+          else if (astl || cant) { var cb = new THREE.Mesh(new THREE.BoxGeometry(320, 40, 320), new THREE.MeshStandardMaterial({ color: 0x8a6a3a, metalness: 0.5, roughness: 0.6 })); g.add(cb); }
           else { var an = new THREE.Mesh(new THREE.TorusGeometry(190, 21, 10, 36), new THREE.MeshStandardMaterial({ color: 0x9fb3c4, metalness: 0.6, roughness: 0.5 })); an.rotation.x = Math.PI / 2; g.add(an); }
           g.rotation.y = o.giro; g.frustumCulled = false; sc.add(g); estac[o.key] = { o: o, g: g, mod: mod };
         }
@@ -200,7 +204,7 @@
       // explosiones
       for (i = boom.length - 1; i >= 0; i--) { var e = boom[i]; e.t += dt; if (e.t > 0.55) { sc.remove(e.s); e.s.material.dispose(); boom.splice(i, 1); } }
       // estaciones
-      for (var k2 in estac) { var s = estac[k2]; if (s.mod && s.mod.update) { if (s.o.tipo === 'astillero') { var ax = s.o.x - P.x, ay = s.o.y - P.y, az = s.o.z - P.z; if (ax * ax + ay * ay + az * az > 9e6) continue; } try { s.mod.update(t, 0); } catch (er) { } } }
+      for (var k2 in estac) { var s = estac[k2]; if (s.mod && s.mod.update) { if (s.o.tipo === 'astillero' || s.o.tipo === 'cantera') { var ax = s.o.x - P.x, ay = s.o.y - P.y, az = s.o.z - P.z; if (ax * ax + ay * ay + az * az > 9e6) continue; } try { s.mod.update(t, s.o.tipo === 'estacion' ? 0 : 0.7); } catch (er) { } } }
       colocar();
     }
     function colocar() {   // origen flotante: todo se coloca relativo a la nave
