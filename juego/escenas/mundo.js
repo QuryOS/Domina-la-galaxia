@@ -35,7 +35,7 @@
     var pivote = null, inclinar = null, escalarN = null, modelo = null, nSel = null, med = null;
     var P = { x: 0, y: 0, z: 0 }, Q, V, qCam, qa, v1, v2, v3, fwd, vObj, AX, AY, AZ, dummy, mInv;
     var celdas = {}, listaEst = [], esp = null, botFu = false, botGr = false, atracado = false, estCerca = null, estVista = '', listaPl = [], listaRo = [], camposVis = [], ucx = 1e9, ucy = 1e9, ucz = 1e9;
-    var camYaw = 0, camPitch = 0, camPtr = null, camX0 = 0, camY0 = 0, camYaw0 = 0, camPitch0 = 0, qo = null, rYaw = 0, rPitch = 0, rRoll = 0, acelerador = 0.3, turboE = 1, turboBloq = false, turboOn = false, vel = 0, shake = 0, pausado = false, modo = 'solo', tMundo = 0, tHud = 0, fps = 60, tRed = 0, tToast = 0, planCercano = null;
+    var mapaAbierto = false, meta = null, mapaZ = 1, mapaLista = [], mapaPuntos = [], camYaw = 0, camPitch = 0, camPtr = null, camX0 = 0, camY0 = 0, camYaw0 = 0, camPitch0 = 0, qo = null, rYaw = 0, rPitch = 0, rRoll = 0, acelerador = 0.3, turboE = 1, turboBloq = false, turboOn = false, vel = 0, shake = 0, pausado = false, modo = 'solo', tMundo = 0, tHud = 0, fps = 60, tRed = 0, tToast = 0, planCercano = null;
     var teclas = {}, stick = { id: null, x0: 0, y0: 0, ax: 0, ay: 0 }, botT = false, botF = false, palId = null;
     var hud = {}, radarG, radarS = 132, beaconG, remotos = {}, construido = false, DPRH = 1;
 
@@ -79,6 +79,8 @@
       hud.mv = el('div', 'jn-mini', hi, '<i></i>'); hud.mt = el('div', 'jn-mini t', hi, '<i></i>'); hud.estado = el('div', '', hi, ''); hud.inv = el('div', '', hi, ''); hud.inv.style.cssText = 'margin-top:6px;font-size:12px;line-height:1.5;max-width:230px'; hud.estado.style.cssText = 'margin-top:6px;opacity:.8';
       hud.hd = el('div', 'jn-hd', L);
       hud.pausa = el('div', 'jn-ico jn-pausa', L, '❚❚'); hud.pausa.onclick = function () { pausar(true); };
+      hud.bMapa = el('div', 'jn-ico jn-mapabtn', L, 'MAPA'); hud.bMapa.onclick = function () { abrirMapa(); };
+      hud.mapa = el('div', 'jn-pmenu jn-mapa', L, '');
       var rc = el('canvas', 'jn-radar', L); rc.style.width = radarS + 'px'; rc.style.height = radarS + 'px'; hud.radar = rc;
       var ac = el('div', 'jn-acel', L), pal = el('div', 'jn-pal', ac, '<u>ACEL</u><i></i>'); hud.pal = pal; hud.palI = pal.querySelector('i');
       var bots = el('div', 'jn-bots', ac); hud.bFu = el('div', 'jn-bot fu', bots, 'FUEGO'); hud.bGr = el('div', 'jn-bot gr', bots, 'AGARRAR'); hud.bT = el('div', 'jn-bot', bots, 'TURBO'); hud.bF = el('div', 'jn-bot f', bots, 'FRENO');
@@ -99,8 +101,60 @@
       var bh = el('button', 'jn-btn', hud.menu, 'VOLVER AL HANGAR'); bh.onclick = function () { irA('lobby'); };
     }
     function toast(txt, ms) { hud.toast.textContent = txt; hud.toast.style.opacity = 1; tToast = ms || 1.1; }
+    /* ---------- mapa: muestra todas las estaciones del universo cercano y permite marcar un destino ---------- */
+    var ZOOMS = [50000, 120000, 300000];
+    function estacionesEnRadio(R) {
+      var C = CONFIG.celda, n = Math.ceil(R / C), cx = Math.floor(P.x / C), cy = Math.floor(P.y / C), cz = Math.floor(P.z / C), out = [], a, b, c, e, dx, dy, dz, d;
+      for (a = -n; a <= n; a++) for (b = -n; b <= n; b++) for (c = -n; c <= n; c++) {
+        e = estacionCelda(cx + a, cy + b, cz + c); if (!e) continue;
+        dx = e.x - P.x; dy = e.y - P.y; dz = e.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d <= R) out.push({ o: e, d: d });
+      }
+      out.sort(function (u, v) { return u.d - v.d; }); return out;
+    }
+    function abrirMapa() {
+      if (mapaAbierto || atracado || pausado) return;
+      mapaAbierto = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false;
+      mapaLista = estacionesEnRadio(ZOOMS[ZOOMS.length - 1]); hud.mapa.classList.add('on'); pintarMapa();
+    }
+    function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); }
+    function pintarMapa() {
+      var M = hud.mapa, R = ZOOMS[mapaZ], lado = Math.floor(Math.min(E.ancho * 0.92, E.alto * 0.5, 440)), vis = mapaLista.filter(function (x) { return x.d <= R; });
+      M.innerHTML = ''; el('h3', '', M, 'MAPA · ESTACIONES');
+      var cv = el('canvas', 'jn-mapacv', M); cv.width = lado * 2; cv.height = lado * 2; cv.style.width = lado + 'px'; cv.style.height = lado + 'px';
+      var g = cv.getContext('2d'), S = cv.width, c = S / 2, esc2 = (c - 24) / R, i, o;
+      g.fillStyle = 'rgba(4,10,22,0.9)'; g.fillRect(0, 0, S, S); g.strokeStyle = 'rgba(120,200,255,0.25)'; g.lineWidth = 2; g.font = '22px system-ui,sans-serif'; g.fillStyle = 'rgba(160,200,240,0.7)'; g.textAlign = 'left';
+      for (i = 1; i <= 3; i++) { g.beginPath(); g.arc(c, c, (c - 24) * i / 3, 0, TAU); g.stroke(); g.fillText(fmtDist(R * i / 3), c + 6, c - (c - 24) * i / 3 + 22); }
+      g.beginPath(); g.moveTo(c, 6); g.lineTo(c, S - 6); g.moveTo(6, c); g.lineTo(S - 6, c); g.stroke();
+      mapaPuntos = [];
+      for (i = 0; i < listaPl.length; i++) { o = listaPl[i]; var px = c + (o.x - P.x) * esc2, py = c + (o.z - P.z) * esc2; if (Math.abs(px - c) < c && Math.abs(py - c) < c) { g.fillStyle = '#ffb766'; g.beginPath(); g.arc(px, py, 7, 0, TAU); g.fill(); } }
+      g.textAlign = 'center';
+      for (i = 0; i < vis.length; i++) {
+        o = vis[i].o; var sx = c + (o.x - P.x) * esc2, sy = c + (o.z - P.z) * esc2, esMeta = meta && meta.key === o.key;
+        mapaPuntos.push({ o: o, x: sx / 2, y: sy / 2 });
+        g.fillStyle = esMeta ? '#ffe27a' : '#4df2d6'; g.fillRect(sx - 8, sy - 8, 16, 16);
+        if (esMeta) { g.strokeStyle = '#ffe27a'; g.lineWidth = 3; g.beginPath(); g.arc(sx, sy, 17, 0, TAU); g.stroke(); }
+        if (i < 14) { g.fillStyle = esMeta ? '#ffe27a' : '#bff7ec'; g.fillText(o.nombre.replace('Ágora ', ''), sx, sy - 14); }
+      }
+      var hd = Math.atan2(fwd.x, -fwd.z); g.save(); g.translate(c, c); g.rotate(hd); g.fillStyle = '#7fe3ff'; g.beginPath(); g.moveTo(0, -16); g.lineTo(-11, 12); g.lineTo(11, 12); g.closePath(); g.fill(); g.restore();
+      cv.onclick = function (ev) {
+        var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, mejor = null, md = 28, k;
+        for (k = 0; k < mapaPuntos.length; k++) { var q = mapaPuntos[k], dd = Math.hypot(q.x - x, q.y - y); if (dd < md) { md = dd; mejor = q.o; } }
+        if (mejor) { meta = (meta && meta.key === mejor.key) ? null : mejor; pintarMapa(); }
+      };
+      var z = el('div', 'jn-zoom', M), bm = el('button', 'jn-btn', z, '−'), tz = el('span', '', z, 'Alcance ' + fmtDist(R)), bp = el('button', 'jn-btn', z, '+');
+      bm.onclick = function () { mapaZ = Math.min(ZOOMS.length - 1, mapaZ + 1); pintarMapa(); }; bp.onclick = function () { mapaZ = Math.max(0, mapaZ - 1); pintarMapa(); };
+      el('div', 'jn-ayuda', M, 'Toca una estación del mapa (o de la lista) para marcarla como destino: su flecha te guiará.');
+      var lista = el('div', 'jn-tabla', M);
+      if (!vis.length) el('div', 'jn-ayuda', lista, 'No hay estaciones en este alcance. Aleja el mapa con “+”.');
+      vis.slice(0, 12).forEach(function (v) {
+        var f = el('div', 'jn-venta', lista), dy = v.o.y - P.y, esMeta = meta && meta.key === v.o.key;
+        el('span', 'n', f, esc(v.o.nombre)); el('span', 'q', f, fmtDist(v.d) + ' · ' + (dy >= 0 ? '↑' : '↓') + fmtDist(Math.abs(dy)));
+        var b = el('button', 'jn-btn', f, esMeta ? 'QUITAR' : 'MARCAR'); b.onclick = function () { meta = esMeta ? null : v.o; pintarMapa(); };
+      });
+      var bc = el('button', 'jn-btn jn-grande', M, 'CERRAR MAPA'); bc.onclick = cerrarMapa;
+    }
     function atracar() {
-      if (atracado || !estCerca) return;
+      if (mapaAbierto || atracado || !estCerca) return;
       atracado = true; pausado = true; V.set(0, 0, 0); acelerador = 0; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null;
       hud.bAtr.style.display = 'none'; estVista = ''; pintarMercado(); hud.merc.classList.add('on'); toast('ATRACADO', 1);
     }
@@ -122,21 +176,29 @@
       bt.onclick = function () { var g = esp.venderTodo(); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
       var bs = el('button', 'jn-btn', M, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
     }
-    function pausar(p) { if (atracado) return; pausado = p; if (p) hud.menu.classList.add('on'); else hud.menu.classList.remove('on'); }
+    function pausar(p) { if (atracado || mapaAbierto) return; pausado = p; if (p) hud.menu.classList.add('on'); else hud.menu.classList.remove('on'); }
 
     /* ---------- generación del universo por celdas ---------- */
     var SIL = ['ka', 'ro', 've', 'lu', 'mi', 'tor', 'zen', 'ar', 'ix', 'on', 'da', 'sel', 'vor', 'nem', 'ul', 'cor', 'phe', 'tis', 'ba', 'rin', 'qua', 'dre', 'sha', 'lom'], ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
     function nombrePlaneta(r) { var n = 2 + (r() < 0.4 ? 1 : 0), s = '', i; for (i = 0; i < n; i++) s += SIL[(r() * SIL.length) | 0]; return s.charAt(0).toUpperCase() + s.slice(1) + ' ' + ROM[(r() * ROM.length) | 0]; }
     function tipoPlaneta(r) { var u = r(); return u < 0.22 ? 'arido' : u < 0.42 ? 'rocoso' : u < 0.56 ? 'hielo' : u < 0.68 ? 'gaseoso' : u < 0.78 ? 'gaseoso2' : u < 0.86 ? 'lava' : 'tormenta'; }
+    function estacionCelda(ix, iy, iz) {   // función pura: sirve igual para generar el mundo y para dibujar el mapa
+      var C = CONFIG.celda, r = mulberry32(hash3(ix, iy, iz, (CONFIG.semilla ^ 0x57A7) | 0)), u = r();
+      if (!(ix === 0 && iy === 0 && iz === 0) && u >= CONFIG.densidadEstaciones) return null;
+      return { key: 'E' + ix + ',' + iy + ',' + iz, x: (ix + 0.15 + 0.7 * r()) * C, y: (iy + 0.15 + 0.7 * r()) * C, z: (iz + 0.15 + 0.7 * r()) * C, r: 75, giro: r() * TAU, nombre: 'Ágora ' + nombrePlaneta(r).split(' ')[0], tipo: 'estacion' };
+    }
     function generar(ix, iy, iz) {
       var C = CONFIG.celda, r = mulberry32(hash3(ix, iy, iz, CONFIG.semilla)), cel = { key: ix + ',' + iy + ',' + iz, ix: ix, iy: iy, iz: iz, planeta: null, campo: null, estacion: null };
       if (r() < 0.06) {
         var tp = tipoPlaneta(r), gas = tp === 'gaseoso' || tp === 'gaseoso2', rad = gas ? 1500 + r() * 1700 : 500 + r() * 1400;
         cel.planeta = { x: (ix + 0.2 + 0.6 * r()) * C, y: (iy + 0.2 + 0.6 * r()) * C, z: (iz + 0.2 + 0.6 * r()) * C, r: rad, tipo: tp, nombre: nombrePlaneta(r), anillos: gas ? r() < 0.4 : r() < 0.07, incl: 0.1 + r() * 0.5, tinte: [0.85 + r() * 0.3, 0.85 + r() * 0.3, 0.85 + r() * 0.3], giro: (r() - 0.5) * 0.04, g: null, k: 0 };
       }
+      var est = estacionCelda(ix, iy, iz);
+      if (est && cel.planeta) { var pe = cel.planeta; if (Math.sqrt((est.x - pe.x) * (est.x - pe.x) + (est.y - pe.y) * (est.y - pe.y) + (est.z - pe.z) * (est.z - pe.z)) < pe.r * 1.6 + 500) cel.planeta = null; }
       if (r() < 0.4) {
         var a = 700 + r() * 900, cx = (ix + 0.15 + 0.7 * r()) * C, cy = (iy + 0.15 + 0.7 * r()) * C, cz = (iz + 0.15 + 0.7 * r()) * C, ok = true;
         if (cel.planeta) { var pl = cel.planeta, dd = Math.sqrt((cx - pl.x) * (cx - pl.x) + (cy - pl.y) * (cy - pl.y) + (cz - pl.z) * (cz - pl.z)); if (dd < pl.r * 1.5 + a + 500) ok = false; }
+        if (ok && est && Math.sqrt((cx - est.x) * (cx - est.x) + (cy - est.y) * (cy - est.y) + (cz - est.z) * (cz - est.z)) < a + 600) ok = false;
         if (ok) {
           var n = 28 + ((r() * 32) | 0), rocas = [], i, b = a * (0.35 + 0.4 * r()), c3 = a * (0.6 + 0.4 * r());
           for (i = 0; i < n; i++) {
@@ -146,15 +208,7 @@
           cel.campo = { x: cx, y: cy, z: cz, a: a, rocas: rocas, mat: (r() * 3) | 0, g: null };
         }
       }
-      if ((ix === 0 && iy === 0 && iz === 0) || r() < 0.07) {   // estación Ágora (la celda de salida siempre tiene una)
-        var ex, ey, ez, intento = 0, libre;
-        do {
-          ex = (ix + 0.15 + 0.7 * r()) * C; ey = (iy + 0.15 + 0.7 * r()) * C; ez = (iz + 0.15 + 0.7 * r()) * C; libre = true;
-          if (cel.planeta) { var pp = cel.planeta; if (Math.sqrt((ex - pp.x) * (ex - pp.x) + (ey - pp.y) * (ey - pp.y) + (ez - pp.z) * (ez - pp.z)) < pp.r * 1.6 + 500) libre = false; }
-          if (cel.campo) { var cc = cel.campo; if (Math.sqrt((ex - cc.x) * (ex - cc.x) + (ey - cc.y) * (ey - cc.y) + (ez - cc.z) * (ez - cc.z)) < cc.a + 600) libre = false; }
-        } while (!libre && ++intento < 6);
-        cel.estacion = { key: 'E' + cel.key, x: ex, y: ey, z: ez, r: 75, giro: r() * TAU, nombre: 'Ágora ' + nombrePlaneta(r).split(' ')[0], tipo: 'estacion' };
-      }
+      cel.estacion = est;
       return cel;
     }
     function celda(ix, iy, iz) { var k = ix + ',' + iy + ',' + iz, c = celdas[k]; if (!c) { c = generar(ix, iy, iz); celdas[k] = c; } return c; }
@@ -334,17 +388,21 @@
       var lista = cand.slice(0, 2), mejorE = null;
       for (i = 0; i < listaEst.length; i++) { o = listaEst[i]; var ex = o.x - P.x, ey = o.y - P.y, ez = o.z - P.z, de = Math.sqrt(ex * ex + ey * ey + ez * ez); if (!mejorE || de < mejorE.d) mejorE = { o: o, d: de, s: de - o.r, est: true }; }
       if (mejorE) lista.push(mejorE);
+      if (meta) {
+        if (mejorE && mejorE.o.key === meta.key) mejorE.meta = true;
+        else { var mx = meta.x - P.x, my = meta.y - P.y, mz = meta.z - P.z, dm = Math.sqrt(mx * mx + my * my + mz * mz); lista.push({ o: meta, d: dm, s: dm - meta.r, est: true, meta: true }); }
+      }
       for (i = 0; i < lista.length; i++) {
-        var c = lista[i]; o = c.o; v3.set(o.x - P.x, o.y - P.y, o.z - P.z).project(cam);
+        var c = lista[i]; o = c.o; v3.set(o.x - P.x, o.y - P.y, o.z - P.z).normalize().multiplyScalar(1000).project(cam);
         var delante = v3.z < 1, sx = v3.x, sy = v3.y;
         if (!delante) { sx = -sx; sy = -sy; }
         var fuera = !delante || Math.abs(sx) > 0.92 || Math.abs(sy) > 0.86, m = Math.max(Math.abs(sx) / 0.92, Math.abs(sy) / 0.86, 1e-6);
         if (fuera) { sx /= m; sy /= m; }
-        var X = (sx * 0.5 + 0.5) * w, Y = (-sy * 0.5 + 0.5) * h, col = c.est ? 'rgba(80,245,214,0.95)' : (i === 0 ? 'rgba(255,200,120,0.95)' : 'rgba(180,215,255,0.8)');
+        var X = (sx * 0.5 + 0.5) * w, Y = (-sy * 0.5 + 0.5) * h, col = c.meta ? 'rgba(255,230,120,0.98)' : c.est ? 'rgba(80,245,214,0.95)' : (i === 0 ? 'rgba(255,200,120,0.95)' : 'rgba(180,215,255,0.8)');
         g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1.5 * DPRH;
         if (fuera) { var ang = Math.atan2(-sy, sx); g.save(); g.translate(X, Y); g.rotate(ang); g.beginPath(); g.moveTo(9 * DPRH, 0); g.lineTo(-6 * DPRH, -6 * DPRH); g.lineTo(-6 * DPRH, 6 * DPRH); g.closePath(); g.fill(); g.restore(); }
         else { var q = 8 * DPRH; g.beginPath(); g.moveTo(X, Y - q); g.lineTo(X + q, Y); g.lineTo(X, Y + q); g.lineTo(X - q, Y); g.closePath(); g.stroke(); }
-        var ty = Y + (fuera ? (Y < h / 2 ? 22 : -12) : 24) * DPRH; g.fillText(o.nombre + ' · ' + fmtDist(Math.max(0, c.s)), clamp(X, 80 * DPRH, w - 80 * DPRH), clamp(ty, 16 * DPRH, h - 8 * DPRH));
+        var ty = Y + (fuera ? (Y < h / 2 ? 22 : -12) : 24) * DPRH; g.fillText((c.meta ? '★ ' : '') + o.nombre + ' · ' + fmtDist(Math.max(0, c.s)), clamp(X, 80 * DPRH, w - 80 * DPRH), clamp(ty, 16 * DPRH, h - 8 * DPRH));
       }
     }
     function actualizarTextos(dt) {
@@ -397,7 +455,7 @@
         radarG = hud.radar.getContext('2d'); var dpr = Math.min(global.devicePixelRatio || 1, 2); hud.radar.width = radarS * dpr; hud.radar.height = radarS * dpr; radarG.setTransform(dpr, 0, 0, dpr, 0, 0);
         crearPolvo(); redimensionar4(E.ancho, E.alto);
         posicionInicial(); actualizarCeldas(true); esp.entrar(med.radio);
-        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; turboE = 1; turboBloq = false; shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = atracado = false; hud.merc.classList.remove('on'); botFu = botGr = false; camYaw = camPitch = 0; camPtr = null; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
+        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; turboE = 1; turboBloq = false; shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = atracado = false; mapaAbierto = false; hud.merc.classList.remove('on'); hud.mapa.classList.remove('on'); botFu = botGr = false; camYaw = camPitch = 0; camPtr = null; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
         if (modo === 'red') {
           toast('CONECTANDO…', 3);
           Red.onEstado = recibirEstado; Red.onSalio = quitarRemoto;
@@ -406,12 +464,14 @@
       },
       salir: function () {
         if (esp) esp.limpiar();
-        if (pivote) { sc.remove(pivote); pivote = null; } Red.cerrar(); limpiarRemotos(); palancaVisual(false); atracado = false; pausar(false);
+        if (pivote) { sc.remove(pivote); pivote = null; } Red.cerrar(); limpiarRemotos(); palancaVisual(false); atracado = false; mapaAbierto = false; pausar(false);
         var k; for (k in celdas) { var c = celdas[k]; if (c.planeta) quitarPlaneta(c.planeta); if (c.campo) quitarCampo(c.campo); } celdas = {}; ucx = 1e9;
         if (polvo) { sc.remove(polvo); polvo.geometry.dispose(); polvo.material.dispose(); polvo = null; }
       },
       tecla: function (e, abajo) {
         teclas[e.code] = abajo;
+        if (abajo && mapaAbierto && (e.code === 'Escape' || e.code === 'KeyM')) { cerrarMapa(); return; }
+        if (abajo && e.code === 'KeyM') { abrirMapa(); return; }
         if (abajo && atracado && (e.code === 'Escape' || e.code === 'KeyH')) { desatracar(); return; }
         if (abajo && e.code === 'KeyH' && !pausado) atracar();
         if (abajo && (e.code === 'Escape' || e.code === 'KeyP')) pausar(!pausado);

@@ -121,17 +121,17 @@
 
     /* ----- ciclo ----- */
     function entrar(r) {
-      iniciarRecursos(); radio = r || 6; limpiar();
+      iniciarRecursos(); radio = r || 6; limpiar(true);
       var i; for (i = 0; i < MAX_AST; i++) ast.push(nuevoAst(true));
       for (i = 0; i < 2; i++) piezaFlotante();
     }
-    function limpiar() {
+    function limpiar(conservarEstaciones) {
       cand = null; if (aro) aro.visible = false; if (rayo) rayo.visible = false;
       var i, k; for (i = ast.length - 1; i >= 0; i--) quitarAst(i);
       for (i = 0; i < bot.length; i++) sc.remove(bot[i].m); bot = [];
       for (i = 0; i < boom.length; i++) sc.remove(boom[i].s); boom = [];
       for (i = 0; i < disp.length; i++) { disp[i].on = false; disp[i].m.visible = false; }
-      for (k in estac) sc.remove(estac[k].g); estac = {};
+      if (!conservarEstaciones) { for (k in estac) sc.remove(estac[k].g); estac = {}; }
     }
     function piezaFlotante() {
       v1.set(Math.random() - 0.5, (Math.random() - 0.5) * 0.5, Math.random() - 0.5).normalize().multiplyScalar(rnd(700, 2200));
@@ -229,7 +229,7 @@
     }
     return {
       entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv,
-      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst
+      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst
     };
   }
   E.Espacio = { crear: crear, TIPOS: TIPOS };

@@ -10,6 +10,7 @@
     subtitulo: 'Esqueleto del juego de naves',
     rutaModelos: 'naves/',      // carpeta donde están los .js de las naves (con barra final)
     rutaEdificios: 'edificios/',  // estación Ágora y demás construcciones (station.js)
+    densidadEstaciones: 0.003,   // probabilidad de estación por celda de 12 km (~1 cada 70-80 km); la celda de salida siempre tiene una
     autodescubrir: true,        // detecta solo los .js nuevos de esa carpeta (ver descubrirNaves)
     manifiesto: 'naves.json',   // opcional: lista de archivos ["mi_nave.js", ...] dentro de la carpeta
     urlThree: 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
