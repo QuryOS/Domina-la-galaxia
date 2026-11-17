@@ -67,7 +67,7 @@
         [0x8c8378, 0x6d655c, 0x9a7e68].forEach(function (c) { matsRoca.push(new THREE.MeshStandardMaterial({ color: c, roughness: 0.96, metalness: 0.05, flatShading: true })); });
       })();
       qo = new THREE.Quaternion();
-      esp = E.Espacio.crear({ sc: sc, P: P, V: V, Q: Q, toast: toast });
+      esp = E.Espacio.crear({ sc: sc, P: P, V: V, Q: Q, toast: toast, rocas: function () { return listaRo; }, golpeRoca: golpeRoca });
       construirHUD(); construido = true;
     }
 
@@ -82,8 +82,8 @@
       hud.mapa = el('div', 'jn-pmenu jn-mapa', L, '');
       var rc = el('canvas', 'jn-radar', L); rc.style.width = radarS + 'px'; rc.style.height = radarS + 'px'; hud.radar = rc; rc.style.pointerEvents = 'auto'; rc.style.cursor = 'pointer'; rc.onclick = function () { abrirMapa(); };
       var ac = el('div', 'jn-acel', L), pal = el('div', 'jn-pal', ac, '<u>ACEL</u><i></i>'); hud.pal = pal; hud.palI = pal.querySelector('i');
-      var bots = el('div', 'jn-bots', ac); hud.bFu = el('div', 'jn-bot fu', bots, 'FUEGO'); hud.bGr = el('div', 'jn-bot gr', bots, 'AGARRAR'); hud.bT = el('div', 'jn-bot', bots, 'TURBO'); hud.bF = el('div', 'jn-bot f', bots, 'FRENO');
-      hud.bFu.setAttribute('data-ctl', 'fuego'); hud.bGr.setAttribute('data-ctl', 'agarrar'); hud.bT.setAttribute('data-ctl', 'turbo'); hud.bF.setAttribute('data-ctl', 'freno'); pal.setAttribute('data-ctl', 'acel'); rc.setAttribute('data-ctl', 'radar');
+      var bots = el('div', 'jn-bots', ac); hud.bFu = el('div', 'jn-bot fu', bots, 'FUEGO'); hud.bGr = el('div', 'jn-bot gr', bots, 'AGARRAR'); hud.bT = el('div', 'jn-bot', bots, 'TURBO'); hud.bF = el('div', 'jn-bot f', bots, 'FRENO'); hud.bAuto = el('div', 'jn-bot au', bots, 'AUTO');
+      hud.bFu.setAttribute('data-ctl', 'fuego'); hud.bGr.setAttribute('data-ctl', 'agarrar'); hud.bT.setAttribute('data-ctl', 'turbo'); hud.bF.setAttribute('data-ctl', 'freno'); pal.setAttribute('data-ctl', 'acel'); hud.bAuto.setAttribute('data-ctl', 'auto'); hud.bAuto.addEventListener('pointerdown', function (ev) { apAlternar(); ev.preventDefault(); }); rc.setAttribute('data-ctl', 'radar');
       function pulsar(e, b, f) { e.addEventListener('pointerdown', function (ev) { f(true); b.classList.add('on'); try { b.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); }); ['pointerup', 'pointercancel'].forEach(function (n) { e.addEventListener(n, function () { f(false); b.classList.remove('on'); }); }); }
       pulsar(hud.bFu, hud.bFu, function (v) { botFu = v; });
       pulsar(hud.bGr, hud.bGr, function (v) { botGr = v; });
@@ -344,7 +344,8 @@
       for (k = 0; k < 3; k++) {
         if (!grupos[k].length) continue;
         var im = new THREE.InstancedMesh(geosRoca[k], matsRoca[cp.mat], grupos[k].length);
-        for (j = 0; j < grupos[k].length; j++) { var ro = grupos[k][j]; dummy.position.set(ro.lx, ro.ly, ro.lz); dummy.rotation.set(ro.e[0], ro.e[1], ro.e[2]); dummy.scale.set(ro.s * ro.sx, ro.s * ro.sy, ro.s * ro.sz); dummy.updateMatrix(); im.setMatrixAt(j, dummy.matrix); }
+        for (j = 0; j < grupos[k].length; j++) { var ro = grupos[k][j]; ro.im = im; ro.ii = j; dummy.position.set(ro.lx, ro.ly, ro.lz); dummy.rotation.set(ro.e[0], ro.e[1], ro.e[2]); dummy.scale.set(ro.s * ro.sx, ro.s * ro.sy, ro.s * ro.sz); dummy.updateMatrix(); im.setMatrixAt(j, dummy.matrix); }
+        for (j = 0; j < grupos[k].length; j++) { if (grupos[k][j].dead) { dummy.position.set(0, 0, 0); dummy.scale.set(0, 0, 0); dummy.updateMatrix(); im.setMatrixAt(j, dummy.matrix); } }
         im.instanceMatrix.needsUpdate = true; im.frustumCulled = false; g.add(im);
       }
       cp.g = g; sc.add(g);
@@ -368,7 +369,7 @@
       listaEst = lugaresEn(P.x, P.y, P.z, 36000).filter(function (q) { return (q.o.tipo !== 'astillero' && q.o.tipo !== 'cantera') || q.d < 15000; }).map(function (q) { return q.o; });   // el astillero (modelo pesado) solo se construye cuando ya está cerca   // las que están lo bastante cerca para dibujarse
       estLejanas = lugaresEn(P.x, P.y, P.z, 130000);                                    // para radar y baliza
       if (esp) esp.estaciones(listaEst);
-      camposVis.forEach(function (cp) { cp.rocas.forEach(function (ro) { listaRo.push({ x: cp.x + ro.lx, y: cp.y + ro.ly, z: cp.z + ro.lz, r: ro.s * 0.9 }); }); });
+      camposVis.forEach(function (cp) { cp.rocas.forEach(function (ro) { if (!ro.dead) listaRo.push({ x: cp.x + ro.lx, y: cp.y + ro.ly, z: cp.z + ro.lz, r: ro.s * 0.9, ro: ro, cp: cp }); }); });
     }
     function posicionInicial() {   // aparición aleatoria: a unos 20-55 km (3-4 min) de la estación más cercana, mirando en una dirección cualquiera
       var C = CONFIG.celda, t, ok = false, q, c, l, d, dx, dy, dz;
@@ -416,9 +417,53 @@
       if (on) { hud.palanca.style.left = stick.x0 + 'px'; hud.palanca.style.top = stick.y0 + 'px'; hud.palI2.style.transform = 'translate(' + (stick.ax * 40) + 'px,' + (stick.ay * 40) + 'px)'; }
     }
 
+    /* ---------- piloto automático: navega al destino marcado esquivando rocas y asteroides; no defiende ---------- */
+    var laserT = null, ap = { on: false, huir: false, meta: null }, apE = { yaw: 0, pit: 0, roll: 0, acel: 0, turbo: false, freno: false }, apQ, apD, apS, apL;
+    function esLugar(o) { return o && (o.tipo === 'estacion' || o.tipo === 'astillero'); }
+    function apDistParada(m) { return esLugar(m) ? (m.r || 260) + 70 : (m.r || 0) * (m.tipo === 'planeta' || m.tipo === 'minero' ? 1.15 : 1) + 250; }
+    function apParar(txt) { ap.on = false; ap.huir = false; ap.meta = null; if (hud.bAuto) hud.bAuto.classList.remove('on'); if (txt) toast(txt, 1.5); }
+    function apAlternar() {
+      if (pausado || atracado) return;
+      if (ap.on) { apParar('PILOTO AUTOMÁTICO APAGADO'); return; }
+      if (!meta) { toast('MARCA UN DESTINO EN EL MAPA', 1.8); return; }
+      ap.on = true; ap.huir = false; ap.meta = meta; hud.bAuto.classList.add('on'); toast('PILOTO AUTOMÁTICO', 1.2);
+    }
+    function apHuir() {   // si te atacan: se cancela el rumbo y la nave corre con turbo a la estación más cercana
+      var i, o = null;
+      for (i = 0; i < estLejanas.length; i++) if (esLugar(estLejanas[i].o) && estLejanas[i].o.tipo === 'estacion') { o = estLejanas[i].o; break; }
+      if (!o) for (i = 0; i < estLejanas.length; i++) if (esLugar(estLejanas[i].o)) { o = estLejanas[i].o; break; }
+      if (!o) { apParar('PILOTO AUTOMÁTICO CANCELADO'); return; }
+      ap.on = true; ap.huir = true; ap.meta = o; hud.bAuto.classList.add('on'); toast('¡ATACADO! HUYENDO A ' + o.nombre.toUpperCase(), 2.4);
+    }
+    function apPaso(dt) {   // calcula "palanca virtual" (apE) y acelerador para ir a ap.meta
+      var m = ap.meta, dx = m.x - P.x, dy = m.y - P.y, dz = m.z - P.z, dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, stop = apDistParada(m);
+      if (dist <= stop + 15) { apParar(ap.huir ? 'A SALVO EN ' + m.nombre.toUpperCase() : 'LLEGASTE'); acelerador = 0; apE.yaw = apE.pit = 0; apE.freno = true; return; }
+      if (!apQ) { apQ = new THREE.Quaternion(); apD = new THREE.Vector3(); apS = new THREE.Vector3(); apL = new THREE.Vector3(); }
+      apD.set(dx / dist, dy / dist, dz / dist); apS.set(0, 0, 0);
+      var look = Math.max(500, vel * 6), R = Math.max(med.radio * 0.5, 3), i, o, rx, ry, rz, t, px, py, pz, dp, rr, w, lst = esp ? esp._ast : [];
+      function obst(cx, cy, cz, r) {
+        rx = cx - P.x; ry = cy - P.y; rz = cz - P.z; t = rx * apD.x + ry * apD.y + rz * apD.z; if (t < -r || t > look + r) return;
+        px = rx - apD.x * t; py = ry - apD.y * t; pz = rz - apD.z * t; dp = Math.sqrt(px * px + py * py + pz * pz); rr = r + R + 90; if (dp >= rr) return;
+        if (dp < 1) { px = apD.y; py = -apD.x; pz = 0; dp = Math.sqrt(px * px + py * py) || 1; px = -px; py = -py; }   // justo de frente: se rodea por un lado
+        w = (1 - dp / rr) * (1.4 + 2.2 * (1 - Math.max(0, t) / look)); apS.x -= px / dp * w; apS.y -= py / dp * w; apS.z -= pz / dp * w;
+      }
+      for (i = 0; i < listaRo.length; i++) { o = listaRo[i]; if ((o.ro && o.ro.dead) || o.x - P.x > look + 400 || P.x - o.x > look + 400) continue; obst(o.x, o.y, o.z, o.r); }
+      for (i = 0; i < lst.length; i++) obst(lst[i].x, lst[i].y, lst[i].z, lst[i].r);
+      apD.add(apS); apD.normalize();
+      apQ.copy(Q).invert(); apL.copy(apD).applyQuaternion(apQ);   // dirección deseada en ejes de la nave (la nariz es -Z)
+      var yawErr = Math.atan2(apL.x, -apL.z), pitErr = Math.atan2(apL.y, -apL.z), err = Math.sqrt(yawErr * yawErr + pitErr * pitErr);
+      apE.yaw = clamp(yawErr * 3, -1, 1); apE.pit = clamp(pitErr * 3, -1, 1); apE.roll = 0; apE.acel = 0; apE.freno = false; apE.turbo = ap.huir;
+      var cruce = ap.huir ? 1 : clamp((dist - stop) / 3500, 0.12, 1); cruce *= 1 - Math.min(0.75, err / 1.6);
+      if (apS.lengthSq() > 0.3) cruce = Math.min(cruce, 0.5);
+      acelerador += (cruce - acelerador) * Math.min(1, dt * 1.6);
+    }
     /* ---------- física y cámara ---------- */
     function fisica(dt) {
       var e = entrada(), ag = nSel.agil;
+      if (ap.on) {
+        if (Math.abs(e.yaw) > 0.25 || Math.abs(e.pit) > 0.25 || e.acel !== 0 || palId !== null || e.freno) apParar('CONTROL MANUAL');
+        else { apPaso(dt); e = apE; }
+      }
       var tY = e.yaw * (0.5 + 0.75 * ag), tP = e.pit * (0.45 + 0.7 * ag), tR = e.roll * (1.1 + 1.2 * ag), k = 1 - Math.exp(-dt * (3.5 + 5 * ag));
       rYaw += (tY - rYaw) * k; rPitch += (tP - rPitch) * k; rRoll += (tR - rRoll) * k;
       qa.setFromAxisAngle(AY, -rYaw * dt); Q.multiply(qa);      // giro a la derecha = rotación negativa sobre Y local
@@ -441,16 +486,29 @@
       inclinar.rotation.z += (-rYaw * 0.45 - inclinar.rotation.z) * Math.min(1, dt * 5);
       inclinar.rotation.x += (rPitch * 0.12 - inclinar.rotation.x) * Math.min(1, dt * 4);
     }
+    function golpeRoca(o, x, y, z) {   // un disparo da en una roca quieta: la nave minera la va desmenuzando; las demás solo hacen chispas
+      var ro = o.ro; if (!ro || ro.dead) return;
+      esp.chispa(x, y, z, 3); if (!nSel.minero) return;
+      if (ro.hp == null) ro.hp = 25 + o.r * 4;
+      ro.hp -= 20;
+      if (ro.hp <= 0) {
+        ro.dead = true;
+        if (ro.im) { dummy.position.set(0, 0, 0); dummy.scale.set(0, 0, 0); dummy.updateMatrix(); ro.im.setMatrixAt(ro.ii, dummy.matrix); ro.im.instanceMatrix.needsUpdate = true; }
+        esp.botinRoca(o.x, o.y, o.z, o.r, o.cp ? o.cp.mat : 0);
+        toast('ROCA EXTRAÍDA', 0.8);
+      }
+    }
     function colisiones() {
       var R = Math.max(med.radio * 0.5, 3), i, o, dx, dy, dz, d, rr;
       // los planetas ya no son sólidos (se podrán reclamar y aterrizar más adelante)
       if (esp) esp.colisionar(R, impacto);
-      for (i = 0; i < listaRo.length; i++) { o = listaRo[i]; dx = P.x - o.x; if (dx > 400 || dx < -400) continue; dy = P.y - o.y; dz = P.z - o.z; rr = o.r + R; if (dx * dx + dy * dy + dz * dz < rr * rr) impacto(o, dx, dy, dz, rr); }
+      for (i = 0; i < listaRo.length; i++) { o = listaRo[i]; if (o.ro && o.ro.dead) continue; dx = P.x - o.x; if (dx > 400 || dx < -400) continue; dy = P.y - o.y; dz = P.z - o.z; rr = o.r + R; if (dx * dx + dy * dy + dz * dz < rr * rr) impacto(o, dx, dy, dz, rr); }
     }
     function impacto(o, dx, dy, dz, rr) {
       var d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, nx = dx / d, ny = dy / d, nz = dz / d;
       P.x = o.x + nx * (rr + 0.05); P.y = o.y + ny * (rr + 0.05); P.z = o.z + nz * (rr + 0.05);
       var vn = V.x * nx + V.y * ny + V.z * nz;
+      if (vn < -6 && ap.on && !ap.huir) apHuir();
       if (vn < 0) { V.x -= nx * vn * 1.35; V.y -= ny * vn * 1.35; V.z -= nz * vn * 1.35; V.multiplyScalar(0.7); shake = Math.min(1, shake + Math.abs(vn) / 120); if (tToast <= 0.2) toast('IMPACTO', 0.8); acelerador *= 0.6; }
     }
     function camara(dt, t) {
@@ -559,7 +617,7 @@
       hud.palI.style.height = Math.round(acelerador * 100) + '%';
       var C = 1000; hud.hd.innerHTML = 'X ' + (P.x / C).toFixed(1) + ' · Y ' + (P.y / C).toFixed(1) + ' · Z ' + (P.z / C).toFixed(1) + ' km<br>' + Math.round(fps) + ' FPS' + (Red.activo ? ' · en línea (' + Object.keys(remotos).length + ')' : '');
       hud.inv.innerHTML = '<b style="color:#ffe27a">◎ ' + esp.creditos() + '</b><br>' + esp.textoInv();
-      hud.estado.textContent = esp.segura() ? 'ZONA SEGURA · armas bloqueadas' : planCercano ? 'Planeta cercano: ' + planCercano.o.nombre + ' (' + fmtDist(Math.max(0, planCercano.s)) + ')' : '';
+      hud.estado.textContent = ap.on && ap.meta ? (ap.huir ? 'HUYENDO → ' : 'PILOTO AUTOMÁTICO → ') + ap.meta.nombre + ' · ' + fmtDist(Math.sqrt((ap.meta.x - P.x) * (ap.meta.x - P.x) + (ap.meta.y - P.y) * (ap.meta.y - P.y) + (ap.meta.z - P.z) * (ap.meta.z - P.z))) : esp.segura() ? 'ZONA SEGURA · armas bloqueadas' : planCercano ? 'Planeta cercano: ' + planCercano.o.nombre + ' (' + fmtDist(Math.max(0, planCercano.s)) + ')' : '';
     }
 
     /* ---------- jugadores remotos ---------- */
@@ -593,11 +651,11 @@
       DPRH = Math.min(global.devicePixelRatio || 1, 1.5); if (beaconG) { beaconG.width = Math.round(w * DPRH); beaconG.height = Math.round(h * DPRH); }
     }
     return {
-      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _astillerosEn: astillerosEn, _canterasEn: canterasEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
+      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _test: function () { return { desatracar: desatracar, st: function () { return { atracado: atracado, pausado: pausado, acel: acelerador, vel: vel, V: [V.x, V.y, V.z] }; }, listaRo: function () { return listaRo; }, golpeRoca: golpeRoca, ap: ap, apAlternar: apAlternar, setMeta: function (m) { meta = m; }, nSel: function () { return nSel; }, P: P, V: V, Q: Q, estLejanas: function () { return estLejanas; } }; }, _astillerosEn: astillerosEn, _canterasEn: canterasEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
       entrar: function (d) {
         modo = (d && d.modo) || 'solo'; nSel = naveDe(jug.nave); modelo = obtenerModelo(jug.nave); med = medidas[jug.nave];
         if (!modelo) { irA('lobby'); return; }
-        mostrarCapas(['hud']); pausar(false);
+        mostrarCapas(['hud']); pausar(false); apParar();
         pivote = new THREE.Group(); inclinar = new THREE.Group(); escalarN = new THREE.Group(); escalarN.scale.setScalar(nSel.m); escalarN.add(modelo.group); inclinar.add(escalarN); pivote.add(inclinar); sc.add(pivote);
         try { if (modelo.setAccent) modelo.setAccent(jug.acento); } catch (e) { }
         hud.nom.textContent = nSel.nombre.toUpperCase() + ' · ' + esc(jug.nombre);
@@ -658,6 +716,7 @@
         for (i = 0; i < camposVis.length; i++) { o = camposVis[i]; if (o.g) o.g.position.set(o.x - P.x, o.y - P.y, o.z - P.z); }
         esp.fuego(!pausado && !!(teclas.KeyF || botFu)); esp.agarrar(!pausado && !!(teclas.KeyG || botGr));
         if (!atracado) { estCerca = pausado ? null : esp.estacionCerca(); var ev = estCerca ? estCerca.nombre : ''; if (ev !== estVista) { estVista = ev; hud.bAtr.style.display = ev ? 'flex' : 'none'; hud.bAtr.textContent = ev ? 'ATRACAR · ' + ev : ''; } } esp.actualizar(pausado ? 0 : dt, t, fwd);
+        if (modelo.laser && nSel.minero) { if (!laserT) laserT = new THREE.Vector3(0, -0.3, -45); var fl = !pausado && !!(botFu || teclas.KeyF) && !esp.segura(); modelo.laser.target = fl ? laserT : null; modelo.laser.power = fl ? 1 : 0; }
         actualizarModelo(modelo, t, clamp(vel / nSel.vmax, 0, 1));
         moverPolvo(pausado ? 0 : dt, clamp(vel / (nSel.vmax * 2.0), 0, 1)); polvo.position.set(0, 0, 0);
         camara(pausado ? 0.0001 : dt, t); actualizarRemotos(dt, t);

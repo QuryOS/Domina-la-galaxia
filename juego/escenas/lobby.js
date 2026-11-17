@@ -172,7 +172,7 @@
       var nh = P.querySelector('.hor'); if (nh) nh.scrollLeft = sl;
     }
     /* ---- editor de controles: arrastra cada control; toca uno para elegirlo y cambiar su tamaño ---- */
-    var NOMBRES_CTL = { fuego: 'FUEGO', agarrar: 'AGARRAR', turbo: 'TURBO', freno: 'FRENO', acel: 'ACELERADOR', radar: 'RADAR' };
+    var NOMBRES_CTL = { fuego: 'FUEGO', agarrar: 'AGARRAR', turbo: 'TURBO', freno: 'FRENO', auto: 'PILOTO AUTOMÁTICO', acel: 'ACELERADOR', radar: 'RADAR' };
     function abrirEditor() {
       var L = DOMcapas.lobby, ed = el('div', 'jn-ed', L), sel = 'fuego', drag = null, els = {}, id;
       function cfg(i) { return jug.layout[i] || (jug.layout[i] = { dx: 0, dy: 0, s: 1 }); }
@@ -198,7 +198,7 @@
       el('div', 'jn-ed-tit', ed, 'ARRASTRA LOS CONTROLES');
       var rad = el('div', 'jn-radar', ed, '<span>RADAR</span>'); rad.style.width = rad.style.height = '132px'; hacer(rad, 'radar');
       var ac = el('div', 'jn-acel', ed), pal = el('div', 'jn-pal', ac, '<u>ACEL</u><i></i>'); hacer(pal, 'acel');
-      var bs = el('div', 'jn-bots', ac); hacer(el('div', 'jn-bot fu', bs, 'FUEGO'), 'fuego'); hacer(el('div', 'jn-bot gr', bs, 'AGARRAR'), 'agarrar'); hacer(el('div', 'jn-bot', bs, 'TURBO'), 'turbo'); hacer(el('div', 'jn-bot f', bs, 'FRENO'), 'freno');
+      var bs = el('div', 'jn-bots', ac); hacer(el('div', 'jn-bot fu', bs, 'FUEGO'), 'fuego'); hacer(el('div', 'jn-bot gr', bs, 'AGARRAR'), 'agarrar'); hacer(el('div', 'jn-bot', bs, 'TURBO'), 'turbo'); hacer(el('div', 'jn-bot f', bs, 'FRENO'), 'freno'); hacer(el('div', 'jn-bot au', bs, 'AUTO'), 'auto');
       var barra = el('div', 'jn-ed-barra', ed), info = el('div', 'jn-ed-info', barra, ''), rng = el('input', 'jn-lb-rng', barra); rng.type = 'range'; rng.min = 60; rng.max = 170; rng.step = 5;
       rng.oninput = function () { cfg(sel).s = rng.value / 100; aplicar(); dentro(sel); aplicar(); guardar('layout', jug.layout); revisar(); };
       var rs = el('button', 'jn-btn', barra, 'RESTABLECER'); rs.onclick = function () { jug.layout = {}; guardar('layout', {}); aplicar(); revisar(); };

@@ -97,6 +97,13 @@
       for (i = 0; i < n; i++) nuevoBotin(a.tipo, a.x + rnd(-a.r, a.r) * 0.6, a.y + rnd(-a.r, a.r) * 0.6, a.z + rnd(-a.r, a.r) * 0.6, a.vx * 0.5 + rnd(-14, 14), a.vy * 0.5 + rnd(-14, 14), a.vz * 0.5 + rnd(-14, 14));
       if (Math.random() < 0.22) nuevoBotin('piezas', a.x, a.y, a.z, a.vx * 0.4 + rnd(-10, 10), a.vy * 0.4 + rnd(-10, 10), a.vz * 0.4 + rnd(-10, 10));
     }
+    var MEZCLA = [[['hierro', 0.65], ['cobre', 0.95], ['titanio', 1]], [['hierro', 0.35], ['cobre', 0.8], ['titanio', 0.98], ['oro', 1]], [['cobre', 0.3], ['titanio', 0.8], ['oro', 1]]];
+    function botinRoca(x, y, z, r, mat) {   // al romper una roca quieta: mineral según el tipo de roca del campo
+      var n = 2 + Math.min(10, (r / 14) | 0) + ((Math.random() * 3) | 0), i, u, k, tipo, mz = MEZCLA[mat] || MEZCLA[0];
+      explosion(x, y, z, r, 0xffa860);
+      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } nuevoBotin(tipo, x + rnd(-r, r) * 0.7, y + rnd(-r, r) * 0.7, z + rnd(-r, r) * 0.7, rnd(-16, 16), rnd(-16, 16), rnd(-16, 16)); }
+      if (Math.random() < 0.18) nuevoBotin('piezas', x, y, z, rnd(-10, 10), rnd(-10, 10), rnd(-10, 10));
+    }
     function recoger(b) {
       inv[b.tipo]++; guardar('inv', inv);
       var nom = b.tipo === 'piezas' ? 'Trozo metálico' : TIPOS[b.tipo].n;
@@ -177,6 +184,27 @@
             break;
           }
         }
+        if (d.on && ctx.rocas) {   // rocas quietas de los campos: solo las rompe la nave minera (lo decide el mundo)
+          var lr = ctx.rocas(), q, o;
+          for (q = 0; q < lr.length; q++) {
+            o = lr[q]; if (o.ro && o.ro.dead) continue; rr = o.r + 4;
+            if ((d.x - o.x) > rr || (o.x - d.x) > rr || (d.y - o.y) > rr || (o.y - d.y) > rr) continue;
+            if (((d.x - o.x) * (d.x - o.x) + (d.y - o.y) * (d.y - o.y) + (d.z - o.z) * (d.z - o.z) < rr * rr) || ((((px + d.x) * 0.5) - o.x) * (((px + d.x) * 0.5) - o.x) + (((py + d.y) * 0.5) - o.y) * (((py + d.y) * 0.5) - o.y) + (((pz + d.z) * 0.5) - o.z) * (((pz + d.z) * 0.5) - o.z) < rr * rr)) {
+              d.on = false; d.m.visible = false; ctx.golpeRoca(o, d.x, d.y, d.z); break;
+            }
+          }
+        }
+      }
+      // canteras: de vez en cuando lanzan mineral al espacio con su catapulta
+      for (var kc in estac) {
+        var sq = estac[kc]; if (sq.o.tipo !== 'cantera') continue;
+        dx = sq.o.x - P.x; dy = sq.o.y - P.y; dz = sq.o.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        sq.t = (sq.t === undefined ? rnd(4, 14) : sq.t) - dt;
+        if (sq.t <= 0 && d < 3500) {
+          sq.t = rnd(22, 55); var nb = 4 + ((Math.random() * 6) | 0), ex = rnd(-1, 1), ey = rnd(-0.6, 0.6), ez = rnd(-1, 1), el = Math.sqrt(ex * ex + ey * ey + ez * ez) || 1; ex /= el; ey /= el; ez /= el;
+          explosion(sq.o.x + ex * 230, sq.o.y + ey * 230, sq.o.z + ez * 230, 18, 0xffb060);
+          for (i = 0; i < nb; i++) { var vv = rnd(30, 75); nuevoBotin(elegirTipo(), sq.o.x + ex * 240 + rnd(-8, 8), sq.o.y + ey * 240 + rnd(-8, 8), sq.o.z + ez * 240 + rnd(-8, 8), ex * vv + rnd(-6, 6), ey * vv + rnd(-6, 6), ez * vv + rnd(-6, 6)); }
+        } else if (sq.t <= 0) sq.t = 3;
       }
       // asteroides
       for (i = ast.length - 1; i >= 0; i--) {
@@ -228,14 +256,14 @@
     }
     function zonaEn(x, y, z) {   // zona segura (esfera de 1 km: estaciones y astilleros); null si estás fuera
       var k, s, dx, dy, dz, i, o, rz;
-      for (k in estac) { s = estac[k].o; dx = s.x - x; dy = s.y - y; dz = s.z - z; if (dx * dx + dy * dy + dz * dz < R_ZONA * R_ZONA) return s; }
+      for (k in estac) { s = estac[k].o; if (s.tipo === 'cantera') continue; dx = s.x - x; dy = s.y - y; dz = s.z - z; if (dx * dx + dy * dy + dz * dz < R_ZONA * R_ZONA) return s; }
       for (i = 0; i < zonasExtra.length; i++) { o = zonasExtra[i]; rz = o.r || R_ZONA; dx = o.x - x; dy = o.y - y; dz = o.z - z; if (dx * dx + dy * dy + dz * dz < rz * rz) return o; }
       return null;
     }
-    function zonas() { var l = [], k; for (k in estac) l.push({ x: estac[k].o.x, y: estac[k].o.y, z: estac[k].o.z, r: R_ZONA }); return l.concat(zonasExtra); }
+    function zonas() { var l = [], k; for (k in estac) if (estac[k].o.tipo !== 'cantera') l.push({ x: estac[k].o.x, y: estac[k].o.y, z: estac[k].o.z, r: R_ZONA }); return l.concat(zonasExtra); }
     function estacionCerca() {   // estación a menos de R_ATRAQUE m del centro (el anillo mide ~110 m)
       var k, s, dx, dy, dz, d, mej = null, md = 1e12;
-      for (k in estac) { s = estac[k]; dx = s.o.x - P.x; dy = s.o.y - P.y; dz = s.o.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < (s.o.r || R_CASCO) + D_ATRAQUE && d < md) { md = d; mej = s.o; } }
+      for (k in estac) { s = estac[k]; if (s.o.tipo === 'cantera') continue; dx = s.o.x - P.x; dy = s.o.y - P.y; dz = s.o.z - P.z; d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < (s.o.r || R_CASCO) + D_ATRAQUE && d < md) { md = d; mej = s.o; } }
       return mej;
     }
     function vender(tipo) {
@@ -257,7 +285,7 @@
     }
     return {
       entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv,
-      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, PARTES: PARTES, partes: partes, canjear: canjear, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
+      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, botinRoca: botinRoca, chispa: function (x, y, z, r) { explosion(x, y, z, r || 3, 0xffe2a0); }, PARTES: PARTES, partes: partes, canjear: canjear, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
     };
   }
   E.Espacio = { crear: crear, TIPOS: TIPOS };

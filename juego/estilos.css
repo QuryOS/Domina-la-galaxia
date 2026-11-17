@@ -158,3 +158,4 @@
 .jn-ed-info{flex:1 1 100%;font:600 12px system-ui,sans-serif;color:#e8f0ff}.jn-ed-barra .jn-lb-rng{flex:1 1 100%;margin:0}.jn-ed-barra .jn-btn{flex:1;padding:9px 6px;font-size:12px}
 @media (orientation:landscape) and (max-height:420px){.jn-bots{display:grid;grid-template-columns:auto auto;gap:8px;align-items:end}.jn-acel{gap:8px}}
 .jn-ed-barra{bottom:auto;top:calc(32px + env(safe-area-inset-top));width:min(48vw,380px)}
+.jn-bot.au{border-color:#b98cff;color:#e2d2ff}.jn-bot.au.on{background:rgba(150,100,255,.45);box-shadow:0 0 18px rgba(170,120,255,.8)}

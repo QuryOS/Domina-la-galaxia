@@ -41,7 +41,7 @@
     { id: 'titan', nombre: 'Titán', archivo: 'cruiser.js', fn: 'createCruiser', m: 6, clase: 'Crucero', vmax: 120, agil: 0.45, blind: 0.80, desc: 'Crucero con torretas orientables.' },
     { id: 'vanguardia', nombre: 'Vanguardia', archivo: 'vanguardia.js', fn: 'createVanguardia', m: 10, clase: 'Crucero pesado', vmax: 90, agil: 0.30, blind: 0.90, desc: 'La joya del astillero: 480 m de longitud.' },
     { id: 'nodriza', nombre: 'Nodriza', archivo: 'nodriza.js', fn: 'createNodriza', m: 4, clase: 'Portanaves', vmax: 70, agil: 0.25, blind: 0.90, desc: 'Portanaves de apoyo. Pesadísima.' },
-    { id: 'prospector', nombre: 'Prospector', archivo: 'extractor.js', fn: 'createProspector', m: 4, clase: 'Minera', vmax: 120, agil: 0.55, blind: 0.6, desc: 'Nave minera con brazos robóticos para rocas quietas.' },
+    { id: 'prospector', minero: true, nombre: 'Prospector', archivo: 'extractor.js', fn: 'createProspector', m: 4, clase: 'Minera', vmax: 120, agil: 0.55, blind: 0.6, desc: 'Nave minera con brazos robóticos para rocas quietas.' },
     { id: 'leviatan', nombre: 'Leviatán', archivo: 'leviatan.js', fn: 'createLeviatan', m: 10, clase: 'Acorazado', vmax: 60, agil: 0.20, blind: 1.00, desc: 'El acorazado: 520 m de acero.' }
   ];
   var NAVES_INICIALES = ['sombra'];   // las demás se desbloquean jugando (astilleros / tienda)

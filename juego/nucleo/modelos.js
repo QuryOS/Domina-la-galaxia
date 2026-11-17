@@ -23,6 +23,7 @@
     var m = null;
     try { m = global[n.fn](THREE, { accent: jug.acento }); } catch (e) { if (global.console) console.error('Error creando ' + id, e); disponibles[id] = false; return null; }
     if (!m || !m.group) { disponibles[id] = false; return null; }
+    if (m.rocks && m.rocks.length) { m.rocks.forEach(function (r) { if (r.parent) r.parent.remove(r); }); m.rocks = []; if ('demo' in m) m.demo = false; }   // sin las rocas de la demostración (la nave busca las suyas)
     cache[id] = m; medidas[id] = medir(n, m);
     try { if (m.setAccent) m.setAccent(jug.acento); } catch (e2) { }
     return m;
