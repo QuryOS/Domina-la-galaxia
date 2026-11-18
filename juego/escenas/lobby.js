@@ -215,7 +215,7 @@
     }
     function marcarSeg(c) {
       var b = c.querySelectorAll('.jn-seg button'), i;
-      for (i = 0; i < b.length; i++) { var k = b[i].parentNode.getAttribute('data-k'), v = b[i].getAttribute('data-v'); b[i].className = 'jn-btn' + ((k === 'calidad' && jug.calidad === v) || (k === 'inv' && String(jug.invertirY ? 1 : 0) === v) || (k === 'pruebas' && String(jug.pruebas ? 1 : 0) === v) ? ' on' : ''); }
+      for (i = 0; i < b.length; i++) { var k = b[i].parentNode.getAttribute('data-k'), v = b[i].getAttribute('data-v'); b[i].className = 'jn-btn' + ((k === 'calidad' && jug.calidad === v) || (k === 'inv' && String(jug.invertirY ? 1 : 0) === v) || (k === 'pruebas' && String(jug.pruebas ? 1 : 0) === v) || (k === 'rapido' && String(leer('rapido', false) ? 1 : 0) === v) ? ' on' : ''); }
     }
     function pintarAjustes(c) {
       seg(c, 'CALIDAD GRÁFICA', 'calidad', [['baja', 'Baja'], ['media', 'Media'], ['alta', 'Alta']]);
@@ -237,6 +237,7 @@
       el('div', 'jn-lb-nota', c, 'Cuando haya servidor, tu progreso se guardará en tu cuenta y podrás jugar desde cualquier dispositivo.');
       el('div', 'jn-lb-sub', c, 'PRUEBAS');
       seg(c, 'DESBLOQUEAR TODAS LAS NAVES', 'pruebas', [['0', 'No'], ['1', 'Sí']]);
+      seg(c, 'CONSTRUCCIÓN INSTANTÁNEA (sin esperar)', 'rapido', [['0', 'No'], ['1', 'Sí']]);
       el('div', 'jn-lb-nota', c, 'Versión ' + esc(CONFIG.version) + (global.JN_V ? ' · ' + esc(global.JN_V) : ''));
       marcarSeg(c);
     }
@@ -264,7 +265,7 @@
       /* el panel de ajustes reutiliza un solo manejador de clics */
       L.addEventListener('click', function (e) {
         var b = e.target; if (!b || !b.getAttribute || b.parentNode === null || !b.parentNode.getAttribute) return; var v = b.getAttribute('data-v'); if (v == null) return; var k = b.parentNode.getAttribute('data-k'); if (!k) return;
-        if (k === 'calidad') { jug.calidad = v; guardar('calidad', v); redimensionar(); } else if (k === 'inv') { jug.invertirY = v === '1'; guardar('invY', jug.invertirY); } else if (k === 'pruebas') { jug.pruebas = v === '1'; guardar('pruebas', jug.pruebas); }
+        if (k === 'calidad') { jug.calidad = v; guardar('calidad', v); redimensionar(); } else if (k === 'inv') { jug.invertirY = v === '1'; guardar('invY', jug.invertirY); } else if (k === 'pruebas') { jug.pruebas = v === '1'; guardar('pruebas', jug.pruebas); } else if (k === 'rapido') { guardar('rapido', v === '1'); }
         marcarSeg(ui.panel);
       });
       uiHecha = true;
@@ -282,7 +283,7 @@
     return {
       construir: construir, redimensionar: redimensionar3,
       entrar: function () {
-        mostrarCapas(['lobby']); if (!uiHecha) construirUI();
+        mostrarCapas(['lobby']); if (!uiHecha) construirUI(); if (E.refrescarTexturas) E.refrescarTexturas();
         if (!naveLibre(jug.nave)) { jug.nave = 'sombra'; guardar('nave', 'sombra'); }
         idx = indiceNaveElegida(); tab = 'inicio'; aplicarAcento(); marcarTabs(); escenario(); pintarPanel();
         ui.cred.innerHTML = '◎ ' + (leer('cred', 0) || 0);

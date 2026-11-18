@@ -161,7 +161,7 @@
             else if (cant) { if (typeof global.createCantera === 'function') mod = global.createCantera(THREE, { accent: 0xff8a1f, spin: 0.02 }); }
             else if (typeof global.createStation === 'function') mod = global.createStation(THREE, { accent: 0x1fd1b5, spin: 0.05 });
           } catch (e) { mod = null; }
-          if (mod && mod.group && (astl || cant)) aligerar(mod);
+          if (mod && mod.group) aligerar(mod);
           if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(astl ? (global.createForja ? 6 : 18) : cant ? 8 : 21); w.add(mod.group); g.add(w); }
           else if (astl || cant) { var cb = new THREE.Mesh(new THREE.BoxGeometry(320, 40, 320), new THREE.MeshStandardMaterial({ color: 0x8a6a3a, metalness: 0.5, roughness: 0.6 })); g.add(cb); }
           else { var an = new THREE.Mesh(new THREE.TorusGeometry(190, 21, 10, 36), new THREE.MeshStandardMaterial({ color: 0x9fb3c4, metalness: 0.6, roughness: 0.5 })); an.rotation.x = Math.PI / 2; g.add(an); }

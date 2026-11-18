@@ -180,3 +180,9 @@
 .jn-pmenu.jn-pl-panel{background:rgba(2,5,13,.94);padding:0!important;gap:0!important;overflow:hidden!important}.jn-pmenu.jn-pl-panel.on{display:block!important}
 .jn-pl-cab{position:absolute;left:calc(14px + env(safe-area-inset-left));top:calc(10px + env(safe-area-inset-top));letter-spacing:.2em}
 .jn-aterrizar{bottom:calc(26% + 64px)!important;border-color:rgba(255,200,90,.9)!important;background:rgba(48,34,10,.78)!important}
+
+.jn-hud.sin-hud>*:not(.jn-pmenu){visibility:hidden!important}
+.jn-fl-sub{margin:8px 2px 0;font-size:11px;letter-spacing:.2em;color:#9fe8b0}
+.jn-hud .jn-mapa-barra{left:0;right:auto;top:calc(60px + env(safe-area-inset-top));bottom:8px;width:176px;flex-direction:column;overflow-x:hidden;overflow-y:auto;padding:4px 6px calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));gap:5px;background:linear-gradient(90deg,rgba(2,5,13,.85),rgba(2,5,13,0))}
+.jn-hud .jn-mapa-card{min-width:0;max-width:none;padding:5px 8px;gap:6px;border-radius:9px}
+.jn-hud .jn-mapa-card b{font-size:11.5px}.jn-hud .jn-mapa-card small{font-size:10px}.jn-hud .jn-mapa-card .st{font-size:14px}

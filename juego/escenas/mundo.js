@@ -109,7 +109,7 @@
     function aterrizar() {
       if (!plAter || atracado || mapaAbierto) return; var o = plAter.o;
       var ret = { modo: modo, p: [P.x, P.y, P.z], q: [Q.x, Q.y, Q.z, Q.w] };
-      apParar(); irA('planeta', { pl: { key: o.key, tipo: o.tipo, nombre: o.nombre, r: o.r }, retorno: ret });
+      apParar(); irA('planeta', { pl: { key: o.key, tipo: o.tipo, nombre: o.nombre, r: o.r, x: o.x, y: o.y, z: o.z }, retorno: ret });
     }
     function toast(txt, ms) { hud.toast.textContent = txt; hud.toast.style.opacity = 1; tToast = ms || 1.1; }
     /* ---------- mapa a pantalla completa: estaciones, planetas, planetas mineros, campos de asteroides y (pronto) astilleros ---------- */
@@ -164,10 +164,10 @@
       mapaLista = lugaresEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]).map(function (q) { return { t: q.o.tipo, d: q.d, o: q.o }; });
       (function () { var id, f, dx, dy, dz; for (id in flota) { f = flota[id]; if (f.modo === 'hangar' || f.modo === 'piloto') continue; dx = f.x - P.x; dy = f.y - P.y; dz = f.z - P.z; mapaLista.push({ t: 'flota', d: Math.sqrt(dx * dx + dy * dy + dz * dz), o: { key: 'F' + id, x: f.x, y: f.y, z: f.z, r: 0, nombre: naveDe(id).nombre, tipo: 'flota' } }); } mapaLista.sort(function (u, v) { return u.d - v.d; }); })();
       mapaCuerpos = 0; mapaTok++;
-      hud.mapa.classList.add('on'); pintarMapa();
+      hud.mapa.classList.add('on'); DOMcapas.hud.classList.add('sin-hud'); pintarMapa();
       if (mapaFiltro.planeta || mapaFiltro.minero || mapaFiltro.campo) pedirCuerpos();
     }
-    function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); }
+    function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); DOMcapas.hud.classList.remove('sin-hud'); }
     function pintarMapa() {   // arriba = hacia donde apunta tu nave
       var M = hud.mapa, R = ZOOMS[mapaZ], W = E.ancho, H = E.alto, dpr = Math.min(2, global.devicePixelRatio || 1), i, o;
       var vis = mapaLista.filter(function (x) { return x.d <= R * 2.2 && (mapaFiltro[x.t] || (meta && meta.key === x.o.key)) && !(x.t === 'campo' && R > 40000); });   // los campos son miles: solo con el alcance corto
@@ -432,7 +432,7 @@
     /* ---------- piloto automático: navega al destino marcado esquivando rocas y asteroides; no defiende ---------- */
     var laserT = null, ap = { on: false, huir: false, minar: false, seg: false, espera: false, tr: 0, meta: null }, apLaser = false, apSup = 0, apT = 0, apE = { yaw: 0, pit: 0, roll: 0, acel: 0, turbo: false, freno: false }, apQ, apD, apS, apL;
     function esLugar(o) { return o && (o.tipo === 'estacion' || o.tipo === 'astillero'); }
-    function apDistParada(m) { if (m.ro) return m.r + 48; if (m.stop) return m.stop; return esLugar(m) ? (m.r || 260) + 70 : (m.r || 0) * (m.tipo === 'planeta' || m.tipo === 'minero' ? 1.15 : 1) + 250; }
+    function apDistParada(m) { if (m.ro) return m.r + 48; if (m.stop) return m.stop; return esLugar(m) ? (m.r || 260) + 70 : m.tipo === 'planeta' && m.colonia ? (m.r || 0) * 0.6 + 1200 : (m.r || 0) * (m.tipo === 'planeta' || m.tipo === 'minero' ? 1.15 : 1) + 250; }
     function apParar(txt) { ap.on = false; ap.huir = false; ap.minar = false; ap.seg = false; ap.espera = false; apLaser = false; ap.meta = null; hzN = 0; if (hud.bMod) hud.bMod.classList.remove('on'); if (hud.bAuto) hud.bAuto.classList.remove('on'); if (txt) toast(txt, 1.5); }
     function apAlternar() {
       if (pausado || atracado) return;
@@ -471,6 +471,7 @@
       }
       for (i = 0; i < listaRo.length; i++) { o = listaRo[i]; if (o === m || (o.ro && o.ro.dead) || o.x - P.x > look + 400 || P.x - o.x > look + 400) continue; obst(o.x, o.y, o.z, o.r); }
       for (i = 0; i < lst.length; i++) obst(lst[i].x, lst[i].y, lst[i].z, lst[i].r);
+      if (hold && llego) apS.set(0, 0, 0);   // ya en posición: se apunta directo a la roca, sin desvíos
       apD.add(apS); apD.normalize();
       apQ.copy(Q).invert(); apL.copy(apD).applyQuaternion(apQ);   // dirección deseada en ejes de la nave (la nariz es -Z)
       var yawErr = Math.atan2(apL.x, -apL.z), pitErr = Math.atan2(apL.y, -apL.z), err = Math.sqrt(yawErr * yawErr + pitErr * pitErr);
@@ -478,12 +479,13 @@
       var cruce = ap.huir ? 1 : clamp((dist - stop) / 3500, 0.12, 1); cruce *= 1 - Math.min(0.75, err / 1.6);
       if (apS.lengthSq() > 0.3) cruce = Math.min(cruce, 0.5);
       if (hold && (llego || ap.espera)) {
-        cruce = 0; if (ap.espera) cruce = 0;
+        cruce = 0;
         if (ap.minar && !ap.espera) { if (Math.abs(yawErr) < 0.14 && Math.abs(pitErr) < 0.14) { apLaser = true; danarRoca(m, dt, jug.nave); if (!laserT) laserT = new THREE.Vector3(); apSup = dist - m.r; laserT.copy(apL).multiplyScalar(Math.min(60, apSup / nSel.m)); } }
         else if (ap.seg && llego) {
           if (necesitaRecogida(ap.mi)) { ap.tr += dt; hzN = 1; hzA[0] = P.x; hzA[1] = P.y; hzA[2] = P.z; hzB[0] = m.x; hzB[1] = m.y; hzB[2] = m.z; if (ap.tr >= 3.5) { ap.tr = 0; var mv = transferir(ap.mi, jug.nave); toast(mv ? 'CARGA RECIBIDA +' + mv : 'CARGUERO LLENO', 1.5); if (!mv) apParar('CARGUERO LLENO · VE A UNA ESTACIÓN'); } } else ap.tr = 0;
         }
       }
+      if (ap.minar && !ap.espera) { if (apLaser) ap.ocio = 0; else { ap.ocio = (ap.ocio || 0) + dt; if (ap.ocio > (llego ? 7 : 40)) { ap.ocio = 0; if (m.ro) m.ro.mal = true; ap.meta = null; toast('BUSCANDO OTRA ROCA', 1.2); } } }
       acelerador += (cruce - acelerador) * Math.min(1, dt * 1.6);
     }
     /* ---------- flota: tus naves vuelan solas; minería automática y carguero que sigue al minero ---------- */
@@ -510,7 +512,7 @@
     function elegirRoca(x, y, z, R, id) {
       var i, o, dx, dy, dz, d, best = null, bd = R * R;
       for (i = 0; i < listaRo.length; i++) {
-        o = listaRo[i]; if (!o.ro || o.ro.dead || (o.ro.res && o.ro.res !== id)) continue;
+        o = listaRo[i]; if (!o.ro || o.ro.dead || o.ro.mal || (o.ro.res && o.ro.res !== id)) continue;
         dx = o.x - x; dy = o.y - y; dz = o.z - z; d = dx * dx + dy * dy + dz * dz; if (d < bd) { bd = d; best = o; }
       }
       return best;
@@ -613,6 +615,7 @@
       } else if (s.modo === 'mina') {
         if (bodLlena(s.id)) { iaMover(s, s.x, s.y, s.z, 0, dt, 0, true); if (!hayCarguero()) { s.modo = 'parada'; toast('FLOTA LLENA · MINERÍA DETENIDA', 2.4); } return; }
         if (!s.tgt || (s.tgt.ro && s.tgt.ro.dead)) { s.tgt = elegirRoca(s.x, s.y, s.z, RADIO_MINA, s.id); if (!s.tgt) { s.modo = 'parada'; toast('SIN ROCAS CERCA · ' + n.nombre.toUpperCase(), 2); return; } s.tgt.ro.res = s.id; }
+        if (s.minando) s.ocio = 0; else { s.ocio = (s.ocio || 0) + dt; if (s.ocio > 45) { s.ocio = 0; if (s.tgt.ro) s.tgt.ro.mal = true; s.tgt = null; return; } }
         o = s.tgt; var d0 = Math.sqrt((o.x - s.x) * (o.x - s.x) + (o.y - s.y) * (o.y - s.y) + (o.z - s.z) * (o.z - s.z)) - o.r - 48;
         d = iaMover(s, o.x, o.y, o.z, o.r + 48, dt, d0 > 3000 ? 2.4 : 0.8, false);
         if (d <= 25 && s.err < 0.2) { s.minando = true; danarRoca(o, dt, s.id); s.sup = d + 48; if (!s.lz) s.lz = new THREE.Vector3(); s.lz.set(0, -0.3, -Math.min(60, s.sup / n.m)); }
@@ -651,8 +654,8 @@
       flota = {}; bodegas = {}; hzN = 0; if (haz) haz.visible = false;
     }
     /* ---- panel FLOTA (pantalla completa, pausa el juego como el mapa) ---- */
-    function abrirFlota() { if (mapaAbierto || atracado || pausado) return; panelFlota = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false; hud.flota.classList.add('on'); pintarFlota(); }
-    function cerrarFlota() { if (!panelFlota) return; panelFlota = false; pausado = false; hud.flota.classList.remove('on'); botonModo(); }
+    function abrirFlota() { if (mapaAbierto || atracado || pausado) return; panelFlota = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false; hud.flota.classList.add('on'); DOMcapas.hud.classList.add('sin-hud'); pintarFlota(); }
+    function cerrarFlota() { if (!panelFlota) return; panelFlota = false; pausado = false; hud.flota.classList.remove('on'); DOMcapas.hud.classList.remove('sin-hud'); botonModo(); }
     function textoEstado(id, s) {
       var n = naveDe(id), c = capDe(id), b = c ? ' · bodega ' + bodDe(id).n + '/' + c : '', p = posDe(id), d = p && id !== jug.nave ? ' · ' + fmtDist(Math.sqrt((p.x - P.x) * (p.x - P.x) + (p.y - P.y) * (p.y - P.y) + (p.z - P.z) * (p.z - P.z))) : '';
       if (id === jug.nave) return 'PILOTANDO' + (ap.on ? (ap.minar ? ' · minando solo' : ap.seg ? ' · siguiendo al minero' : ' · piloto automático') : '') + b;
@@ -677,6 +680,15 @@
         if (act ? ap.on : (s && s.modo !== 'hangar' && s.modo !== 'parada')) b('PARAR', function () { ordenar(n.id, 'parar'); });
       });
       if (!hay) el('div', 'jn-ayuda', lista, 'Aún no tienes más naves.');
+      var cols = E.leer('colonias', {}), kc = Object.keys(cols);
+      if (kc.length) {
+        el('div', 'jn-fl-sub', lista, 'MIS COLONIAS');
+        kc.forEach(function (k) {
+          var c = cols[k], r = el('div', 'jn-fl-fila', lista), inf = el('div', 'jn-fl-inf', r), dd = Math.sqrt((c.x - P.x) * (c.x - P.x) + (c.y - P.y) * (c.y - P.y) + (c.z - P.z) * (c.z - P.z));
+          el('b', '', inf, c.nombre); el('span', '', inf, c.estructuras + ' estructuras · ' + fmtDist(dd));
+          var b = el('button', 'jn-btn', el('div', 'jn-fl-bt', r), 'VIAJAR'); b.onclick = function () { cerrarFlota(); apParar(); ap.on = true; ap.meta = { key: c.key, x: c.x, y: c.y, z: c.z, r: c.r, tipo: 'planeta', nombre: c.nombre, colonia: true }; hud.bAuto.classList.add('on'); toast('RUMBO A ' + c.nombre.toUpperCase(), 1.6); };
+        });
+      }
       el('div', 'jn-ayuda', lista, 'Las naves que no pilotas vuelan solas mientras estás en el juego. Su mineral pasa a tu inventario al llegar a una estación o al salir al hangar.');
     }
 
