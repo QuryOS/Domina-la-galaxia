@@ -15,6 +15,7 @@
     espaciadoEstaciones: 55000,  // una estación por cada cubo de 55 km (con desplazamiento al azar): ~3-5 min de vuelo a 220 m/s
     espaciadoAstilleros: 70000,  // un astillero por cada cubo de 70 km (posición al azar)
     radioAstillero: 360,         // la Forja (astillero orbital)
+    capacidades: { prospector: 40, mastodonte: 360 },
     espaciadoCanteras: 60000,    // una cantera minera (asteroide con instalaciones) por cada cubo de 60 km
     radioCantera: 240,
     radioEstacion: 260,          // tamaño de la estación (m)

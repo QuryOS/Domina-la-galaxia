@@ -104,6 +104,13 @@
       for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } nuevoBotin(tipo, x + rnd(-r, r) * 0.7, y + rnd(-r, r) * 0.7, z + rnd(-r, r) * 0.7, rnd(-16, 16), rnd(-16, 16), rnd(-16, 16)); }
       if (Math.random() < 0.18) nuevoBotin('piezas', x, y, z, rnd(-10, 10), rnd(-10, 10), rnd(-10, 10));
     }
+    function sacarMineral(r, mat) {   // lo que da una roca rota, directo a una bodega (minería automática): { hierro: n, ..., piezas: n }
+      var n = 2 + Math.min(10, (r / 14) | 0) + ((Math.random() * 3) | 0), i, u, k, tipo, mz = MEZCLA[mat] || MEZCLA[0], out = {};
+      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } out[tipo] = (out[tipo] || 0) + 1; }
+      if (Math.random() < 0.18) out.piezas = 1;
+      return out;
+    }
+    function depositar(it) { var k, t = 0; for (k in it) if (typeof inv[k] === 'number') { inv[k] += it[k]; t += it[k]; } guardar('inv', inv); return t; }
     function recoger(b) {
       inv[b.tipo]++; guardar('inv', inv);
       var nom = b.tipo === 'piezas' ? 'Trozo metálico' : TIPOS[b.tipo].n;
@@ -125,6 +132,23 @@
       var q = PARTES.filter(function (x) { return x.id === id; })[0]; if (!q || (inv.piezas || 0) < q.c) return false;
       inv.piezas -= q.c; partes[id] = (partes[id] || 0) + 1; guardar('inv', inv); guardar('partes', partes); return true;
     }
+    /* aligera un edificio grande: quita luces puntuales (cambiar el nº de luces recompila todos los shaders = tirón)
+       y congela las matrices de lo que no se mueve (miles de objetos menos que recalcular por cuadro) */
+    function aligerar(mod) {
+      try {
+        var g = mod.group, lista = [], i, k, A = [], B = [], C = [], n, e1, e2, e3;
+        g.traverse(function (c) { if (c.isPointLight || c.isSpotLight) c.visible = false; if (c !== g) lista.push(c); });
+        function foto(dst, t) { try { if (mod.update) mod.update(t, 0.7); } catch (x) { } g.updateMatrixWorld(true); for (i = 0; i < lista.length; i++) { lista[i].updateMatrix(); dst[i] = lista[i].matrix.elements.slice(); } }
+        foto(A, 1.13); foto(B, 2.71); foto(C, 4.93);
+        for (n = 0; n < lista.length; n++) {
+          e1 = A[n]; e2 = B[n]; e3 = C[n]; k = 0;
+          for (i = 0; i < 16; i++) if (Math.abs(e1[i] - e2[i]) > 1e-6 || Math.abs(e1[i] - e3[i]) > 1e-6) { k = 1; break; }
+          if (!k && !lista[n].isInstancedMesh) { lista[n].matrixAutoUpdate = false; }
+        }
+        for (n = 0; n < lista.length; n++) if (!lista[n].matrixAutoUpdate) lista[n].matrix.fromArray(A[n]);   // deja la pose de la primera foto (el modelo la reanima si hace falta)
+        g.updateMatrixWorld(true);
+      } catch (er) { }
+    }
     function estaciones(lista) {
       var keep = {}, i, o, k;
       for (i = 0; i < lista.length; i++) {
@@ -137,6 +161,7 @@
             else if (cant) { if (typeof global.createCantera === 'function') mod = global.createCantera(THREE, { accent: 0xff8a1f, spin: 0.02 }); }
             else if (typeof global.createStation === 'function') mod = global.createStation(THREE, { accent: 0x1fd1b5, spin: 0.05 });
           } catch (e) { mod = null; }
+          if (mod && mod.group && (astl || cant)) aligerar(mod);
           if (mod && mod.group) { var w = new THREE.Group(); w.scale.setScalar(astl ? (global.createForja ? 6 : 18) : cant ? 8 : 21); w.add(mod.group); g.add(w); }
           else if (astl || cant) { var cb = new THREE.Mesh(new THREE.BoxGeometry(320, 40, 320), new THREE.MeshStandardMaterial({ color: 0x8a6a3a, metalness: 0.5, roughness: 0.6 })); g.add(cb); }
           else { var an = new THREE.Mesh(new THREE.TorusGeometry(190, 21, 10, 36), new THREE.MeshStandardMaterial({ color: 0x9fb3c4, metalness: 0.6, roughness: 0.5 })); an.rotation.x = Math.PI / 2; g.add(an); }
@@ -232,7 +257,7 @@
       // explosiones
       for (i = boom.length - 1; i >= 0; i--) { var e = boom[i]; e.t += dt; if (e.t > 0.55) { sc.remove(e.s); e.s.material.dispose(); boom.splice(i, 1); } }
       // estaciones
-      for (var k2 in estac) { var s = estac[k2]; if (s.mod && s.mod.update) { if (s.o.tipo === 'astillero' || s.o.tipo === 'cantera') { var ax = s.o.x - P.x, ay = s.o.y - P.y, az = s.o.z - P.z; if (ax * ax + ay * ay + az * az > 9e6) continue; } try { s.mod.update(t, s.o.tipo === 'estacion' ? 0 : 0.7); } catch (er) { } } }
+      for (var k2 in estac) { var s = estac[k2]; if (s.mod && s.mod.update) { if (s.o.tipo === 'astillero' || s.o.tipo === 'cantera') { var ax = s.o.x - P.x, ay = s.o.y - P.y, az = s.o.z - P.z; if (ax * ax + ay * ay + az * az > 9e6) continue; if ((s.alt = !s.alt)) continue; } try { s.mod.update(t, s.o.tipo === 'estacion' ? 0 : 0.7); } catch (er) { } } }
       colocar();
     }
     function colocar() {   // origen flotante: todo se coloca relativo a la nave
@@ -285,7 +310,7 @@
     }
     return {
       entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv,
-      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, botinRoca: botinRoca, chispa: function (x, y, z, r) { explosion(x, y, z, r || 3, 0xffe2a0); }, PARTES: PARTES, partes: partes, canjear: canjear, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
+      fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, botinRoca: botinRoca, sacarMineral: sacarMineral, depositar: depositar, setRadio: function (r) { radio = r || 6; }, chispa: function (x, y, z, r) { explosion(x, y, z, r || 3, 0xffe2a0); }, PARTES: PARTES, partes: partes, canjear: canjear, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
     };
   }
   E.Espacio = { crear: crear, TIPOS: TIPOS };
