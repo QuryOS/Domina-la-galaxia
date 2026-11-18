@@ -15,6 +15,7 @@
     DOMcapas.carga = el('div', 'jn-capa jn-carga', raiz);
     DOMcapas.lobby = el('div', 'jn-capa jn-lobby', raiz);
     DOMcapas.hud = el('div', 'jn-capa jn-hud', raiz);
+    DOMcapas.planeta = el('div', 'jn-capa jn-planeta', raiz);
     var girar = el('div', 'jn-girar', raiz, '<div class="ico">⟳</div><div>Gira tu teléfono a<br><b>horizontal</b></div>');
     raiz.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
@@ -22,6 +23,10 @@
     try {
       E.renderer = new THREE.WebGLRenderer({ canvas: E.lienzo, antialias: jug.calidad !== 'baja', powerPreference: 'high-performance' });
     } catch (e) { return false; }
+    // si el móvil pierde el contexto WebGL (memoria / segundo plano) hay que permitir que se restaure, si no todo queda negro
+    E.lienzo.addEventListener('webglcontextlost', function (ev) { ev.preventDefault(); }, false);
+    E.lienzo.addEventListener('webglcontextrestored', function () { E.refrescarTexturas && E.refrescarTexturas(); }, false);
+    E.refrescarTexturas = function () { ['skyTex', 'glowTex', 'anillosTex'].forEach(function (k) { if (E[k]) E[k].needsUpdate = true; }); };
     E.renderer.setClearColor(0x02030a, 1);
     E.renderer.outputEncoding = THREE.sRGBEncoding;
     E.renderer.toneMapping = THREE.ACESFilmicToneMapping;

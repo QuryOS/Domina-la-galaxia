@@ -13,6 +13,7 @@
   "juego/escenas/lobby.js",
   "juego/mundo/espacio.js",
   "juego/escenas/mundo.js",
+  "juego/escenas/planeta.js",
   "juego/main.js"
  ]
 }
