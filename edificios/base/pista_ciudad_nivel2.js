@@ -1087,7 +1087,7 @@ function createPistaCiudad2(THREE, opts) {
   }
 
   /* ---------- Planificador, demostración y API ---------- */
-  var mode = 'working', ghost = false, origEm = {}, lastT = null, demoT = 0, tickN = 0;
+  var manualLift = null, mode = 'working', ghost = false, origEm = {}, lastT = null, demoT = 0, tickN = 0;
   bays.forEach(function (b) { b.holds = 0; b.idleT = 9; b.prog = 0; b.uses = 0; });
   setLiftY(lift.y);
   function lockFree() { for (var q4 = 0; q4 < jobs.length; q4++) if (jobs[q4].mv) return false; return true; }
@@ -1145,7 +1145,18 @@ function createPistaCiudad2(THREE, opts) {
     landing: landingRef,                                 // centro de la plataforma del ascensor en la azotea (de aquí despegan las naves)
     pads: pads.map(function (p) { return { x: p.x, z: p.z, r: PADR }; }),   // las tres plataformas de aterrizaje
     pad: { x: pads[0].x, z: pads[0].z, r: PADR },
-    torre: { lift: lift, pisos: FLR, ascensorRadio: RPL },
+    torre: { lift: lift, pisos: FLR, ascensorRadio: RPL,
+      nivel: function () { return lift.level; }, ocupado: function () { return !!(lift.moving || manualLift); },
+      ir: function (level) {   // ascensor manual para el jugador (0 = calle, 1 = hangares, 2 = azotea)
+        if (level < 0 || level > 2 || lift.moving || manualLift || mode === 'broken' || mode === 'off') return false;
+        if (lift.level === level) return true;
+        manualLift = { level: level }; lift.target = FLR[level]; lift.v = 0; lift.moving = true; return true;
+      } },
+    hangares: function () { var out = [], i; for (i = 0; i < bays.length; i++) if (bays[i].type === 'hangar') out.push({ abierto: bays[i].door.o > 0.5, ocupado: !!bays[i].occ, manual: !!bays[i].man }); return out; },
+    hangar: function (idx, on) {   // abrir / cerrar la puerta de un hangar a mano
+      var n = -1, i, b; for (i = 0; i < bays.length; i++) if (bays[i].type === 'hangar' && ++n === idx) { b = bays[i]; break; } if (!b) return false;
+      if (on && !b.man) { b.man = true; b.holds++; } else if (!on && b.man) { b.man = false; b.holds = Math.max(0, b.holds - 1); b.idleT = 9; } return true;
+    },
     maxShip: { length: 11, width: 9 },
     bays: bays,
     nivel: 2,
@@ -1196,6 +1207,11 @@ function createPistaCiudad2(THREE, opts) {
     },
     update: function (t) {
       var dt = lastT == null ? 0 : clamp(t - lastT, 0, 0.1); lastT = t; tickN++;
+      if (manualLift) {   // el ascensor que llama el jugador
+        var ld = lift.target - lift.y, lad = Math.abs(ld);
+        lift.v = Math.min(lift.v + 2.4 * dt, 2.4, Math.sqrt(2 * 2.0 * lad) + 0.06); setLiftY(lift.y + Math.min(lad, lift.v * dt) * (ld >= 0 ? 1 : -1));
+        if (Math.abs(lift.target - lift.y) < 0.004) { setLiftY(lift.target); lift.level = manualLift.level; lift.moving = false; lift.v = 0; manualLift = null; }
+      }
       var on = mode !== 'off', run = on && mode !== 'broken' && !ghost, blink = Math.sin(t * (mode === 'alert' ? 8 : 2.4)) > 0, v, b, a2, c;
       if (run) {
         if (api.demo) demoTick(dt);

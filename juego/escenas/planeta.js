@@ -30,7 +30,7 @@
   var PAISAJE = { arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
   E.ATERRIZABLES = { arido: 1, rocoso: 1, hielo: 1, tormenta: 1 };
 
-  var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
+  var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
   var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, vA = null, qA = null, vB = null, vC = null;
   var pl = null, ret = null, key = '', nave = null, pad = 60, colocadas = [], ghost = null, itemSel = null, rotG = 0, modoBorrar = false, cargando = '', alt = false;
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
@@ -68,6 +68,7 @@
   function instanciar(item) {   // modelo en metros, apoyado en el suelo, con su radio de huella
     var api = null; try { api = global[item.fn](THREE, { accent: jug.acento }); } catch (e) { if (global.console) console.error(e); }
     if (!api || !api.group) return null;
+    if (/^pista/.test(item.id) && api.demo === true && typeof api.setState === 'function') { try { api.setState('working'); } catch (e) { } }   // sin nave de demostración aterrizando
     var esc4 = item.esc || 4, w = new THREE.Group(); w.scale.setScalar(esc4); w.add(api.group); w.updateMatrixWorld(true);
     var b = new THREE.Box3().setFromObject(w), s = b.getSize(new THREE.Vector3()), r = 0.5 * Math.sqrt(s.x * s.x + s.z * s.z) * 0.8;
     if (api.footprint) r = 0.5 * esc4 * Math.max(api.footprint.w, api.footprint.d);   // huella en unidades de 4 m: radio = mitad del lado
@@ -150,10 +151,12 @@
     ui.bCan = el('button', 'jn-btn', ui.barra, 'CANCELAR'); ui.bCan.onclick = function () { quitarGhost(); actualizarUI(); };
     ui.bBor = el('button', 'jn-btn', ui.barra, 'DEMOLER'); ui.bBor.onclick = function () { quitarGhost(); modoBorrar = !modoBorrar; if (modoBorrar) toast('TOCA UNA ESTRUCTURA PARA DEMOLERLA', 2); actualizarUI(); };
     ui.bNave = el('button', 'jn-btn', ui.barra, 'LLAMAR NAVE'); ui.bNave.onclick = function () {
+      if (viajeFin) { toast('TU NAVE AÚN VIAJA · LLEGA EN ' + tiempoViaje(), 2.2); return; }
       if (!naveBaja) { var l = buscarLibre(modoPie ? px : fx, modoPie ? pz : fz); if (!l) { toast('NO HAY SITIO LIBRE CERCA'); return; } naveTx = l[0]; naveTz = l[1]; naveBaja = true; ui.bNave.textContent = 'ENVIAR NAVE ARRIBA'; toast('LA NAVE BUSCA UN SITIO LIBRE…', 1.8); }
       else { naveBaja = false; ui.bNave.textContent = 'LLAMAR NAVE'; }
     };
     ui.bDes = el('button', 'jn-btn', ui.barra, 'DESPEGAR'); ui.bDes.onclick = function () {
+      if (viajeFin) { toast('TU NAVE AÚN VIAJA · LLEGA EN ' + tiempoViaje(), 2.2); return; }
       if (modoPie && !(naveBaja && naveY < 3 && Math.hypot(px - naveX, pz - naveZ) < pad + 30)) { toast('LLAMA A LA NAVE Y ACÉRCATE PARA SUBIR', 2); return; } despegar();
     };
     ui.bPie = el('button', 'jn-btn', ui.barra, 'BAJAR A PIE'); ui.bPie.onclick = function () { if (modoPie) salirPie(); else entrarPie(); };
@@ -164,6 +167,7 @@
     ui.bGol = el('button', 'jn-btn jn-grande jn-pl-golpe', L, 'GOLPEAR'); ui.bGol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado && golpeT <= 0) golpeT = 0.45; ev.preventDefault(); });
     ui.bRec = el('button', 'jn-btn', ui.barra, 'RECARGAR'); ui.bRec.onclick = function () { if (sentado) sentado.api.recargar(); };
     ui.bFue = el('button', 'jn-btn jn-grande jn-fuego', L, 'DISPARAR'); ['pointerdown'].forEach(function (n) { ui.bFue.addEventListener(n, function (ev) { if (sentado) sentado.api.disparar(true); ev.preventDefault(); }); }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { ui.bFue.addEventListener(n, function () { if (sentado) sentado.api.disparar(false); }); });
+    ui.asc = el('div', 'jn-pl-asc', L); ui.asc.style.display = 'none';
     ui.tor = el('div', 'jn-pl-tor', L);
     function tb(txt, cls, f) { var b = el('div', 'jn-ico ' + cls, ui.tor, txt); b.addEventListener('pointerdown', function (ev) { f(1); b.setPointerCapture && b.setPointerCapture(ev.pointerId); ev.preventDefault(); }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { b.addEventListener(n, function () { f(0); }); }); return b; }
     tb('▲', 'tu', function (v) { tIy = v; }); tb('◀', 'tl', function (v) { tIx = v; }); tb('▶', 'tr', function (v) { tIx = -v; }); tb('▼', 'td', function (v) { tIy = -v; });
@@ -220,7 +224,7 @@
   }
   function animarManos(t, dt, mag) {   // a pie: el soldado camina; los brazos van "en guardia" y se balancean
     if (!manosPie) return; var pa = manosPie.pa, g = manosPie.u.group, ph = t * (correr ? 11 : 7), sw = Math.sin(ph) * mag, cw = Math.cos(ph) * mag, gk = golpeT > 0 ? golpePose(1 - golpeT / 0.45) : null;
-    g.visible = true; g.position.set(px, saltoY, pz); g.rotation.set(0, pyaw + PI, 0);
+    g.visible = true; g.position.set(px, pyF + saltoY, pz); g.rotation.set(0, pyaw + PI, 0);
     var amp = correr ? 0.55 : 0.28, up = -ppit * 0.55;
     pa.armR.rotation.set(-1.4 + up + cw * amp * 0.5, 0, 0.07); pa.forearmR.rotation.set(-0.25 - Math.abs(sw) * 0.15 - (correr ? 0.6 : 0), 0, 0);
     pa.armL.rotation.set((gk ? gk[0] : -1.4 - cw * amp * 0.5) + up, 0, -0.07); pa.forearmL.rotation.set(gk ? gk[1] : -0.25 - Math.abs(sw) * 0.15 - (correr ? 0.6 : 0), 0, 0);
@@ -239,13 +243,14 @@
   }
   function entrarPie() {
     quitarGhost(); modoBorrar = false; modoPie = true; px = fx; pz = fz; if (Math.hypot(px, pz) > RADIO_BASE) { px = 0; pz = 160; } pyaw = yaw + PI; ppit = 0; sentado = null;
-    saltoY = 0; saltoV = 0; golpeT = 0; crearManosPie(); if (manosPie) manosPie.u.group.visible = true; cam.fov = 75; cam.near = 0.05; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
+    saltoY = 0; saltoV = 0; golpeT = 0; pyF = 0; fallV = 0; cm.x = 1e9; crearManosPie(); if (manosPie) manosPie.u.group.visible = true; cam.fov = 75; cam.near = 0.05; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
   }
   function salirPie() {
     if (sentado) levantarse(); if (manosPie) manosPie.u.group.visible = false; modoPie = false; fx = px; fz = pz; yaw = pyaw + PI; cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); stk = null; lookId = null; ui.sb.style.display = ui.sk.style.display = 'none'; actualizarUI();
   }
   function sentarse(o) { sentado = o; wk = 0; try { o.api.vistaArtillero && o.api.vistaArtillero(true); } catch (e) { } stk = null; ui.sb.style.display = ui.sk.style.display = 'none'; toast('ARTILLERO · IZQUIERDA APUNTA', 2); actualizarUI(); }
   function levantarse() { if (!sentado) return; sentado.api.disparar(false); sentado.api.apuntar(0, 0); try { sentado.api.vistaArtillero && sentado.api.vistaArtillero(false); } catch (e) { } px = sentado.x + 3.5; pz = sentado.z + 3.5; sentado = null; actualizarUI(); }
+  function tiempoViaje() { var s = Math.max(0, Math.ceil((viajeFin - Date.now()) / 1000)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function despegar() {
     if (!ret) { irA('lobby'); return; }
     var r = ret; irA('mundo', { modo: r.modo, retorno: r });
@@ -269,6 +274,74 @@
       if (lookId && lookId.id === e.pointerId) lookId = null;
     }
   }
+  /* ---- colisión con la malla real de las construcciones (pistas y la ciudad): paredes y pisos ---- */
+  var STEP = 1.6, o3 = null, d3 = null;
+  function cajasDe(o) {
+    if (o._cj) return o._cj; var lst = []; o.g.updateMatrixWorld(true);
+    o.g.traverse(function (m) {
+      if (!m.isMesh || !m.geometry || (m.material && m.material.visible === false)) return;
+      var b = new THREE.Box3().setFromObject(m); if (!isFinite(b.min.x) || !isFinite(b.max.x)) return;
+      if (Math.max(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z) < 0.4) return; lst.push({ m: m, b: b });
+    });
+    o._cj = lst; return lst;
+  }
+  function candidatos(x, z) {   // mallas cercanas al jugador (se recalcula al moverse unos metros)
+    if (Math.hypot(x - cm.x, z - cm.z) < 3 && cm.n === colocadas.length) return cm.list;
+    var lst = [], i, j, o, cj, c, now = Date.now();
+    for (i = 0; i < colocadas.length; i++) {
+      o = colocadas[i]; if (!o.item.plano || (o.fin && o.fin > now) || Math.hypot(x - o.x, z - o.z) > o.r + 40) continue;
+      cj = cajasDe(o); for (j = 0; j < cj.length; j++) { c = cj[j].b; if (c.max.x < x - 16 || c.min.x > x + 16 || c.max.z < z - 16 || c.min.z > z + 16) continue; lst.push(cj[j].m); }
+    }
+    cm.x = x; cm.z = z; cm.list = lst; cm.n = colocadas.length; return lst;
+  }
+  function normalMundo(h, fb) {
+    if (h.face && h.object) { var n = h.face.normal.clone().transformDirection(h.object.matrixWorld); return n; } return fb;
+  }
+  function rayoH(x, y, z, dx, dz, L, cand) {
+    var k, best = null, hs = [STEP + 0.2, 2.2], hits;
+    for (k = 0; k < hs.length; k++) { o3.set(x, y + hs[k], z); d3.set(dx, 0, dz); rc.set(o3, d3); rc.near = 0; rc.far = L; hits = rc.intersectObjects(cand, false); if (hits.length && (!best || hits[0].distance < best.distance)) best = hits[0]; }
+    return best;
+  }
+  function pared(x, y, z, mx, mz, cand) {   // devuelve el movimiento permitido: se desliza por las paredes
+    var L = Math.hypot(mx, mz); if (L < 1e-5) return [mx, mz];
+    var h = rayoH(x, y, z, mx / L, mz / L, L + 0.5, cand); if (!h) return [mx, mz];
+    var n = normalMundo(h, null); if (!n) return [0, 0]; n.y = 0; var nl = Math.hypot(n.x, n.z); if (nl < 1e-3) return [0, 0]; n.x /= nl; n.z /= nl;
+    var dp = mx * n.x + mz * n.z; if (dp < 0) { mx -= n.x * dp; mz -= n.z * dp; }
+    L = Math.hypot(mx, mz); if (L < 1e-5) return [0, 0];
+    return rayoH(x, y, z, mx / L, mz / L, L + 0.5, cand) ? [0, 0] : [mx, mz];
+  }
+  function sueloEn(x, z, y, cand) {   // altura del suelo bajo (x, z): la primera cara que mira hacia arriba
+    var i, hits, n; o3.set(x, y + STEP + 0.2, z); d3.set(0, -1, 0); rc.set(o3, d3); rc.near = 0; rc.far = STEP + 0.2 + 120; hits = rc.intersectObjects(cand, false);
+    for (i = 0; i < hits.length; i++) { n = normalMundo(hits[i], null); if (!n || n.y > 0.35) return { y: hits[i].point.y, bloq: hits[i].point.y > y + STEP }; }
+    return { y: 0, bloq: false };
+  }
+  function moverConColision(mx, mz, dt) {
+    var cand = null; try { if (!rc) { rc = new THREE.Raycaster(); o3 = new THREE.Vector3(); d3 = new THREE.Vector3(); } cand = candidatos(px, pz); } catch (e) { cand = null; }
+    if (!cand || !cand.length) { px += mx; pz += mz; pyF += Math.min(0, 0 - pyF) * 0; if (pyF > 0) { fallV = Math.min(fallV + 25 * dt, 40); pyF = Math.max(0, pyF - fallV * dt); } else { pyF = 0; fallV = 0; } return; }
+    try {
+      var r = pared(px, pyF, pz, mx, mz, cand), nx = px + r[0], nz = pz + r[1], sf = sueloEn(nx, nz, pyF, cand);
+      if (sf.bloq) { var sx = sueloEn(nx, pz, pyF, cand), sz = sueloEn(px, nz, pyF, cand); if (!sx.bloq && Math.abs(r[0]) > 1e-4) { nz = pz; sf = sx; } else if (!sz.bloq && Math.abs(r[1]) > 1e-4) { nx = px; sf = sz; } else { nx = px; nz = pz; sf = sueloEn(px, pz, pyF, cand); } }
+      px = nx; pz = nz;
+      if (sf.y > pyF) { pyF += Math.min(sf.y - pyF, 14 * dt + 0.02); fallV = 0; } else if (sf.y < pyF - 0.02) { fallV = Math.min(fallV + 25 * dt, 40); pyF = Math.max(sf.y, pyF - fallV * dt); } else { pyF = sf.y; fallV = 0; }
+    } catch (e) { px += mx; pz += mz; }
+  }
+  function pisoY(o, i) { return (o.api.group.position.y + o.api.torre.pisos[i]) * (o.item.esc || 4); }
+  function panelEdificio() {   // ascensor y hangares de la ciudad-torre
+    var i, o, ciu = null, nivelJ = 0, key, tw, h, b;
+    for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (o.api && o.api.torre && !(o.fin && o.fin > Date.now()) && Math.hypot(px - o.x, pz - o.z) < (o.api.torre.ascensorRadio + 3) * (o.item.esc || 4)) { ciu = o; break; } }
+    if (!ciu) { if (ascKey !== '') { ascKey = ''; ui.asc.style.display = 'none'; } return; }
+    tw = ciu.api.torre; for (i = 0; i < 3; i++) if (Math.abs(pyF - pisoY(ciu, i)) < Math.abs(pyF - pisoY(ciu, nivelJ))) nivelJ = i;
+    var hg = ciu.api.hangares ? ciu.api.hangares() : [], oc = tw.ocupado();
+    key = nivelJ + '|' + tw.nivel() + '|' + oc + '|' + (nivelJ === 1 ? hg.map(function (q) { return (q.abierto ? 1 : 0) + (q.manual ? 'm' : ''); }).join(',') : '');
+    if (pendAsc != null && !oc) { var pa = pendAsc; pendAsc = null; if (tw.nivel() !== pa) tw.ir(pa); }
+    if (key === ascKey) return; ascKey = key; ui.asc.innerHTML = ''; ui.asc.style.display = 'flex';
+    el('b', '', ui.asc, 'ASCENSOR · ' + ['CALLE', 'HANGARES', 'AZOTEA'][nivelJ]);
+    ['PISO 1 · CALLE', 'PISO 2 · HANGARES', 'AZOTEA'].forEach(function (nm, ix) {
+      if (ix === nivelJ) return; var bt = el('button', 'jn-btn', ui.asc, 'IR A ' + nm); bt.disabled = !!oc;
+      bt.onclick = function () { if (tw.ocupado()) { toast('EL ASCENSOR ESTÁ EN USO', 1.4); return; } if (tw.nivel() !== nivelJ) { tw.ir(nivelJ); pendAsc = ix; toast('EL ASCENSOR VIENE A TU PISO…', 1.6); } else { tw.ir(ix); toast('SUBIENDO…', 1.2); } };
+    });
+    if (nivelJ === 1 && hg.length) { el('b', '', ui.asc, 'HANGARES'); hg.forEach(function (q, ix) { var bt = el('button', 'jn-btn', ui.asc, 'HANGAR ' + (ix + 1) + ' · ' + (q.manual ? 'CERRAR' : q.abierto ? 'ABIERTO (CERRAR)' : 'ABRIR') + (q.ocupado ? ' · con nave' : '')); bt.onclick = function () { ciu.api.hangar(ix, !q.manual); ascKey = ''; }; }); }
+  }
   function actualizarPie(dt, t) {
     var i, o, ax = stk ? stk.ax : 0, ay = stk ? stk.ay : 0;
     if (!vA) { vA = new THREE.Vector3(); qA = new THREE.Quaternion(); }
@@ -276,14 +349,16 @@
       sentado.api.apuntar(tIx, tIy); sentado.api.update(t); sentado.api.asiento(vA, qA); if (manosPie) { sentadoPose(t, dt, tIx, tIy, sentado.api); }
       if (!ag) ag = { sitio: new THREE.Vector3(), izq: new THREE.Vector3(), der: new THREE.Vector3(), vol: new THREE.Vector3(), ang: 0, volR: 0 };
       sentado.api.agarres(ag); var ev = sentado.api.elevacion(); vA.y += 0.75;   // cabeza fija: ni sube ni avanza; solo gira la mirada
-      cam.position.copy(vA); cam.rotation.set(clamp(ev * 0.95 - 0.1, -0.15, 1.4), ag.ang + PI, 0, 'YXZ');   // como el cuello: la mirada sube con los cañones cam.updateMatrixWorld(true);
+      cam.position.copy(vA); cam.rotation.set(clamp(ev * 0.95 - 0.1, -0.15, 1.4), ag.ang + PI, 0, 'YXZ');   // como el cuello: la mirada sube con los cañones
+      cam.updateMatrixWorld(true);
       if (!vB) { vB = new THREE.Vector3(); vC = new THREE.Vector3(); } sentado.api.boca(vB, vC); vB.addScaledVector(vC, 400); vB.project(cam);
       var mxp = clamp((vB.x * 0.5 + 0.5) * E.ancho, 24, E.ancho - 24), myp = clamp((0.5 - vB.y * 0.5) * E.alto, 24, E.alto - 24); if (vB.z > 1) { mxp = E.ancho / 2; myp = E.alto * 0.2; }
       ui.mira.style.left = mxp + 'px'; ui.mira.style.top = myp + 'px';
       ui.est.textContent = 'Munición: ' + sentado.api.municion() + (sentado.api.recargando() ? ' · recargando…' : ''); return;
     }
     var mag = Math.min(1, Math.hypot(ax, ay)), v = (correr ? 7.5 : 3.2) * mag, sn = Math.sin(pyaw), cs = Math.cos(pyaw);
-    if (mag > 0.05) { px += (-sn * (-ay) + cs * ax) * v / mag * dt; pz += (-cs * (-ay) - sn * ax) * v / mag * dt; }
+    var mvx = 0, mvz = 0; if (mag > 0.05) { mvx = (-sn * (-ay) + cs * ax) * v / mag * dt; mvz = (-cs * (-ay) - sn * ax) * v / mag * dt; }
+    moverConColision(mvx, mvz, dt);
     var d0 = Math.hypot(px, pz); if (d0 > RADIO_BASE + 200) { px *= (RADIO_BASE + 200) / d0; pz *= (RADIO_BASE + 200) / d0; }
     cercaT = null;
     for (i = 0; i < colocadas.length; i++) {
@@ -293,10 +368,11 @@
       else if (o.item.arma && dd < 1.6) { px = o.x + dx / dd * 1.6; pz = o.z + dz / dd * 1.6; }
     }
     if (naveBaja && naveY < 8) { var dn = Math.hypot(px - naveX, pz - naveZ), ln = pad * 0.55; if (dn < ln) { px = naveX + (px - naveX) / (dn || 1) * ln; pz = naveZ + (pz - naveZ) / (dn || 1) * ln; } }
+    panelEdificio();
     if (!!cercaT !== !!ui._ct) { ui._ct = !!cercaT; actualizarUI(); }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
     if (golpeT > 0) golpeT -= dt;
-    cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
+    cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
     if (ui.est.textContent.indexOf('Munición') === 0) ui.est.textContent = '';
   }
   escenas.planeta = {
@@ -304,7 +380,7 @@
     _test: function () { return { pie: function () { return { modoPie: modoPie, px: px, pz: pz, sentado: !!sentado }; }, entrarPie: entrarPie, salirPie: salirPie, sentarse: sentarse, levantarse: levantarse, punteroPie: punteroPie, buscarLibre: buscarLibre, colocadas: function () { return colocadas; }, elegir: elegir, colocar: colocar, itemDe: itemDe, CATALOGO: CATALOGO, ghost: function () { return ghost; }, mover: function (x, z) { fx = x; fz = z; }, borrarEn: borrarEn, despegar: despegar }; },
     entrar: function (d) {
       if (!construido) construir();
-      if (manosPie) manosPie.u.group.visible = false; saltoY = 0; saltoV = 0; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
+      if (manosPie) manosPie.u.group.visible = false; saltoY = 0; saltoV = 0; pyF = 0; fallV = 0; cm.x = 1e9; ascKey = ''; pendAsc = null; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
       pl = d.pl; ret = d.retorno; key = pl.key; colocadas = []; ghost = null; itemSel = null; modoBorrar = false; cargando = ''; punteros = {}; mov = 0;
       var pj = PAISAJE[pl.tipo] || PAISAJE.rocoso; suelo.material.map = texSuelo(pj[0]); suelo.material.needsUpdate = true; sc.background = new THREE.Color(pj[1]); sc.fog = new THREE.Fog(pj[1], 1800, 9500);
       // la nave posada en el centro
@@ -312,8 +388,9 @@
       if (m && md) { var w = new THREE.Group(); w.scale.setScalar(n.m); w.add(m.group); nave = new THREE.Group(); nave.add(w); w.position.set(-md.centro.x * 1, -(md.centro.y - md.alto / 2), -md.centro.z * 1); sc.add(nave); naveBaja = false; naveY = HOVER; naveX = naveZ = naveTx = naveTz = 0; nave.position.y = HOVER; pad = Math.max(60, md.radio * 1.15 + 15); }
       else pad = 60;
       fx = 0; fz = 160; yaw = 0.6; pit = 0.75; dist = Math.max(240, pad * 3);
+      var vj = d.viaje || leer('viaje', null); viajeFin = (vj && (d.viaje || vj.key === pl.key) && vj.fin > Date.now()) ? vj.fin : 0; if (nave) nave.visible = !viajeFin;
       mostrarCapas(['planeta']); construirUI(); naveBaja = false; actualizarUI(); camara(); redimensionar5(E.ancho, E.alto);
-      toast('ATERRIZASTE EN ' + pl.nombre.toUpperCase(), 2.4);
+      toast(viajeFin ? 'TELETRANSPORTE A ' + pl.nombre.toUpperCase() + ' · TU NAVE LLEGA EN ' + tiempoViaje() : 'ATERRIZASTE EN ' + pl.nombre.toUpperCase(), 3);
       cargarBase();
     },
     salir: function () {
@@ -336,6 +413,7 @@
     tecla: function (e, abajo) { if (abajo && e.code === 'Escape' && ghost) { quitarGhost(); actualizarUI(); } },
     actualizar: function (dt, t) {
       if (!pl) return;
+      if (viajeFin && Date.now() >= viajeFin) { viajeFin = 0; guardar('viaje', null); if (nave) nave.visible = true; toast('TU NAVE HA LLEGADO', 2.6); }
       yaw += bR * dt * 1.2; dist = clamp(dist * (1 + bZ * dt * 1.4), 25, 4000);
       if (ghost) {
         var gx = Math.round(fx / 2) * 2, gz = Math.round(fz / 2) * 2; ghost.g.position.set(gx, 0, gz); ghost.g.rotation.y = rotG;

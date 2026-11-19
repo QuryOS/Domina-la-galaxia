@@ -202,3 +202,7 @@
 .jn-planeta .jn-pl-tor{position:absolute;left:calc(14px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));display:none;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,64px);gap:8px;grid-template-areas:". tu ." "tl td tr"}
 .jn-planeta .jn-pl-tor .tu{grid-area:tu}.jn-planeta .jn-pl-tor .td{grid-area:td}.jn-planeta .jn-pl-tor .tl{grid-area:tl}.jn-planeta .jn-pl-tor .tr{grid-area:tr}
 .jn-planeta .jn-pl-tor .jn-ico{width:64px;height:64px;font-size:26px}
+
+.jn-planeta .jn-pl-asc{position:absolute;right:calc(12px + env(safe-area-inset-right));top:90px;max-height:56vh;overflow:auto;display:none;flex-direction:column;gap:6px;padding:8px;border-radius:12px;background:rgba(10,16,30,.82);border:1px solid rgba(120,160,255,.4);color:#cfe0ff;font:600 11px system-ui;pointer-events:auto}
+.jn-planeta .jn-pl-asc b{letter-spacing:.08em;font-size:11px;margin-top:2px}
+.jn-planeta .jn-pl-asc .jn-btn{font-size:11px;padding:8px 10px}

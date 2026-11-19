@@ -129,7 +129,7 @@
       var k = tipo + col; if (iconosImg[k]) return iconosImg[k]; if (typeof Image === 'undefined') return null;
       var im = new Image(); im.onload = function () { if (mapaAbierto) pintarMapa(); }; im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcono(tipo, col, 48)); iconosImg[k] = im; return im;
     }
-    function tipoDePlaneta(tp) { return (tp === 'gaseoso' || tp === 'gaseoso2' || tp === 'tormenta') ? 'planeta' : 'minero'; }
+    function tipoDePlaneta(tp) { return (E.ATERRIZABLES && E.ATERRIZABLES[tp]) ? 'planeta' : 'minero'; }   // colonizables = planetas; el resto = mineros
     function ligera(ix, iy, iz) {   // la celda sin rocas, con memoria
       var kc = ix + ',' + iy + ',' + iz, h = cacheLig[kc]; if (h) return h;
       h = generar(ix, iy, iz, true); if (++nCacheLig > 20000) { cacheLig = {}; nCacheLig = 0; } cacheLig[kc] = h; return h;
@@ -258,6 +258,7 @@
     /* ---------- generación del universo por celdas ---------- */
     var SIL = ['ka', 'ro', 've', 'lu', 'mi', 'tor', 'zen', 'ar', 'ix', 'on', 'da', 'sel', 'vor', 'nem', 'ul', 'cor', 'phe', 'tis', 'ba', 'rin', 'qua', 'dre', 'sha', 'lom'], ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
     function nombrePlaneta(r) { var n = 2 + (r() < 0.4 ? 1 : 0), s = '', i; for (i = 0; i < n; i++) s += SIL[(r() * SIL.length) | 0]; return s.charAt(0).toUpperCase() + s.slice(1) + ' ' + ROM[(r() * ROM.length) | 0]; }
+    var PLAN_FIJOS = { '3,0,2': 'arido', '-4,0,3': 'rocoso', '1,0,-6': 'hielo', '-5,0,-4': 'tormenta', '7,1,-2': 'arido', '-2,0,6': 'lava', '6,0,5': 'gaseoso', '-8,-1,-1': 'gaseoso2' };
     function tipoPlaneta(r) { var u = r(); return u < 0.22 ? 'arido' : u < 0.42 ? 'rocoso' : u < 0.56 ? 'hielo' : u < 0.68 ? 'gaseoso' : u < 0.78 ? 'gaseoso2' : u < 0.86 ? 'lava' : 'tormenta'; }
     /* Estaciones: una por cada "supercelda" de 55 km con posición desplazada al azar. A la velocidad de la nave inicial (220 m/s)
        eso son unos 3-5 minutos de vuelo entre estaciones. Es una función pura: sirve para el mundo, el radar ampliado y la baliza. */
@@ -312,11 +313,11 @@
     }
     function generar(ix, iy, iz, ligero) {   // ligero: sin rocas (para el mapa)
       var C = CONFIG.celda, r = mulberry32(hash3(ix, iy, iz, CONFIG.semilla)), cel = { key: ix + ',' + iy + ',' + iz, ix: ix, iy: iy, iz: iz, planeta: null, campo: null };
-      if (r() < 0.06) {
-        var tp = tipoPlaneta(r), gas = tp === 'gaseoso' || tp === 'gaseoso2', rad = gas ? 1500 + r() * 1700 : 500 + r() * 1400;
+      var tpFijo = PLAN_FIJOS[cel.key]; r();   // el universo tiene POCOS planetas: 5 colonizables y 3 mineros, en celdas fijas
+      if (tpFijo) {
+        var tp = tpFijo, gas = tp === 'gaseoso' || tp === 'gaseoso2', rad = gas ? 1500 + r() * 1700 : 500 + r() * 1400;
         cel.planeta = { key: 'P' + cel.key, x: (ix + 0.2 + 0.6 * r()) * C, y: (iy + 0.2 + 0.6 * r()) * C, z: (iz + 0.2 + 0.6 * r()) * C, r: rad, tipo: tp, nombre: nombrePlaneta(r), anillos: gas ? r() < 0.4 : r() < 0.07, incl: 0.1 + r() * 0.5, tinte: [0.85 + r() * 0.3, 0.85 + r() * 0.3, 0.85 + r() * 0.3], giro: (r() - 0.5) * 0.04, g: null, k: 0 };
       }
-      if (cel.planeta && chocaEstacion(cel.planeta.x, cel.planeta.y, cel.planeta.z, cel.planeta.r * 1.6)) cel.planeta = null;
       if (r() < 0.4) {
         var a = 700 + r() * 900, cx = (ix + 0.15 + 0.7 * r()) * C, cy = (iy + 0.15 + 0.7 * r()) * C, cz = (iz + 0.15 + 0.7 * r()) * C, ok = true;
         if (cel.planeta) { var pl = cel.planeta, dd = Math.sqrt((cx - pl.x) * (cx - pl.x) + (cy - pl.y) * (cy - pl.y) + (cz - pl.z) * (cz - pl.z)); if (dd < pl.r * 1.5 + a + 500) ok = false; }
@@ -705,7 +706,12 @@
         kc.forEach(function (k) {
           var c = cols[k], r = el('div', 'jn-fl-fila', lista), inf = el('div', 'jn-fl-inf', r), dd = Math.sqrt((c.x - P.x) * (c.x - P.x) + (c.y - P.y) * (c.y - P.y) + (c.z - P.z) * (c.z - P.z));
           el('b', '', inf, c.nombre); el('span', '', inf, c.estructuras + ' estructuras · ' + fmtDist(dd));
-          var b = el('button', 'jn-btn', el('div', 'jn-fl-bt', r), 'VIAJAR'); b.onclick = function () { cerrarFlota(); apParar(); ap.on = true; ap.meta = { key: c.key, x: c.x, y: c.y, z: c.z, r: c.r, tipo: 'planeta', nombre: c.nombre, colonia: true }; hud.bAuto.classList.add('on'); toast('RUMBO A ' + c.nombre.toUpperCase(), 1.6); };
+          var b = el('button', 'jn-btn', el('div', 'jn-fl-bt', r), 'VIAJAR'); b.onclick = function () {   // teletransporte: TÚ llegas al instante; la nave tiene que hacer todo el recorrido
+            cerrarFlota(); apParar(); var dd2 = Math.sqrt((c.x - P.x) * (c.x - P.x) + (c.y - P.y) * (c.y - P.y) + (c.z - P.z) * (c.z - P.z)), eta = Math.max(20, Math.min(1500, (dd2 - c.r * 0.6 - 1500) / 450));
+            E.guardar('viaje', { nave: jug.nave, key: c.key, fin: Date.now() + eta * 1000 });
+            var ux = (P.x - c.x) / (dd2 || 1), uy = (P.y - c.y) / (dd2 || 1), uz = (P.z - c.z) / (dd2 || 1), ro = c.r * 0.6 + 1500;
+            irA('planeta', { pl: { key: c.key, tipo: c.tipo, nombre: c.nombre, r: c.r, x: c.x, y: c.y, z: c.z }, retorno: { modo: modo, p: [c.x + ux * ro, c.y + uy * ro, c.z + uz * ro], q: [Q.x, Q.y, Q.z, Q.w] }, viaje: { fin: Date.now() + eta * 1000 } });
+          };
         });
       }
       el('div', 'jn-ayuda', lista, 'Las naves que no pilotas vuelan solas mientras estás en el juego. Su mineral pasa a tu inventario al llegar a una estación o al salir al hangar.');
