@@ -154,6 +154,7 @@
         var fin = Math.min(i + 120, cl.length);
         for (; i < fin; i++) cuerposDeCelda(ligera(cl[i][0], cl[i][1], cl[i][2]), x, y, z, R_CUERPOS, out);
         if (i < cl.length) { setTimeout(paso, 0); return; }
+        var ya = {}; mapaLista.forEach(function (q) { ya[q.o.key] = 1; }); out = out.filter(function (q) { return !ya[q.o.key]; });
         mapaLista = mapaLista.concat(out); mapaLista.sort(function (u, v) { return u.d - v.d; }); mapaCuerpos = 2; pintarMapa();
       }
       paso();
@@ -163,6 +164,7 @@
       mapaAbierto = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false;
       mapaLista = lugaresEn(P.x, P.y, P.z, ZOOMS[ZOOMS.length - 1]).map(function (q) { return { t: q.o.tipo, d: q.d, o: q.o }; });
       (function () { var id, f, dx, dy, dz; for (id in flota) { f = flota[id]; if (f.modo === 'hangar' || f.modo === 'piloto') continue; dx = f.x - P.x; dy = f.y - P.y; dz = f.z - P.z; mapaLista.push({ t: 'flota', d: Math.sqrt(dx * dx + dy * dy + dz * dz), o: { key: 'F' + id, x: f.x, y: f.y, z: f.z, r: 0, nombre: naveDe(id).nombre, tipo: 'flota' } }); } mapaLista.sort(function (u, v) { return u.d - v.d; }); })();
+      Object.keys(PLAN_FIJOS).forEach(function (k) { var p = k.split(',').map(Number); cuerposDeCelda(ligera(p[0], p[1], p[2]), P.x, P.y, P.z, 1e13, mapaLista); });   // los 8 planetas aparecen al instante, a cualquier distancia
       mapaCuerpos = 0; mapaTok++;
       hud.mapa.classList.add('on'); DOMcapas.hud.classList.add('sin-hud'); pintarMapa();
       if (mapaFiltro.planeta || mapaFiltro.minero || mapaFiltro.campo) pedirCuerpos();
@@ -170,7 +172,7 @@
     function cerrarMapa() { if (!mapaAbierto) return; mapaAbierto = false; pausado = false; hud.mapa.classList.remove('on'); DOMcapas.hud.classList.remove('sin-hud'); }
     function pintarMapa() {   // arriba = hacia donde apunta tu nave
       var M = hud.mapa, R = ZOOMS[mapaZ], W = E.ancho, H = E.alto, dpr = Math.min(2, global.devicePixelRatio || 1), i, o;
-      var vis = mapaLista.filter(function (x) { return x.d <= R * 2.2 && (mapaFiltro[x.t] || (meta && meta.key === x.o.key)) && !(x.t === 'campo' && R > 40000); });   // los campos son miles: solo con el alcance corto
+      var vis = mapaLista.filter(function (x) { var pl = x.t === 'planeta' || x.t === 'minero'; return (pl || x.d <= R * 2.2) && (mapaFiltro[x.t] || (meta && meta.key === x.o.key)) && !(x.t === 'campo' && R > 40000); });   // los planetas se ven siempre, con cualquier zoom   // los campos son miles: solo con el alcance corto
       M.innerHTML = '';
       var cv = el('canvas', 'jn-mapafull', M); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
       var g = cv.getContext('2d'), cx = W / 2, cy = (H - 100) / 2 + 24, escala = ((H - 150) / 2) / R;
@@ -183,12 +185,19 @@
       for (i = 0; i < vis.length; i++) {
         var v = vis[i]; o = v.o; v3.set(o.x - P.x, o.y - P.y, o.z - P.z).applyQuaternion(mInv); v.dy = v3.y;
         var sx = cx + v3.x * escala, sy = cy + v3.z * escala;
-        if (sx < 14 || sx > W - 14 || sy < 40 || sy > H - 104) continue;
+        var fuera = false;
+        if (sx < 14 || sx > W - 14 || sy < 40 || sy > H - 104) {
+          if (v.t !== 'planeta' && v.t !== 'minero') continue;   // los planetas fuera de pantalla se pegan al borde, con su distancia
+          var ddx = sx - cx, ddy = sy - cy, kk = 1;
+          if (ddx > 0) kk = Math.min(kk, (W - 14 - cx) / ddx); else if (ddx < 0) kk = Math.min(kk, (14 - cx) / ddx);
+          if (ddy > 0) kk = Math.min(kk, (H - 104 - cy) / ddy); else if (ddy < 0) kk = Math.min(kk, (40 - cy) / ddy);
+          sx = cx + ddx * kk; sy = cy + ddy * kk; fuera = true;
+        }
         var T = TIPOS_MAPA[v.t], esMeta = meta && meta.key === o.key, col = esMeta ? '#ffe27a' : T.c, im = imgIcono(v.t, col);
         mapaPuntos.push({ o: o, x: sx, y: sy });
         if (esMeta) { g.strokeStyle = '#ffe27a'; g.lineWidth = 2; g.beginPath(); g.arc(sx, sy, 19, 0, TAU); g.stroke(); g.lineWidth = 1; }
         if (im && im.complete && im.naturalWidth) g.drawImage(im, sx - 12, sy - 12, 24, 24); else { g.fillStyle = col; g.fillRect(sx - 6, sy - 6, 12, 12); }
-        if (etiquetas < 26 || esMeta) { etiquetas++; g.fillStyle = esMeta ? '#ffe27a' : (v.t === 'estacion' ? '#ffe9a0' : v.t === 'astillero' ? '#9ff5dc' : '#cfdcec'); g.fillText(o.nombre, sx, sy - 17); }
+        if (etiquetas < 26 || esMeta) { etiquetas++; g.fillStyle = esMeta ? '#ffe27a' : (v.t === 'estacion' ? '#ffe9a0' : v.t === 'astillero' ? '#9ff5dc' : '#cfdcec'); g.fillText(o.nombre + (fuera ? ' · ' + fmtDist(v.d) : ''), sx, sy - 17); }
       }
       g.fillStyle = '#7fe3ff'; g.beginPath(); g.moveTo(cx, cy - 15); g.lineTo(cx - 10, cy + 11); g.lineTo(cx + 10, cy + 11); g.closePath(); g.fill();
       cv.onclick = function (ev) {
@@ -387,7 +396,7 @@
     function posicionInicial() {   // aparición aleatoria: a unos 20-55 km (3-4 min) de la estación más cercana, mirando en una dirección cualquiera
       var C = CONFIG.celda, t, ok = false, q, c, l, d, dx, dy, dz;
       for (t = 0; t < 60 && !ok; t++) {
-        P.x = (Math.random() - 0.5) * 600000; P.y = (Math.random() - 0.5) * 300000; P.z = (Math.random() - 0.5) * 600000;
+        P.x = (Math.random() - 0.5) * 160000; P.y = (Math.random() - 0.5) * 40000; P.z = (Math.random() - 0.5) * 160000;   // cerca de los planetas, que son pocos
         l = estacionesEn(P.x, P.y, P.z, 80000); if (!l.length || l[0].d < 20000 || l[0].d > 55000) continue;
         c = celda(Math.floor(P.x / C), Math.floor(P.y / C), Math.floor(P.z / C)); ok = true;
         if (c.planeta) { dx = P.x - c.planeta.x; dy = P.y - c.planeta.y; dz = P.z - c.planeta.z; if (Math.sqrt(dx * dx + dy * dy + dz * dz) < c.planeta.r * 1.5 + 300) ok = false; }
@@ -915,7 +924,7 @@
       DPRH = Math.min(global.devicePixelRatio || 1, 1.5); if (beaconG) { beaconG.width = Math.round(w * DPRH); beaconG.height = Math.round(h * DPRH); }
     }
     return {
-      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _test: function () { return { flota: function () { return flota; }, llamarNave: llamarNave, ordenar: ordenar, cambiarA: cambiarA, bodDe: bodDe, bodAgregar: bodAgregar, ordenPiloto: ordenPiloto, desplegar: desplegar, desatracar: desatracar, st: function () { return { atracado: atracado, pausado: pausado, acel: acelerador, vel: vel, V: [V.x, V.y, V.z] }; }, listaRo: function () { return listaRo; }, golpeRoca: golpeRoca, ap: ap, apAlternar: apAlternar, setMeta: function (m) { meta = m; }, nSel: function () { return nSel; }, P: P, V: V, Q: Q, estLejanas: function () { return estLejanas; } }; }, _astillerosEn: astillerosEn, _canterasEn: canterasEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
+      construir: construir, redimensionar: redimensionar4, _estacionesEn: estacionesEn, _cuerposEn: cuerposEn, _test: function () { return { mapa: function () { return { est: function () { return [mapaCuerpos, mapaTok, mapaAbierto, P.x, P.y, P.z]; }, abrir: abrirMapa, filtro: mapaFiltro, lista: function () { return mapaLista; }, puntos: function () { return mapaPuntos; }, pedir: pedirCuerpos }; }, flota: function () { return flota; }, llamarNave: llamarNave, ordenar: ordenar, cambiarA: cambiarA, bodDe: bodDe, bodAgregar: bodAgregar, ordenPiloto: ordenPiloto, desplegar: desplegar, desatracar: desatracar, st: function () { return { atracado: atracado, pausado: pausado, acel: acelerador, vel: vel, V: [V.x, V.y, V.z] }; }, listaRo: function () { return listaRo; }, golpeRoca: golpeRoca, ap: ap, apAlternar: apAlternar, setMeta: function (m) { meta = m; }, nSel: function () { return nSel; }, P: P, V: V, Q: Q, estLejanas: function () { return estLejanas; } }; }, _astillerosEn: astillerosEn, _canterasEn: canterasEn, _spawn: function () { return { x: P.x, y: P.y, z: P.z }; },
       entrar: function (d) {
         modo = (d && d.modo) || 'solo'; nSel = naveDe(jug.nave); modelo = obtenerModelo(jug.nave); med = medidas[jug.nave];
         if (!modelo) { irA('lobby'); return; }

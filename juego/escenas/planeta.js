@@ -342,6 +342,35 @@
     });
     if (nivelJ === 1 && hg.length) { el('b', '', ui.asc, 'HANGARES'); hg.forEach(function (q, ix) { var bt = el('button', 'jn-btn', ui.asc, 'HANGAR ' + (ix + 1) + ' · ' + (q.manual ? 'CERRAR' : q.abierto ? 'ABIERTO (CERRAR)' : 'ABRIR') + (q.ocupado ? ' · con nave' : '')); bt.onclick = function () { ciu.api.hangar(ix, !q.manual); ascKey = ''; }; }); }
   }
+  /* ---- rendimiento: las estructuras gigantes solo se animan si importan, y las piezas pequeñas lejanas se ocultan ---- */
+  var frN = 0, vCam = null, camFx = 0, camFz = 0;
+  function lodDe(o) {   // piezas pequeñas (< 12 m): se ocultan cuando la cámara está lejos de ellas
+    if (o._lod) return o._lod; var lst = []; o.g.updateMatrixWorld(true);
+    o.g.traverse(function (m) {
+      if (!m.isMesh || m.isInstancedMesh || !m.geometry) return; var g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); if (!g.boundingSphere) return;
+      var c = g.boundingSphere.center.clone().applyMatrix4(m.matrixWorld), r = g.boundingSphere.radius * (m.matrixWorld.getMaxScaleOnAxis ? m.matrixWorld.getMaxScaleOnAxis() : 1);
+      if (r < 12 && isFinite(r)) lst.push({ m: m, x: c.x, y: c.y, z: c.z, d2: Math.pow(Math.max(70, r * 160), 2), oc: false });
+    });
+    o._lod = lst; return lst;
+  }
+  function optimizarEstructuras(t) {
+    var i, o, dx, dz, dd, k, j, L, q, dy, d2, cx = cam.position.x, cy = cam.position.y, cz = cam.position.z, ahora = Date.now();
+    frN++;
+    try { if (!vCam) vCam = new THREE.Vector3(); cam.getWorldDirection(vCam); camFx = vCam.x; camFz = vCam.z; } catch (e) { camFx = camFz = 0; }
+    for (i = 0; i < colocadas.length; i++) {
+      o = colocadas[i]; if (o === sentado) continue;
+      dx = o.x - cx; dz = o.z - cz; dd = Math.sqrt(dx * dx + dz * dz) || 1;
+      k = dd > o.r * 2 + 1500 ? 8 : (dd > o.r * 1.2 && (dx * camFx + dz * camFz) < -0.25 * dd) ? 4 : 2;   // lejos o a tu espalda: se actualiza menos
+      if ((frN + i) % k === 0) { try { o.api.update(t); } catch (e2) { } }
+      if (frN % 6 === (i % 6) && !o.item.arma && !(o.fin && o.fin > ahora)) {   // LOD de piezas pequeñas
+        L = lodDe(o);
+        for (j = 0; j < L.length; j++) {
+          q = L[j]; dx = q.x - cx; dy = q.y - cy; dz = q.z - cz; d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 > q.d2) { if (q.m.visible && !q.oc) { q.m.visible = false; q.oc = true; } } else if (q.oc) { q.m.visible = true; q.oc = false; }
+        }
+      }
+    }
+  }
   function actualizarPie(dt, t) {
     var i, o, ax = stk ? stk.ax : 0, ay = stk ? stk.ay : 0;
     if (!vA) { vA = new THREE.Vector3(); qA = new THREE.Quaternion(); }
@@ -420,7 +449,8 @@
         var ok = valida(gx, gz, ghost.r, null); try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;
       }
-      alt = !alt; var i; if (alt) for (i = 0; i < colocadas.length; i++) { if (colocadas[i] === sentado) continue; try { colocadas[i].api.update(t); } catch (e2) { } } if (ghost && alt) { try { ghost.api.update(t); } catch (e3) { } }
+      alt = !alt; var i; optimizarEstructuras(t);
+      if (ghost && alt) { try { ghost.api.update(t); } catch (e3) { } }
       if (nave) {
         var ty = HOVER, dxn = naveTx - naveX, dzn = naveTz - naveZ, dn = Math.hypot(dxn, dzn);
         if (naveBaja) { if (dn > 3) { var st = Math.min(dn, 160 * dt); naveX += dxn / dn * st; naveZ += dzn / dn * st; } else ty = 0; }
