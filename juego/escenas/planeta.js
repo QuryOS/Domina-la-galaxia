@@ -275,8 +275,8 @@
     if (sentado) {
       sentado.api.apuntar(tIx, tIy); sentado.api.update(t); sentado.api.asiento(vA, qA); if (manosPie) { sentadoPose(t, dt, tIx, tIy, sentado.api); }
       if (!ag) ag = { sitio: new THREE.Vector3(), izq: new THREE.Vector3(), der: new THREE.Vector3(), vol: new THREE.Vector3(), ang: 0, volR: 0 };
-      sentado.api.agarres(ag); var ev = sentado.api.elevacion(); vA.y += 0.3;
-      cam.position.copy(vA); cam.rotation.set(clamp(-0.1 + 0.45 * ev, -0.1, 0.75), ag.ang + PI, 0, 'YXZ'); cam.updateMatrixWorld(true);
+      sentado.api.agarres(ag); var ev = sentado.api.elevacion(); vA.y += 0.55 + 0.7 * Math.sin(Math.max(0, ev));   // al subir los cañones la cámara SE ALZA (no avanza)
+      cam.position.copy(vA); cam.rotation.set(clamp(-0.12 + 0.3 * ev, -0.12, 0.5), ag.ang + PI, 0, 'YXZ'); cam.updateMatrixWorld(true);
       if (!vB) { vB = new THREE.Vector3(); vC = new THREE.Vector3(); } sentado.api.boca(vB, vC); vB.addScaledVector(vC, 400); vB.project(cam);
       var mxp = clamp((vB.x * 0.5 + 0.5) * E.ancho, 24, E.ancho - 24), myp = clamp((0.5 - vB.y * 0.5) * E.alto, 24, E.alto - 24); if (vB.z > 1) { mxp = E.ancho / 2; myp = E.alto * 0.2; }
       ui.mira.style.left = mxp + 'px'; ui.mira.style.top = myp + 'px';

@@ -240,7 +240,7 @@ function createTorreta(THREE, opts) {
     },
     agarres: function (o) {   // posiciones del mundo: asiento, palancas, manivela de elevación, y hacia dónde mira la torreta
       group.updateMatrixWorld(true);
-      o.sitio.copy(yaw.localToWorld(vb.set(-1.35, 1.02, 0))); o.izq.copy(levs[1].localToWorld(vb.set(0, 0.2, 0))); o.der.copy(levs[0].localToWorld(vb.set(0, 0.2, 0)));
+      o.sitio.copy(yaw.localToWorld(vb.set(-1.05, 1.02, 0))); o.izq.copy(levs[1].localToWorld(vb.set(0, 0.2, 0))); o.der.copy(levs[0].localToWorld(vb.set(0, 0.2, 0)));
       o.vol.copy(wheels[0].localToWorld(vb.set(0.26, 0.0, 0.1)));
       var q = new THREE.Quaternion(); yaw.getWorldQuaternion(q); var f = new THREE.Vector3(1, 0, 0).applyQuaternion(q); o.ang = Math.atan2(f.x, f.z);
       o.volR = wheels[0].rotation.z; return o;
