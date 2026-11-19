@@ -437,7 +437,7 @@
     function apParar(txt) { ap.on = false; ap.huir = false; ap.minar = false; ap.seg = false; ap.espera = false; apLaser = false; ap.meta = null; hzN = 0; if (hud.bMod) hud.bMod.classList.remove('on'); if (hud.bAuto) hud.bAuto.classList.remove('on'); if (txt) toast(txt, 1.5); }
     function apAlternar() {
       if (pausado || atracado) return;
-      if (ap.on) { apParar('PILOTO AUTOMÁTICO APAGADO'); return; }
+      if (ap.on) { apParar(ap.minar ? 'MINERÍA APAGADA' : ap.seg ? 'SEGUIMIENTO APAGADO' : 'PILOTO AUTOMÁTICO APAGADO'); return; }
       if (!meta) { toast('MARCA UN DESTINO EN EL MAPA', 1.8); return; }
       ap.on = true; ap.huir = false; ap.meta = meta; hud.bAuto.classList.add('on'); toast('PILOTO AUTOMÁTICO', 1.2);
     }
@@ -471,7 +471,7 @@
         w = (1 - dp / rr) * (1.4 + 2.2 * (1 - Math.max(0, t) / look)); apS.x -= px / dp * w; apS.y -= py / dp * w; apS.z -= pz / dp * w;
       }
       for (i = 0; i < listaRo.length; i++) { o = listaRo[i]; if (o === m || (o.ro && o.ro.dead) || o.x - P.x > look + 400 || P.x - o.x > look + 400) continue; obst(o.x, o.y, o.z, o.r); }
-      for (i = 0; i < lst.length; i++) obst(lst[i].x, lst[i].y, lst[i].z, lst[i].r);
+      for (i = 0; i < lst.length; i++) { if (hold && Math.abs(lst[i].x - m.x) < 8 && Math.abs(lst[i].y - m.y) < 8 && Math.abs(lst[i].z - m.z) < 8) continue; obst(lst[i].x, lst[i].y, lst[i].z, lst[i].r); }   // la roca objetivo (también en el campo estático) nunca se esquiva
       if (hold && llego) apS.set(0, 0, 0);   // ya en posición: se apunta directo a la roca, sin desvíos
       apD.add(apS); apD.normalize();
       apQ.copy(Q).invert(); apL.copy(apD).applyQuaternion(apQ);   // dirección deseada en ejes de la nave (la nariz es -Z)
@@ -550,8 +550,8 @@
     }
     function ordenPiloto(modo) {   // la nave que pilotas
       if (modo === 'parar') { apParar('PILOTO AUTOMÁTICO APAGADO'); return; }
-      if (modo === 'mina') { if (!nSel.minero) { toast('ESTA NAVE NO MINA'); return; } if (ap.on && ap.minar) { apParar('MINERÍA APAGADA'); return; } apParar(); ap.on = true; ap.minar = true; hud.bAuto.classList.add('on'); hud.bMod.classList.add('on'); toast('MINERÍA AUTOMÁTICA', 1.2); return; }
-      if (modo === 'sigue') { if (jug.nave !== 'mastodonte') { toast('SOLO EL CARGUERO SIGUE AL MINERO'); return; } if (ap.on && ap.seg) { apParar('SEGUIMIENTO APAGADO'); return; } apParar(); ap.on = true; ap.seg = true; hud.bAuto.classList.add('on'); hud.bMod.classList.add('on'); toast('SIGUIENDO AL PROSPECTOR', 1.2); return; }
+      if (modo === 'mina') { if (!nSel.minero) { toast('ESTA NAVE NO MINA'); return; } if (ap.on && ap.minar) { apParar('MINERÍA APAGADA'); return; } apParar(); ap.on = true; ap.minar = true; hud.bMod.classList.add('on'); toast('MINERÍA AUTOMÁTICA', 1.2); return; }
+      if (modo === 'sigue') { if (jug.nave !== 'mastodonte') { toast('SOLO EL CARGUERO SIGUE AL MINERO'); return; } if (ap.on && ap.seg) { apParar('SEGUIMIENTO APAGADO'); return; } apParar(); ap.on = true; ap.seg = true; hud.bMod.classList.add('on'); toast('SIGUIENDO AL PROSPECTOR', 1.2); return; }
       if (modo === 'estacion') { var l = lugaresEn(P.x, P.y, P.z, 200000).filter(function (q) { return q.o.tipo === 'estacion'; })[0]; if (!l) { toast('NO HAY ESTACIONES CERCA'); return; } apParar(); ap.on = true; ap.meta = l.o; hud.bAuto.classList.add('on'); toast('RUMBO A ' + l.o.nombre.toUpperCase(), 1.4); }
     }
     function cambiarA(id) {

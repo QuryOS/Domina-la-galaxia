@@ -102,11 +102,21 @@ function createTorreta(THREE, opts) {
     CZ(pitch, 0.14, 1.9, 0, 0, 0, steel2);
     Z(pitch, [[-1.0, -0.9], [1.0, -0.9], [1.15, 0.2], [0.6, 0.95], [-0.6, 0.95], [-1.15, 0.2]], [[-0.45, 0, 0.17], [0.45, 0, 0.17]], 0.12, 0.04, olive, 0.95, 0.1);
     [[-0.95, 0.6], [0.95, 0.6], [-1.0, -0.7], [1.0, -0.7]].forEach(function (p) { S(pitch, 1.03, p[1], p[0], 0.05); });
-    /* Mando del artillero: barra transversal, apoyos, empuñaduras y gatillos rojos */
-    R(pitch, -1.2, 0.25, -0.55, -1.2, 0.25, 0.55, 0.05, steel);
+    /* Mando del artillero: FIJO a la plataforma (no sube ni baja con los cañones). Dos palancas con gatillo rojo; las manos las agarran */
+    var mando = new THREE.Group(); mando.position.set(-0.8, 1.4, 0); yaw.add(mando);
+    var skin = mat(0xd8a47f, 0, 0.8), manga = mat(0x4a5a34, 0.1, 0.8), levs = [], manos = [];
+    R(mando, 0, -0.1, -0.6, 0, -0.1, 0.6, 0.05, steel);
     [1, -1].forEach(function (sd) {
-      R(pitch, -0.9, 0.1, 0.45 * sd, -1.2, 0.25, 0.55 * sd, 0.05, steel);
-      CZ(pitch, 0.07, 0.3, -1.2, 0.25, 0.64 * sd, black); var tb = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.1, 12), red); tb.position.set(-1.2, 0.35, 0.64 * sd); pitch.add(tb);
+      R(mando, 0.35, -0.5, 0.45 * sd, 0, -0.1, 0.6 * sd, 0.05, steel);
+      var lv = new THREE.Group(); lv.position.set(0, -0.1, 0.6 * sd); mando.add(lv); levs.push(lv);
+      CY(lv, 0.045, 0.36, 0, 0.18, 0, black); CY(lv, 0.06, 0.05, 0, 0.0, 0, steel2);
+      var tb = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.08, 12), red); tb.rotation.x = Math.PI / 2; tb.position.set(0.06, 0.3, 0); lv.add(tb);
+      /* mano: palma, cuatro dedos enrollados, pulgar y antebrazo con manga */
+      var mn = new THREE.Group(); mn.visible = false; manos.push(mn); lv.add(mn);
+      var palma = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.12), skin); palma.position.set(-0.07, 0.17, 0); mn.add(palma);
+      for (var fi = 0; fi < 4; fi++) { var fg = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.115, 8), skin); fg.rotation.x = Math.PI / 2; fg.position.set(0.04, 0.07 + fi * 0.045, 0); mn.add(fg); var fj = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.02), skin); fj.position.set(-0.01, 0.07 + fi * 0.045, 0.055 * -sd); mn.add(fj); }
+      var pul = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 8), skin); pul.position.set(0.035, 0.27, -0.02 * sd); pul.rotation.z = 1.2; mn.add(pul);
+      var anti = R(mn, -0.1, 0.17, 0, -0.75, -0.1, 0.35 * sd, 0.05, manga); var pu = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), skin); pu.position.set(-0.11, 0.17, 0); mn.add(pu);
     });
     /* Mira de anillos CENTRAL: puente sobre las dos cajas, poste trasero, poste delantero apoyado en el escudo */
     B(pitch, 0.9, 0.08, 1.3, -0.2, 0.5, 0, steel2); B(pitch, 0.3, 0.1, 0.3, -0.6, 0.58, 0, steel2);
@@ -187,7 +197,7 @@ function createTorreta(THREE, opts) {
   }
   function update(t) {
     var dt = tPrev == null ? 0.016 : Math.min(Math.max(t - tPrev, 0), 0.1); tPrev = t;
-    yawA += aimY * 1.1 * dt; pitchA = Math.min(1.45, Math.max(-0.08, pitchA + aimP * 0.8 * dt)); yaw.rotation.y = yawA; pitch.rotation.z = pitchA;
+    yawA += aimY * 1.1 * dt; pitchA = Math.min(1.45, Math.max(-0.08, pitchA + aimP * 0.8 * dt)); yaw.rotation.y = yawA; pitch.rotation.z = pitchA; levs.forEach(function (lv, k) { lv.rotation.z = -aimP * 0.3; lv.rotation.x = aimY * 0.25 * (k ? -1 : 1); if (k === 0) lv.children[2].position.y = 0.3 - (firing ? 0.025 : 0); });
     cd -= dt;
     if (firing && cd <= 0 && ammo > 0 && !reloadState) { shoot(); cd = 1 / 12; }
     gn.forEach(function (G) { G.rec *= Math.exp(-dt * 14); G.g.position.x = -0.4 * G.rec; G.flash -= dt; G.fs.visible = G.flash > 0; if (G.fs.visible) G.fs.scale.setScalar(1.2 + Math.random() * 0.8); });
@@ -227,6 +237,7 @@ function createTorreta(THREE, opts) {
     disparar: function (on) { firing = !!on; },
     recargar: function () { if (!reloadState && ammo < 120) { reloadState = 1; rt = 0; } },
     municion: function () { return ammo; }, recargando: function () { return reloadState > 0; },
+    manos: function (on) { manos.forEach(function (m) { m.visible = !!on; }); },
     setAccent: function () { }
   };
 }

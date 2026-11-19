@@ -31,7 +31,7 @@
   E.ATERRIZABLES = { arido: 1, rocoso: 1, hielo: 1, tormenta: 1 };
 
   var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
-  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, stk = null, lookId = null, cercaT = null, vA = null, qA = null;
+  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, saltoY = 0, saltoV = 0, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, vA = null, qA = null;
   var pl = null, ret = null, key = '', nave = null, pad = 60, colocadas = [], ghost = null, itemSel = null, rotG = 0, modoBorrar = false, cargando = '', alt = false;
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
 
@@ -158,7 +158,10 @@
     };
     ui.bPie = el('button', 'jn-btn', ui.barra, 'BAJAR A PIE'); ui.bPie.onclick = function () { if (modoPie) salirPie(); else entrarPie(); };
     ui.bCor = el('button', 'jn-btn', ui.barra, 'CORRER'); ui.bCor.onclick = function () { correr = !correr; ui.bCor.classList.toggle('on', correr); };
-    ui.bSen = el('button', 'jn-btn', ui.barra, 'SENTARSE'); ui.bSen.onclick = function () { if (sentado) levantarse(); else if (cercaT) sentarse(cercaT); };
+    ui.bSen = el('button', 'jn-btn', ui.barra, 'BAJAR DE LA TORRETA'); ui.bSen.onclick = function () { if (sentado) levantarse(); };
+    ui.bUsar = el('div', 'jn-pl-usar', L); el('span', '', ui.bUsar, '✋'); el('b', '', ui.bUsar, 'USAR'); ui.bUsar.addEventListener('pointerdown', function (ev) { if (cercaT && !sentado) sentarse(cercaT); ev.preventDefault(); });
+    ui.bSal = el('button', 'jn-btn jn-grande jn-pl-saltar', L, 'SALTAR'); ui.bSal.addEventListener('pointerdown', function (ev) { if (saltoY <= 0.001 && modoPie && !sentado) saltoV = 4.6; ev.preventDefault(); });
+    ui.bGol = el('button', 'jn-btn jn-grande jn-pl-golpe', L, 'GOLPEAR'); ui.bGol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado && golpeT <= 0) golpeT = 0.45; ev.preventDefault(); });
     ui.bRec = el('button', 'jn-btn', ui.barra, 'RECARGAR'); ui.bRec.onclick = function () { if (sentado) sentado.api.recargar(); };
     ui.bFue = el('button', 'jn-btn jn-grande jn-fuego', L, 'DISPARAR'); ['pointerdown'].forEach(function (n) { ui.bFue.addEventListener(n, function (ev) { if (sentado) sentado.api.disparar(true); ev.preventDefault(); }); }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { ui.bFue.addEventListener(n, function () { if (sentado) sentado.api.disparar(false); }); });
     ui.sb = el('div', 'jn-pl-sb', L); ui.sk = el('div', 'jn-pl-sk', L); ui.mira = el('div', 'jn-pl-mira', L, '+'); ui.izq = izq;
@@ -175,20 +178,41 @@
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + colocadas.length + '/' + MAX_EST : '';
     vis(ui.bCons, !pie && !pon && !modoBorrar); vis(ui.bCol, !pie && pon); vis(ui.bRot, !pie && pon); vis(ui.bCan, !pie && pon);
     vis(ui.bNave, !sen && !(!pie && (pon || modoBorrar))); vis(ui.bBor, !pie && !pon); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !(!pie && pon));
-    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen); vis(ui.bSen, pie && (sen || !!cercaT)); ui.bSen.textContent = sen ? 'LEVANTARSE' : 'SENTARSE';
+    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && cercaT) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen); vis(ui.bGol, pie && !sen);
     vis(ui.bRec, sen); vis(ui.bFue, sen); vis(ui.mira, pie && !sen); ui.izq.style.display = pie ? 'none' : '';
     ui.est.textContent = cargando ? 'Descargando ' + cargando + '…' : (itemSel && !ghost ? 'Preparando…' : (ghost ? 'Mueve la cámara para elegir el sitio · verde = cabe' : ''));
     rejilla.visible = pon && !pie;
   }
+  function crearManosPie() {
+    if (manosPie) return;
+    manosPie = new THREE.Group(); sc.add(cam); cam.add(manosPie);
+    var skin = new THREE.MeshStandardMaterial({ color: 0xd8a47f, roughness: 0.8, metalness: 0 }), manga = new THREE.MeshStandardMaterial({ color: 0x4a5a34, roughness: 0.8, metalness: 0 });
+    [-1, 1].forEach(function (sd) {
+      var h = new THREE.Group(); h.userData.sd = sd; manosPie.add(h);
+      var ante = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.5, 10), manga); ante.rotation.x = Math.PI / 2; ante.position.set(0, 0, 0.2); h.add(ante);
+      var pal = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 0.1), skin); pal.position.set(0, 0, -0.1); h.add(pal);
+      for (var f = 0; f < 4; f++) { var d = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.022, 0.07), skin); d.position.set(-0.033 + f * 0.022, 0.0, -0.18); d.rotation.x = 0.35; h.add(d); }
+      var p = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.022, 0.06), skin); p.position.set(0.055 * -sd, 0.0, -0.12); p.rotation.y = 0.5 * sd; h.add(p);
+      h.position.set(0.2 * sd, -0.27, -0.45); h.rotation.set(-0.25, -0.15 * sd, 0);
+    });
+  }
+  function animarManos(t, dt, mag) {
+    if (!manosPie) return; var cam1 = correr ? 11 : 7, a = Math.sin(t * cam1) * (correr ? 0.07 : 0.035) * mag, g = golpeT > 0 ? Math.sin((1 - golpeT / 0.45) * Math.PI) : 0, en = saltoY > 0.02 ? 0.05 : 0;
+    manosPie.children.forEach(function (h) {
+      var sd = h.userData.sd, ph = sd * a;   // brazos alternados al andar
+      h.position.set(0.2 * sd, -0.27 + Math.abs(a) * 0.4 + en - (sd > 0 ? g * 0.02 : 0), -0.45 + ph * 1.6 - (sd > 0 ? g * 0.35 : 0) + (correr ? -0.04 : 0));
+      h.rotation.set(-0.25 + ph * 2 - (sd > 0 ? g * 0.7 : 0), -0.15 * sd - (sd > 0 ? g * 0.3 : 0), (correr ? 0.15 * sd : 0));
+    });
+  }
   function entrarPie() {
     quitarGhost(); modoBorrar = false; modoPie = true; px = fx; pz = fz; if (Math.hypot(px, pz) > RADIO_BASE) { px = 0; pz = 160; } pyaw = yaw + PI; ppit = 0; sentado = null;
-    cam.fov = 75; cam.near = 0.1; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
+    saltoY = 0; saltoV = 0; golpeT = 0; crearManosPie(); manosPie.visible = true; cam.fov = 75; cam.near = 0.1; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
   }
   function salirPie() {
-    if (sentado) levantarse(); modoPie = false; fx = px; fz = pz; yaw = pyaw + PI; cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); stk = null; lookId = null; ui.sb.style.display = ui.sk.style.display = 'none'; actualizarUI();
+    if (sentado) levantarse(); if (manosPie) manosPie.visible = false; modoPie = false; fx = px; fz = pz; yaw = pyaw + PI; cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); stk = null; lookId = null; ui.sb.style.display = ui.sk.style.display = 'none'; actualizarUI();
   }
-  function sentarse(o) { sentado = o; stk = null; ui.sb.style.display = ui.sk.style.display = 'none'; toast('ARTILLERO · IZQUIERDA APUNTA', 2); actualizarUI(); }
-  function levantarse() { if (!sentado) return; sentado.api.disparar(false); sentado.api.apuntar(0, 0); px = sentado.x + 3.5; pz = sentado.z + 3.5; sentado = null; actualizarUI(); }
+  function sentarse(o) { sentado = o; try { o.api.manos && o.api.manos(true); } catch (e) { } if (manosPie) manosPie.visible = false; stk = null; ui.sb.style.display = ui.sk.style.display = 'none'; toast('ARTILLERO · IZQUIERDA APUNTA', 2); actualizarUI(); }
+  function levantarse() { if (!sentado) return; sentado.api.disparar(false); sentado.api.apuntar(0, 0); try { sentado.api.manos && sentado.api.manos(false); } catch (e) { } px = sentado.x + 3.5; pz = sentado.z + 3.5; sentado = null; if (manosPie) manosPie.visible = true; actualizarUI(); }
   function despegar() {
     if (!ret) { irA('lobby'); return; }
     var r = ret; irA('mundo', { modo: r.modo, retorno: r });
@@ -231,7 +255,9 @@
     }
     if (naveBaja && naveY < 8) { var dn = Math.hypot(px - naveX, pz - naveZ), ln = pad * 0.55; if (dn < ln) { px = naveX + (px - naveX) / (dn || 1) * ln; pz = naveZ + (pz - naveZ) / (dn || 1) * ln; } }
     if (!!cercaT !== !!ui._ct) { ui._ct = !!cercaT; actualizarUI(); }
-    cam.position.set(px, 1.7 + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz); cam.rotation.set(ppit, pyaw, 0, 'YXZ');
+    if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
+    if (golpeT > 0) golpeT -= dt;
+    cam.position.set(px, 1.7 + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
     if (ui.est.textContent.indexOf('Munición') === 0) ui.est.textContent = '';
   }
   escenas.planeta = {
@@ -239,7 +265,7 @@
     _test: function () { return { pie: function () { return { modoPie: modoPie, px: px, pz: pz, sentado: !!sentado }; }, entrarPie: entrarPie, salirPie: salirPie, sentarse: sentarse, levantarse: levantarse, punteroPie: punteroPie, buscarLibre: buscarLibre, colocadas: function () { return colocadas; }, elegir: elegir, colocar: colocar, itemDe: itemDe, CATALOGO: CATALOGO, ghost: function () { return ghost; }, mover: function (x, z) { fx = x; fz = z; }, borrarEn: borrarEn, despegar: despegar }; },
     entrar: function (d) {
       if (!construido) construir();
-      modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
+      if (manosPie) manosPie.visible = false; saltoY = 0; saltoV = 0; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
       pl = d.pl; ret = d.retorno; key = pl.key; colocadas = []; ghost = null; itemSel = null; modoBorrar = false; cargando = ''; punteros = {}; mov = 0;
       var pj = PAISAJE[pl.tipo] || PAISAJE.rocoso; suelo.material.map = texSuelo(pj[0]); suelo.material.needsUpdate = true; sc.background = new THREE.Color(pj[1]); sc.fog = new THREE.Fog(pj[1], 1800, 9500);
       // la nave posada en el centro
