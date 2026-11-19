@@ -9,10 +9,18 @@
     hierro:  { n: 'Hierro',  c: 0x8a8f99, e: 0x000000, css: '#b4bac4', peso: 56, vel: [12, 38], r: [14, 48], hpK: 1.4, botin: [2, 4] },
     cobre:   { n: 'Cobre',   c: 0xb8683a, e: 0x1a0a02, css: '#e0894f', peso: 26, vel: [22, 55], r: [12, 38], hpK: 1.5, botin: [2, 4] },
     titanio: { n: 'Titanio', c: 0x8fb0cc, e: 0x06131f, css: '#8fd0ff', peso: 13, vel: [35, 70], r: [10, 30], hpK: 2.0, botin: [2, 3] },
+    piedra:  { n: 'Piedra', c: 0x7d7f85, e: 0x000000, css: '#c3c6cc', peso: 0, vel: [10, 30], r: [14, 40], hpK: 1.2, botin: [2, 4] },
     oro:     { n: 'Oro',     c: 0xe3b630, e: 0x3a2800, css: '#ffd447', peso: 5,  vel: [50, 95], r: [7, 18],  hpK: 1.7, botin: [1, 3] }
   };
-  var ORDEN = ['hierro', 'cobre', 'titanio', 'oro'];
-  var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45 }, R_CASCO = 260, D_ATRAQUE = 100, R_ZONA = 1000, R_ATRAQUE = R_CASCO + D_ATRAQUE;   // atraque: a 100 m del casco
+  var ORDEN = ['hierro', 'cobre', 'titanio', 'oro', 'piedra'];   // 'piedra' no sale como asteroide (peso 0): sale al romper rocas, para construir muros
+  var PIEDRA_P = 0.4;   // parte de lo que da una roca que es piedra
+  /* Estructuras de defensa que se compran en las estaciones (se guardan en 'stock' y se colocan en el planeta) */
+  var CONSTR = [
+    { id: 'muro', n: 'Muro de piedra', d: 'Columna + pared + columna', cost: { piedra: 12 } },
+    { id: 'porton', n: 'Portón de piedra y metal', d: 'Dos hojas que abren', cost: { piedra: 18, titanio: 5 } },
+    { id: 'torretaf', n: 'Torreta futurista', d: 'Se coloca sobre una columna', cost: { titanio: 2, oro: 1 } }
+  ];
+  var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45, piedra: 2 }, R_CASCO = 260, D_ATRAQUE = 100, R_ZONA = 1000, R_ATRAQUE = R_CASCO + D_ATRAQUE;   // atraque: a 100 m del casco
   var COLOR_PIEZA = { c: 0x9aa7b8, css: '#c9d6e6' };
   var R_TRACTOR = 450, MAX_AST = 26, R_SPAWN_MIN = 900, R_SPAWN_MAX = 2300, R_DESPAWN = 3300, MAX_DISP = 48, CADENCIA = 0.15, DANO = 12;
 
@@ -28,8 +36,8 @@
     // ctx: { sc, P, V, Q, toast }   (P, V y Q son objetos vivos del mundo; aquí solo se leen)
     var sc = ctx.sc, P = ctx.P, V = ctx.V, Q = ctx.Q;
     var geos = [], mats = {}, ast = [], disp = [], bot = [], boom = [], estac = {}, fuego = false, enfr = 0, lado = 1, radio = 6, tDeb = 0, nuevo = true;
-    var inv = leer('inv', null) || { hierro: 0, cobre: 0, titanio: 0, oro: 0, piezas: 0 };
-    ['hierro', 'cobre', 'titanio', 'oro', 'piezas'].forEach(function (k) { if (typeof inv[k] !== 'number') inv[k] = 0; });
+    var inv = leer('inv', null) || { hierro: 0, cobre: 0, titanio: 0, oro: 0, piezas: 0, piedra: 0 };
+    ['hierro', 'cobre', 'titanio', 'oro', 'piezas', 'piedra'].forEach(function (k) { if (typeof inv[k] !== 'number') inv[k] = 0; });
     var creditos = leer('cred', 0);
     var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), q1 = new THREE.Quaternion();
     var zonasExtra = [], enZona = null, partes = leer('partes', null) || {}, agarrando = false, cand = null, aro = null, rayo = null, geoBot, matBot, geoBot2, geoPza, matPza, geoPieza, matPieza;
@@ -101,12 +109,12 @@
     function botinRoca(x, y, z, r, mat) {   // al romper una roca quieta: mineral según el tipo de roca del campo
       var n = 2 + Math.min(10, (r / 14) | 0) + ((Math.random() * 3) | 0), i, u, k, tipo, mz = MEZCLA[mat] || MEZCLA[0];
       explosion(x, y, z, r, 0xffa860);
-      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } nuevoBotin(tipo, x + rnd(-r, r) * 0.7, y + rnd(-r, r) * 0.7, z + rnd(-r, r) * 0.7, rnd(-16, 16), rnd(-16, 16), rnd(-16, 16)); }
+      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } if (Math.random() < PIEDRA_P) tipo = 'piedra'; nuevoBotin(tipo, x + rnd(-r, r) * 0.7, y + rnd(-r, r) * 0.7, z + rnd(-r, r) * 0.7, rnd(-16, 16), rnd(-16, 16), rnd(-16, 16)); }
       if (Math.random() < 0.18) nuevoBotin('piezas', x, y, z, rnd(-10, 10), rnd(-10, 10), rnd(-10, 10));
     }
     function sacarMineral(r, mat) {   // lo que da una roca rota, directo a una bodega (minería automática): { hierro: n, ..., piezas: n }
       var n = 2 + Math.min(10, (r / 14) | 0) + ((Math.random() * 3) | 0), i, u, k, tipo, mz = MEZCLA[mat] || MEZCLA[0], out = {};
-      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } out[tipo] = (out[tipo] || 0) + 1; }
+      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } if (Math.random() < PIEDRA_P) tipo = 'piedra'; out[tipo] = (out[tipo] || 0) + 1; }
       if (Math.random() < 0.18) out.piezas = 1;
       return out;
     }
@@ -295,7 +303,10 @@
       var n = inv[tipo] || 0, g = n * (PRECIOS[tipo] || 0); if (n <= 0) return 0;
       inv[tipo] = 0; creditos += g; guardar('inv', inv); guardar('cred', creditos); return g;
     }
-    function venderTodo() { var t = 0, k; for (k in PRECIOS) t += vender(k); return t; }
+    function venderTodo() { var t = 0, k; for (k in PRECIOS) if (k !== 'piedra') t += vender(k); return t; }   // la piedra no se vende sola: sirve para construir
+    function stock() { var s = leer('stock', null) || {}; CONSTR.forEach(function (c) { if (typeof s[c.id] !== 'number') s[c.id] = 0; }); return s; }
+    function puedeComprar(id) { var c = CONSTR.filter(function (q) { return q.id === id; })[0], k; if (!c) return false; for (k in c.cost) if ((inv[k] || 0) < c.cost[k]) return false; return true; }
+    function comprar(id) { var c = CONSTR.filter(function (q) { return q.id === id; })[0], k; if (!c || !puedeComprar(id)) return false; for (k in c.cost) inv[k] -= c.cost[k]; var s = stock(); s[id]++; guardar('inv', inv); guardar('stock', s); return true; }
     function nombreTipo(k) { return k === 'piezas' ? 'Trozos metálicos' : TIPOS[k].n; }
     function colorTipo(k) { return k === 'piezas' ? COLOR_PIEZA.css : TIPOS[k].css; }
     function radar() {
@@ -309,9 +320,9 @@
       return s + '<span style="color:' + COLOR_PIEZA.css + '">Trozos ' + inv.piezas + '</span>';
     }
     return {
-      entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv,
+      entrar: entrar, limpiar: limpiar, actualizar: actualizar, estaciones: estaciones, colisionar: colisionar, radar: radar, textoInv: textoInv, inv: inv, CONSTR: CONSTR, stock: stock, puedeComprar: puedeComprar, comprar: comprar,
       fuego: function (v) { fuego = v; }, agarrar: function (v) { agarrando = v; }, estacionCerca: estacionCerca, botinRoca: botinRoca, sacarMineral: sacarMineral, depositar: depositar, setRadio: function (r) { radio = r || 6; }, chispa: function (x, y, z, r) { explosion(x, y, z, r || 3, 0xffe2a0); }, PARTES: PARTES, partes: partes, canjear: canjear, segura: function () { return !!enZona; }, zonas: zonas, agregarZona: function (z) { zonasExtra.push(z); }, zonaEn: zonaEn, _estCount: function () { var n = 0, k; for (k in estac) n++; return n; }, vender: vender, venderTodo: venderTodo, precios: PRECIOS, creditos: function () { return creditos; }, nombreTipo: nombreTipo, colorTipo: colorTipo, _ast: ast, _bot: function () { return bot; }, _nuevoAst: nuevoAst, _trozo: piezaFlotante, _disp: function () { return disp.filter(function (d) { return d.on; }).length; }
     };
   }
-  E.Espacio = { crear: crear, TIPOS: TIPOS };
+  E.Espacio = { crear: crear, TIPOS: TIPOS, CONSTR: CONSTR };
 })(window);

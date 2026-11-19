@@ -7,7 +7,7 @@
   var naveDe = E.naveDe, medidas = E.medidas, obtenerModelo = E.obtenerModelo, cargarScript = E.cargarScript, mostrarCapas = E.mostrarCapas, irA = function (n, d) { return E.irA(n, d); };
 
   var RADIO_BASE = 8000, MAX_EST = 30, HOVER = 90;
-  var DUR = { torreta: 25, planta: 60, extr_min: 40, extr_pet: 40, refineria: 90, complejo: 120, com1: 20, com2: 40, com3: 70, inv1: 25, inv2: 60, pista1: 90, pista2: 150, ciudad: 240, taller1: 70, taller2: 110, astillero: 180 };   // segundos
+  var DUR = { torreta: 25, planta: 60, extr_min: 40, extr_pet: 40, refineria: 90, complejo: 120, com1: 20, com2: 40, com3: 70, inv1: 25, inv2: 60, pista1: 90, pista2: 150, ciudad: 240, taller1: 70, taller2: 110, astillero: 180, muro: 6, porton: 10, torretaf: 8 };   // segundos
   var CATALOGO = [
     { id: 'planta', nombre: 'Planta de energía de fusión', archivo: 'planta_energia.js', fn: 'createPlantaEnergia', desc: 'Reactor, turbinas y baterías.' },
     { id: 'extr_min', nombre: 'Extractora de minerales', archivo: 'extractora_minerales.js', fn: 'createExtractoraMinerales', desc: 'Saca mineral del suelo.' },
@@ -25,13 +25,16 @@
     { id: 'taller1', nombre: 'Taller de reparación', archivo: 'taller_reparacion_nivel1.js', fn: 'createTallerReparacion1', desc: 'Nivel 1.' },
     { id: 'taller2', nombre: 'Taller de reparación doble', archivo: 'taller_reparacion_nivel2.js', fn: 'createTallerReparacion2', desc: 'Nivel 2.' },
     { id: 'torreta', nombre: 'Torreta antiaérea doble', archivo: 'torreta_antiaerea.js', fn: 'createTorreta', desc: 'Arma antigua y barata. Puedes sentarte y disparar.', esc: 1, arma: true },
+    { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 1 },
+    { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 1 },
+    { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 1 },
     { id: 'astillero', nombre: 'Astillero planetario', archivo: 'astillero_planetario.js', fn: 'createAstillero', desc: 'Construye naves en el suelo.' }
   ];
   var PAISAJE = { arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
   E.ATERRIZABLES = { arido: 1, rocoso: 1, hielo: 1, tormenta: 1 };
 
   var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
-  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, vA = null, qA = null, vB = null, vC = null;
+  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaG = null, vA = null, qA = null, vB = null, vC = null;
   var pl = null, ret = null, key = '', nave = null, pad = 60, colocadas = [], ghost = null, itemSel = null, rotG = 0, modoBorrar = false, cargando = '', alt = false;
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
 
@@ -63,7 +66,11 @@
   function asegurar(item, ok) {
     if (typeof global[item.fn] === 'function') return ok(true);
     cargando = item.nombre; if (ui) ui.est.textContent = 'Descargando ' + item.nombre + '…';
-    cargarScript(CONFIG.rutaEdificios + 'base/' + item.archivo, function () { cargando = ''; ok(typeof global[item.fn] === 'function'); }, function () { cargando = ''; ok(false); });
+    var arch = [].concat(item.archivo), k = 0;
+    (function sig() {
+      if (k >= arch.length) { cargando = ''; ok(typeof global[item.fn] === 'function'); return; }
+      var a = arch[k++]; cargarScript(CONFIG.rutaEdificios + 'base/' + a, sig, function () { cargando = ''; ok(false); });
+    })();
   }
   function instanciar(item) {   // modelo en metros, apoyado en el suelo, con su radio de huella
     var api = null; try { api = global[item.fn](THREE, { accent: jug.acento }); } catch (e) { if (global.console) console.error(e); }
@@ -73,6 +80,7 @@
     var b = new THREE.Box3().setFromObject(w), s = b.getSize(new THREE.Vector3()), r = 0.5 * Math.sqrt(s.x * s.x + s.z * s.z) * 0.8;
     if (api.footprint) r = 0.5 * esc4 * Math.max(api.footprint.w, api.footprint.d);   // huella en unidades de 4 m: radio = mitad del lado
     if (!isFinite(r) || r <= 0) r = 40;
+    if (item.defensa) r = item.defensa === 'torretaf' ? 1.2 : 3.6;
     api.group.position.y = 0;   // convención de los modelos: la base de la losa está en y = 0 (no se mide la caja: fosos y cables bajo el suelo los levantaban)
     var raiz = new THREE.Group(); raiz.add(w); sc.add(raiz);
     return { item: item, api: api, g: raiz, r: r };
@@ -96,22 +104,23 @@
     }
     return null;
   }
-  function guardarBase() { guardar('base_' + key, colocadas.map(function (o) { return { i: o.item.id, x: Math.round(o.x * 10) / 10, z: Math.round(o.z * 10) / 10, r: o.rot, fin: o.fin || 0, dur: o.dur || 0 }; }));
+  function guardarBase() { guardar('base_' + key, colocadas.map(function (o) { return { i: o.item.id, x: Math.round(o.x * 100) / 100, z: Math.round(o.z * 100) / 100, y: Math.round((o.g.position.y || 0) * 100) / 100, r: o.rot, fin: o.fin || 0, dur: o.dur || 0 }; }));
     var cs = leer('colonias', {}) || {}; if (colocadas.length) cs[key] = { key: key, nombre: pl.nombre, tipo: pl.tipo, x: pl.x || 0, y: pl.y || 0, z: pl.z || 0, r: pl.r || 1000, estructuras: colocadas.length }; else delete cs[key]; guardar('colonias', cs); }
   function cargarBase() {
     var lst = leer('base_' + key, []) || [], i = 0;
     ui.est.textContent = lst.length ? 'Reconstruyendo la base…' : '';
     (function sig() {
-      if (!pl || i >= lst.length) { actualizarUI(); return; }
+      if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); return; }
       var e = lst[i++], item = itemDe(e.i); if (!item) return sig();
       asegurar(item, function (ok) {
-        if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = leer('rapido', false) ? 0 : (e.fin || 0); o.dur = e.dur || 0; o.g.position.set(o.x, 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
+        if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = leer('rapido', false) ? 0 : (e.fin || 0); o.dur = e.dur || 0; o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
         setTimeout(sig, 0);
       });
     })();
   }
   function elegir(item) {
-    if (colocadas.length >= MAX_EST) { toast('LÍMITE DE ' + MAX_EST + ' ESTRUCTURAS'); return; }
+    if (item.defensa) { if (stockDe(item.id) <= 0) { toast('NO TIENES · CÓMPRALO EN UNA ESTACIÓN', 2.2); return; } if (colocadas.length - nEst() >= MAX_DEF) { toast('LÍMITE DE DEFENSAS'); return; } }
+    else if (nEst() >= MAX_EST) { toast('LÍMITE DE ' + MAX_EST + ' ESTRUCTURAS'); return; }
     quitarGhost(); modoBorrar = false; itemSel = item; ui.panel.classList.remove('on');
     asegurar(item, function (ok) {
       if (!ok || itemSel !== item) { if (!ok) { toast('NO SE PUDO DESCARGAR'); itemSel = null; } actualizarUI(); return; }
@@ -120,20 +129,60 @@
     });
     actualizarUI();
   }
+  /* ---- defensas: muros y portones que se encajan columna con columna; torretas sobre las columnas ---- */
+  var MAX_DEF = 120, ALTO_COL = 2.92;
+  function nEst() { var n = 0, i; for (i = 0; i < colocadas.length; i++) if (!colocadas[i].item.defensa) n++; return n; }
+  function stockDe(id) { var s = leer('stock', {}) || {}; return s[id] || 0; }
+  function stockMas(id, d) { var s = leer('stock', {}) || {}; s[id] = Math.max(0, (s[id] || 0) + d); guardar('stock', s); }
+  function esMuro(o) { return o.item.defensa === 'muro' || o.item.defensa === 'porton'; }
+  function extremosDe(o) { var a = o.rot || 0, c = Math.cos(a) * 2.5, sn = Math.sin(a) * 2.5; return [{ x: o.x + c, z: o.z - sn, o: o, i: 1 }, { x: o.x - c, z: o.z + sn, o: o, i: 0 }]; }   // i = columna: 0 izquierda (-x), 1 derecha (+x)
+  function todosExtremos() { var l = [], i; for (i = 0; i < colocadas.length; i++) if (esMuro(colocadas[i])) l = l.concat(extremosDe(colocadas[i])); return l; }
+  function actualizarPilares() {   // donde dos muros comparten columna, solo se ve una (así queda columna, pared, columna, pared…)
+    var i, j, k, o, e, hay, visto = [];
+    for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (!esMuro(o) || !o.api.pilar) continue; e = extremosDe(o);
+      for (k = 0; k < 2; k++) { hay = false; for (j = 0; j < visto.length; j++) if (Math.abs(visto[j][0] - e[k].x) < 0.35 && Math.abs(visto[j][1] - e[k].z) < 0.35) { hay = true; break; } var pil = o.api.pilar(e[k].i); if (pil) pil.visible = !hay; if (!hay) visto.push([e[k].x, e[k].z]); } }
+  }
+  function huerfanas() {   // torretas cuya columna ya no existe vuelven a tu stock
+    var ex = todosExtremos(), i, j, o, ok, cambio = false;
+    for (i = colocadas.length - 1; i >= 0; i--) { o = colocadas[i]; if (o.item.defensa !== 'torretaf') continue; ok = false; for (j = 0; j < ex.length; j++) if (Math.hypot(ex[j].x - o.x, ex[j].z - o.z) < 0.5) { ok = true; break; }
+      if (!ok) { sc.remove(o.g); colocadas.splice(i, 1); stockMas('torretaf', 1); cambio = true; } }
+    return cambio;
+  }
+  function validaDef(x, z) {
+    if (Math.hypot(x, z) + 4 > RADIO_BASE || (naveBaja && Math.hypot(x - naveTx, z - naveTz) < pad + 4)) return false;
+    var i, o, d; for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; d = Math.hypot(o.x - x, o.z - z); if (esMuro(o)) { if (d < 3.3) return false; } else if (o.item.defensa !== 'torretaf' && d < o.r + 4) return false; }
+    return true;
+  }
+  function posDefensa(cx, cz) {   // coloca el fantasma (encajado) y dice si se puede construir
+    var it = ghost.item.defensa, g = ghost.g, ex = todosExtremos(), i, j, e, d, bd = 1e9, best = null, f, occ;
+    if (it === 'torretaf') {
+      for (i = 0; i < ex.length; i++) { e = ex[i]; occ = false; for (j = 0; j < colocadas.length; j++) if (colocadas[j].item.defensa === 'torretaf' && Math.hypot(colocadas[j].x - e.x, colocadas[j].z - e.z) < 0.5) { occ = true; break; } d = Math.hypot(e.x - cx, e.z - cz); if (!occ && d < 16 && d < bd) { bd = d; best = e; } }
+      if (best) { g.position.set(best.x, ALTO_COL, best.z); g.rotation.y = (best.o.rot || 0) + rotG; ghost.okDef = true; } else { g.position.set(cx, 0, cz); g.rotation.y = rotG; ghost.okDef = false; }
+      return ghost.okDef;
+    }
+    for (i = 0; i < ex.length; i++) { e = ex[i]; f = true; for (j = 0; j < ex.length; j++) if (ex[j].o !== e.o && Math.hypot(ex[j].x - e.x, ex[j].z - e.z) < 0.35) { f = false; break; } d = Math.hypot(e.x - cx, e.z - cz); if (f && d < 16 && d < bd) { bd = d; best = e; } }
+    var x, z, rot;
+    if (best) {
+      rot = (best.o.rot || 0) + rotG; var ax = Math.cos(rot) * 2.5, az = -Math.sin(rot) * 2.5, x1 = best.x + ax, z1 = best.z + az, x2 = best.x - ax, z2 = best.z - az, d1 = Math.hypot(x1 - best.o.x, z1 - best.o.z), d2 = Math.hypot(x2 - best.o.x, z2 - best.o.z), u1;
+      u1 = Math.abs(d1 - d2) > 0.5 ? d1 > d2 : Math.hypot(x1 - cx, z1 - cz) < Math.hypot(x2 - cx, z2 - cz); x = u1 ? x1 : x2; z = u1 ? z1 : z2;
+    } else { x = Math.round(cx); z = Math.round(cz); rot = rotG; }
+    g.position.set(x, 0, z); g.rotation.y = rot; ghost.okDef = validaDef(x, z); return ghost.okDef;
+  }
   function quitarGhost() { if (ghost) { sc.remove(ghost.g); ghost = null; } itemSel = null; }
   function colocar() {
-    if (!ghost) return; var x = ghost.g.position.x, z = ghost.g.position.z;
-    if (!valida(x, z, ghost.r, null)) { toast('NO CABE AQUÍ'); return; }
-    var o = ghost; ghost = null; itemSel = null; o.x = x; o.z = z; o.rot = rotG; try { if (o.api.setGhost) o.api.setGhost(false); } catch (e) { }
+    if (!ghost) return; var x = ghost.g.position.x, z = ghost.g.position.z, df = ghost.item.defensa;
+    if (df ? !ghost.okDef : !valida(x, z, ghost.r, null)) { toast(df === 'torretaf' ? 'PONLA SOBRE UNA COLUMNA' : 'NO CABE AQUÍ'); return; }
+    if (df) { if (stockDe(ghost.item.id) <= 0) { toast('NO TE QUEDAN'); return; } stockMas(ghost.item.id, -1); }
+    var o = ghost; ghost = null; itemSel = null; o.x = x; o.z = z; o.rot = o.g.rotation.y; try { if (o.api.setGhost) o.api.setGhost(false); } catch (e) { }
     o.dur = leer('rapido', false) ? 0 : (DUR[o.item.id] || 30) * 1000; o.fin = o.dur ? Date.now() + o.dur : 0; if (o.dur) o.g.scale.y = 0.04;
-    colocadas.push(o); guardarBase(); toast(o.dur ? 'CONSTRUYENDO · ' + Math.round(o.dur / 1000) + ' s' : 'CONSTRUIDO', 1.4); actualizarUI();
+    colocadas.push(o); actualizarPilares(); guardarBase(); toast(o.dur ? 'CONSTRUYENDO · ' + Math.round(o.dur / 1000) + ' s' : 'CONSTRUIDO', 1.4); actualizarUI();
   }
   function borrarEn(px, py) {
     v2p.set(px / E.ancho * 2 - 1, -(py / E.alto) * 2 + 1); ray.setFromCamera(v2p, cam);
     var i, hits = [], o;
     for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; var h = ray.intersectObject(o.g, true); if (h.length) hits.push({ d: h[0].distance, o: o }); }
     if (!hits.length) return; hits.sort(function (a, b) { return a.d - b.d; }); o = hits[0].o;
-    sc.remove(o.g); colocadas.splice(colocadas.indexOf(o), 1); guardarBase(); toast('DEMOLIDO: ' + o.item.nombre.toUpperCase(), 1.4); actualizarUI();
+    sc.remove(o.g); colocadas.splice(colocadas.indexOf(o), 1); if (o.item.defensa) { stockMas(o.item.id, 1); huerfanas(); actualizarPilares(); } guardarBase(); toast('DEMOLIDO: ' + o.item.nombre.toUpperCase(), 1.4); actualizarUI();
   }
 
   /* ---- interfaz ---- */
@@ -145,7 +194,7 @@
     function hold(t, f) { var b = el('div', 'jn-ico', izq, t); b.addEventListener('pointerdown', function (ev) { f(1); b.setPointerCapture && b.setPointerCapture(ev.pointerId); ev.preventDefault(); }); ['pointerup', 'pointercancel'].forEach(function (n) { b.addEventListener(n, function () { f(0); }); }); return b; }
     hold('⟲', function (v) { bR = v ? -1 : 0; }); hold('⟳', function (v) { bR = v ? 1 : 0; }); hold('＋', function (v) { bZ = v ? -1 : 0; }); hold('－', function (v) { bZ = v ? 1 : 0; });
     ui.barra = el('div', 'jn-pl-barra', L);
-    ui.bCons = el('button', 'jn-btn', ui.barra, 'CONSTRUIR'); ui.bCons.onclick = function () { quitarGhost(); modoBorrar = false; ui.panel.classList.add('on'); actualizarUI(); };
+    ui.bCons = el('button', 'jn-btn', ui.barra, 'CONSTRUIR'); ui.bCons.onclick = function () { quitarGhost(); modoBorrar = false; refrescarStock(); ui.panel.classList.add('on'); actualizarUI(); };
     ui.bCol = el('button', 'jn-btn jn-grande', ui.barra, 'COLOCAR'); ui.bCol.onclick = colocar;
     ui.bRot = el('button', 'jn-btn', ui.barra, 'GIRAR'); ui.bRot.onclick = function () { rotG += PI / 4; };
     ui.bCan = el('button', 'jn-btn', ui.barra, 'CANCELAR'); ui.bCan.onclick = function () { quitarGhost(); actualizarUI(); };
@@ -162,7 +211,7 @@
     ui.bPie = el('button', 'jn-btn', ui.barra, 'BAJAR A PIE'); ui.bPie.onclick = function () { if (modoPie) salirPie(); else entrarPie(); };
     ui.bCor = el('button', 'jn-btn', ui.barra, 'CORRER'); ui.bCor.onclick = function () { correr = !correr; ui.bCor.classList.toggle('on', correr); };
     ui.bSen = el('button', 'jn-btn', ui.barra, 'BAJAR DE LA TORRETA'); ui.bSen.onclick = function () { if (sentado) levantarse(); };
-    ui.bUsar = el('div', 'jn-pl-usar', L); el('span', '', ui.bUsar, '✋'); el('b', '', ui.bUsar, 'USAR'); ui.bUsar.addEventListener('pointerdown', function (ev) { if (cercaT && !sentado) sentarse(cercaT); ev.preventDefault(); });
+    ui.bUsar = el('div', 'jn-pl-usar', L); el('span', '', ui.bUsar, '✋'); el('b', '', ui.bUsar, 'USAR'); ui.bUsar.addEventListener('pointerdown', function (ev) { if (cercaT && !sentado) sentarse(cercaT); else if (cercaG && !sentado) { cercaG.abierto = !cercaG.abierto; toast(cercaG.abierto ? 'PORTÓN ABIERTO' : 'PORTÓN CERRADO', 1); } ev.preventDefault(); });
     ui.bSal = el('button', 'jn-btn jn-grande jn-pl-saltar', L, 'SALTAR'); ui.bSal.addEventListener('pointerdown', function (ev) { if (saltoY <= 0.001 && modoPie && !sentado) saltoV = 4.6; ev.preventDefault(); });
     ui.bGol = el('button', 'jn-btn jn-grande jn-pl-golpe', L, 'GOLPEAR'); ui.bGol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado && golpeT <= 0) golpeT = 0.45; ev.preventDefault(); });
     ui.bRec = el('button', 'jn-btn', ui.barra, 'RECARGAR'); ui.bRec.onclick = function () { if (sentado) sentado.api.recargar(); };
@@ -176,19 +225,20 @@
     var lst = el('div', 'jn-fl-lista', ui.panel);
     CATALOGO.forEach(function (it) {
       var f = el('div', 'jn-fl-fila', lst), inf = el('div', 'jn-fl-inf', f); el('b', '', inf, it.nombre); el('span', '', inf, it.desc);
-      var b = el('button', 'jn-btn', f, 'ELEGIR'); b.onclick = function () { elegir(it); };
+      var b = el('button', 'jn-btn', f, 'ELEGIR'); b.onclick = function () { elegir(it); }; if (it.defensa) { it._bt = b; it._inf = inf; }
     });
   }
+  function refrescarStock() { CATALOGO.forEach(function (it) { if (!it.defensa || !it._bt) return; var n = stockDe(it.id); it._bt.textContent = n > 0 ? 'ELEGIR (' + n + ')' : 'SIN STOCK'; it._bt.disabled = n <= 0; }); }
   function actualizarUI() {
     if (!ui) return; var pon = !!(ghost || itemSel), pie = modoPie, sen = !!sentado;
     function vis(b, v) { b.style.display = v ? '' : 'none'; }
-    ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + colocadas.length + '/' + MAX_EST : '';
-    vis(ui.bCons, !pie && !pon && !modoBorrar); vis(ui.bCol, !pie && pon); vis(ui.bRot, !pie && pon); vis(ui.bCan, !pie && pon);
-    vis(ui.bNave, !sen && !(!pie && (pon || modoBorrar))); vis(ui.bBor, !pie && !pon); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !(!pie && pon));
-    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && cercaT) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen); vis(ui.bGol, pie && !sen);
+    ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
+    vis(ui.bCons, !pon && !modoBorrar && !sen); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
+    vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, !pie && !pon); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
+    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
     vis(ui.bRec, sen); vis(ui.bFue, sen); vis(ui.mira, pie); ui.tor.style.display = sen ? 'grid' : 'none'; if (!sen) { ui.mira.style.left = ui.mira.style.top = ''; tIx = tIy = 0; } ui.izq.style.display = pie ? 'none' : '';
     ui.est.textContent = cargando ? 'Descargando ' + cargando + '…' : (itemSel && !ghost ? 'Preparando…' : (ghost ? 'Mueve la cámara para elegir el sitio · verde = cabe' : ''));
-    rejilla.visible = pon && !pie;
+    rejilla.visible = pon && !pie && !(ghost && ghost.item.defensa);
   }
   /* ---- el personaje: el soldado espacial del lobby, visto en primera persona (cabeza oculta, se ven sus brazos y su cuerpo) ---- */
   var LB = 0.29, LA = 0.26, hand = { izq: null, der: null }, wk = 0, ag = null;
@@ -371,6 +421,13 @@
       }
     }
   }
+  function choqueDefensa(o, dx, dz) {   // muros y portones: rectángulos orientados (pilares 2 × 2 m, pared de 1 m; el portón cerrado también bloquea el centro)
+    var a = o.rot || 0, ca = Math.cos(a), sa = Math.sin(a), lx = dx * ca - dz * sa, lz = dx * sa + dz * ca, R = 0.4, rs = [];
+    if (o.item.defensa === 'muro') rs.push([0, 3.5 + R, 1.1 + R]); else { rs.push([-2.5, 1 + R, 1.1 + R], [2.5, 1 + R, 1.1 + R]); if (!(o.ov > 0.5)) rs.push([0, 1.6 + R, 0.25 + R]); }
+    var i, q, ex, ez, penx, penz;
+    for (i = 0; i < rs.length; i++) { q = rs[i]; ex = lx - q[0]; ez = lz; if (Math.abs(ex) < q[1] && Math.abs(ez) < q[2]) { penx = q[1] - Math.abs(ex); penz = q[2] - Math.abs(ez); if (penx < penz) lx = q[0] + (ex >= 0 ? 1 : -1) * q[1]; else lz = (ez >= 0 ? 1 : -1) * q[2]; } }
+    px = o.x + lx * ca + lz * sa; pz = o.z - lx * sa + lz * ca;
+  }
   function actualizarPie(dt, t) {
     var i, o, ax = stk ? stk.ax : 0, ay = stk ? stk.ay : 0;
     if (!vA) { vA = new THREE.Vector3(); qA = new THREE.Quaternion(); }
@@ -389,16 +446,17 @@
     var mvx = 0, mvz = 0; if (mag > 0.05) { mvx = (-sn * (-ay) + cs * ax) * v / mag * dt; mvz = (-cs * (-ay) - sn * ax) * v / mag * dt; }
     moverConColision(mvx, mvz, dt);
     var d0 = Math.hypot(px, pz); if (d0 > RADIO_BASE + 200) { px *= (RADIO_BASE + 200) / d0; pz *= (RADIO_BASE + 200) / d0; }
-    cercaT = null;
+    cercaT = null; cercaG = null;
     for (i = 0; i < colocadas.length; i++) {
       o = colocadas[i]; var dx = px - o.x, dz = pz - o.z, dd = Math.hypot(dx, dz) || 0.01;
+      if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9) { if (o.item.defensa === 'porton' && dd < 5.5) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
       if (o.item.arma && !o.fin && dd < 6.5) cercaT = o;
       if (!o.item.plano && !o.item.arma) { var lim = o.r * 0.85 + 0.6; if (dd < lim) { px = o.x + dx / dd * lim; pz = o.z + dz / dd * lim; } }
       else if (o.item.arma && dd < 1.6) { px = o.x + dx / dd * 1.6; pz = o.z + dz / dd * 1.6; }
     }
     if (naveBaja && naveY < 8) { var dn = Math.hypot(px - naveX, pz - naveZ), ln = pad * 0.55; if (dn < ln) { px = naveX + (px - naveX) / (dn || 1) * ln; pz = naveZ + (pz - naveZ) / (dn || 1) * ln; } }
     panelEdificio();
-    if (!!cercaT !== !!ui._ct) { ui._ct = !!cercaT; actualizarUI(); }
+    if (!!(cercaT || cercaG) !== !!ui._ct) { ui._ct = !!(cercaT || cercaG); actualizarUI(); }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
     if (golpeT > 0) golpeT -= dt;
     cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
@@ -433,7 +491,7 @@
       else if (tipo === 'mueve' && punteros[e.pointerId]) {
         var p = punteros[e.pointerId], dx = e.clientX - p.x, dy = e.clientY - p.y, ks2 = Object.keys(punteros); p.x = e.clientX; p.y = e.clientY; mov += Math.abs(dx) + Math.abs(dy);
         if (ks2.length >= 2) { var a = punteros[ks2[0]], b = punteros[ks2[1]], dd = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0 > 10) dist = clamp(dist0 * pinch0 / Math.max(10, dd), 25, 4000); }
-        else { var k = dist * 0.0022; fx -= (dx * Math.cos(yaw) - dy * Math.sin(yaw)) * k; fz -= (-dx * Math.sin(yaw) - dy * Math.cos(yaw)) * k; var rr = Math.hypot(fx, fz); if (rr > RADIO_BASE + 300) { fx *= (RADIO_BASE + 300) / rr; fz *= (RADIO_BASE + 300) / rr; } }
+        else { var k = dist * 0.0022; fx -= (-dx * Math.cos(yaw) - dy * Math.sin(yaw)) * k; fz -= (dx * Math.sin(yaw) - dy * Math.cos(yaw)) * k; var rr = Math.hypot(fx, fz); if (rr > RADIO_BASE + 300) { fx *= (RADIO_BASE + 300) / rr; fz *= (RADIO_BASE + 300) / rr; } }
       } else if (tipo === 'arriba' && punteros[e.pointerId]) {
         var q = punteros[e.pointerId]; delete punteros[e.pointerId];
         if (mov < 8 && modoBorrar) borrarEn(q.x0, q.y0);
@@ -445,8 +503,10 @@
       if (viajeFin && Date.now() >= viajeFin) { viajeFin = 0; guardar('viaje', null); if (nave) nave.visible = true; toast('TU NAVE HA LLEGADO', 2.6); }
       yaw += bR * dt * 1.2; dist = clamp(dist * (1 + bZ * dt * 1.4), 25, 4000);
       if (ghost) {
-        var gx = Math.round(fx / 2) * 2, gz = Math.round(fz / 2) * 2; ghost.g.position.set(gx, 0, gz); ghost.g.rotation.y = rotG;
-        var ok = valida(gx, gz, ghost.r, null); try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
+        var gx = Math.round(fx / 2) * 2, gz = Math.round(fz / 2) * 2, ok;
+        if (ghost.item.defensa) ok = posDefensa(modoPie ? px - Math.sin(pyaw) * 7 : fx, modoPie ? pz - Math.cos(pyaw) * 7 : fz);
+        else { if (modoPie) { gx = Math.round((px - Math.sin(pyaw) * 14) / 2) * 2; gz = Math.round((pz - Math.cos(pyaw) * 14) / 2) * 2; } ghost.g.position.set(gx, 0, gz); ghost.g.rotation.y = rotG; ok = valida(gx, gz, ghost.r, null); }
+        try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;
       }
       alt = !alt; var i; optimizarEstructuras(t);
@@ -456,6 +516,7 @@
         if (naveBaja) { if (dn > 3) { var st = Math.min(dn, 160 * dt); naveX += dxn / dn * st; naveZ += dzn / dn * st; } else ty = 0; }
         naveY += clamp(ty - naveY, -45 * dt, 45 * dt); nave.position.set(naveX, naveY + (naveBaja ? 0 : Math.sin(t * 1.3) * 1.5), naveZ);
       }
+      for (i = 0; i < colocadas.length; i++) { var gt = colocadas[i]; if (gt.item.defensa === 'porton' && !gt.fin) { var tg = gt.abierto ? 1 : 0, ov0 = gt.ov || 0; if (ov0 !== tg) { gt.ov = ov0 + clamp(tg - ov0, -dt * 0.9, dt * 0.9); try { gt.api.setOpen(gt.ov); } catch (eg) { } } } }
       var now = Date.now(), prox = null, pr;
       for (i = 0; i < colocadas.length; i++) { var c = colocadas[i]; if (c.fin) { if (now >= c.fin) { c.fin = 0; c.g.scale.y = 1; c.g.updateMatrixWorld(true); c._cj = null; cm.x = 1e9; guardarBase(); toast('TERMINADA: ' + c.item.nombre.toUpperCase(), 2); } else { pr = 1 - (c.fin - now) / c.dur; c.g.scale.y = 0.04 + 0.96 * pr; if (!prox || c.fin < prox.fin) prox = c; } } }
       avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }

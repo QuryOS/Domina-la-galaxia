@@ -232,20 +232,29 @@
     }
     function desatracar() { if (!atracado) return; atracado = false; pausado = false; hud.merc.classList.remove('on'); acelerador = 0.3; }
     function pintarMercado() {
-      var M = hud.merc, k, orden = ['hierro', 'cobre', 'titanio', 'oro', 'piezas'];
+      var M = hud.merc, k, orden = ['piedra', 'hierro', 'cobre', 'titanio', 'oro', 'piezas'];
       M.innerHTML = ''; var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M);
       el('h3', '', izq, esc(estCerca ? estCerca.nombre : 'Estación').toUpperCase() + ' · ' + (estCerca && estCerca.tipo === 'cantera' ? 'COMPRA DE MINERAL' : 'MERCADO'));
       el('div', 'jn-cred', izq, '◎ ' + esp.creditos() + ' créditos');
       var tabla = el('div', 'jn-tabla', der), total = 0;
       orden.forEach(function (k) {
         var n = esp.inv[k] || 0, pr = esp.precios[k], f = el('div', 'jn-venta', tabla);
-        total += n * pr;
+        if (k !== 'piedra') total += n * pr;
         el('span', 'n', f, '<i style="background:' + esp.colorTipo(k) + '"></i>' + esp.nombreTipo(k)); el('span', 'q', f, n + ' × ' + pr); 
         var b = el('button', 'jn-btn', f, n ? 'VENDER ' + (n * pr) : '—'); if (!n) b.disabled = true;
         b.onclick = function () { var g = esp.vender(k); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
       });
       var bt = el('button', 'jn-btn jn-grande', izq, total ? 'VENDER TODO (' + total + ')' : 'NADA QUE VENDER'); if (!total) bt.disabled = true;
       bt.onclick = function () { var g = esp.venderTodo(); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
+      if (!(estCerca && estCerca.tipo === 'cantera')) {
+        var stk0 = esp.stock(); el('div', 'jn-lb-sub', der, 'DEFENSAS (para construir en planetas)');
+        esp.CONSTR.forEach(function (q) {
+          var f = el('div', 'jn-venta', der), cs = Object.keys(q.cost).map(function (k) { return q.cost[k] + ' ' + esp.nombreTipo(k).toLowerCase(); }).join(' + ');
+          el('span', 'n', f, esc(q.n) + ' <small>(tienes ' + (stk0[q.id] || 0) + ')</small>'); el('span', 'q', f, cs);
+          var b = el('button', 'jn-btn', f, 'COMPRAR'); b.disabled = !esp.puedeComprar(q.id);
+          b.onclick = function () { if (esp.comprar(q.id)) toast('+1 ' + q.n.toUpperCase(), 1); pintarMercado(); };
+        });
+      }
       var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
     }
     function pintarAstillero() {
