@@ -166,8 +166,8 @@
         var bm = el('button', 'jn-btn jn-lb-sel', cont, meq ? 'EQUIPADO' : mlib ? 'USAR ESTE MOTOR' : '🔒 BLOQUEADO'); bm.disabled = meq || !mlib; bm.onclick = function () { jug.motor = mq.n; guardar('motor', mq.n); pintarPanel(); };
         el('div', 'jn-lb-nota', cont, '12 motores en total: 4 categorías × 3 tamaños. De momento no cambian el manejo.');
       } else if (tab === 'tienda') {
-        el('div', 'jn-lb-cred', cont, '◎ ' + (leer('cred', 0) || 0) + ' <small>créditos</small>');
-        el('div', 'jn-lb-nota', cont, 'La tienda abrirá pronto: naves, motores, armas y aspectos. Los créditos se ganan minando y vendiendo en las estaciones.');
+        el('div', 'jn-lb-cred', cont, '◎ ' + (leer('cred', 0) || 0) + ' <small>Toristina</small>');
+        el('div', 'jn-lb-nota', cont, 'La tienda abrirá pronto: naves, motores, armas y aspectos. La Toristina se gana minando y vendiendo en las estaciones.');
         ['Naves', 'Motores', 'Armas', 'Aspectos del soldado'].forEach(function (t) { tarjeta(cont, t, 'Próximamente', '🔒', 'bloq'); });
       } else if (tab === 'amigos') pintarAmigos(cont);
       else if (tab === 'ajustes') pintarAjustes(cont);

@@ -16,9 +16,9 @@
   var PIEDRA_P = 0.4;   // parte de lo que da una roca que es piedra
   /* Estructuras de defensa que se compran en las estaciones (se guardan en 'stock' y se colocan en el planeta) */
   var CONSTR = [
-    { id: 'muro', n: 'Muro de piedra', d: 'Columna + pared + columna', cost: { piedra: 12 } },
-    { id: 'porton', n: 'Portón de piedra y metal', d: 'Dos hojas que abren', cost: { piedra: 18, titanio: 5 } },
-    { id: 'torretaf', n: 'Torreta futurista', d: 'Se coloca sobre una columna', cost: { titanio: 2, oro: 1 } }
+    { id: 'muro', arch: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', n: 'Muro de piedra', d: 'Columna + pared + columna', cost: { piedra: 12 } },
+    { id: 'porton', arch: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', n: 'Portón de piedra y metal', d: 'Dos hojas que abren', cost: { piedra: 18, titanio: 5 } },
+    { id: 'torretaf', arch: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', n: 'Torreta futurista', d: 'Se coloca sobre una columna', cost: { titanio: 2, oro: 1 } }
   ];
   var PRECIOS = { hierro: 6, cobre: 11, titanio: 28, oro: 75, piezas: 45, piedra: 2 }, R_CASCO = 260, D_ATRAQUE = 100, R_ZONA = 1000, R_ATRAQUE = R_CASCO + D_ATRAQUE;   // atraque: a 100 m del casco
   var COLOR_PIEZA = { c: 0x9aa7b8, css: '#c9d6e6' };

@@ -5,6 +5,7 @@
  "js": [
   "juego/config.js",
   "juego/nucleo/util.js",
+  "juego/nucleo/iconos.js",
   "juego/nucleo/pantalla.js",
   "juego/recursos/procedural.js",
   "juego/nucleo/modelos.js",

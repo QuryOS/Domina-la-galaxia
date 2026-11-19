@@ -25,9 +25,9 @@
     { id: 'taller1', nombre: 'Taller de reparación', archivo: 'taller_reparacion_nivel1.js', fn: 'createTallerReparacion1', desc: 'Nivel 1.' },
     { id: 'taller2', nombre: 'Taller de reparación doble', archivo: 'taller_reparacion_nivel2.js', fn: 'createTallerReparacion2', desc: 'Nivel 2.' },
     { id: 'torreta', nombre: 'Torreta antiaérea doble', archivo: 'torreta_antiaerea.js', fn: 'createTorreta', desc: 'Arma antigua y barata. Puedes sentarte y disparar.', esc: 1, arma: true },
-    { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 1 },
-    { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 1 },
-    { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 1 },
+    { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 6 },
+    { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 6 },
+    { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 6 },
     { id: 'astillero', nombre: 'Astillero planetario', archivo: 'astillero_planetario.js', fn: 'createAstillero', desc: 'Construye naves en el suelo.' }
   ];
   var PAISAJE = { arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
@@ -80,7 +80,7 @@
     var b = new THREE.Box3().setFromObject(w), s = b.getSize(new THREE.Vector3()), r = 0.5 * Math.sqrt(s.x * s.x + s.z * s.z) * 0.8;
     if (api.footprint) r = 0.5 * esc4 * Math.max(api.footprint.w, api.footprint.d);   // huella en unidades de 4 m: radio = mitad del lado
     if (!isFinite(r) || r <= 0) r = 40;
-    if (item.defensa) r = item.defensa === 'torretaf' ? 1.2 : 3.6;
+    if (item.defensa) r = (item.defensa === 'torretaf' ? 1.2 : 3.6) * (item.esc || 1);
     api.group.position.y = 0;   // convención de los modelos: la base de la losa está en y = 0 (no se mide la caja: fosos y cables bajo el suelo los levantaban)
     var raiz = new THREE.Group(); raiz.add(w); sc.add(raiz);
     return { item: item, api: api, g: raiz, r: r };
@@ -130,42 +130,42 @@
     actualizarUI();
   }
   /* ---- defensas: muros y portones que se encajan columna con columna; torretas sobre las columnas ---- */
-  var MAX_DEF = 120, ALTO_COL = 2.92;
+  var MAX_DEF = 120, K = 6, ALTO_COL = 2.92 * K;   // las defensas se construyen 6 veces más grandes que el modelo original (el muro mide 42 m)
   function nEst() { var n = 0, i; for (i = 0; i < colocadas.length; i++) if (!colocadas[i].item.defensa) n++; return n; }
   function stockDe(id) { var s = leer('stock', {}) || {}; return s[id] || 0; }
   function stockMas(id, d) { var s = leer('stock', {}) || {}; s[id] = Math.max(0, (s[id] || 0) + d); guardar('stock', s); }
   function esMuro(o) { return o.item.defensa === 'muro' || o.item.defensa === 'porton'; }
-  function extremosDe(o) { var a = o.rot || 0, c = Math.cos(a) * 2.5, sn = Math.sin(a) * 2.5; return [{ x: o.x + c, z: o.z - sn, o: o, i: 1 }, { x: o.x - c, z: o.z + sn, o: o, i: 0 }]; }   // i = columna: 0 izquierda (-x), 1 derecha (+x)
+  function extremosDe(o) { var a = o.rot || 0, c = Math.cos(a) * 2.5 * K, sn = Math.sin(a) * 2.5 * K; return [{ x: o.x + c, z: o.z - sn, o: o, i: 1 }, { x: o.x - c, z: o.z + sn, o: o, i: 0 }]; }   // i = columna: 0 izquierda (-x), 1 derecha (+x)
   function todosExtremos() { var l = [], i; for (i = 0; i < colocadas.length; i++) if (esMuro(colocadas[i])) l = l.concat(extremosDe(colocadas[i])); return l; }
   function actualizarPilares() {   // donde dos muros comparten columna, solo se ve una (así queda columna, pared, columna, pared…)
     var i, j, k, o, e, hay, visto = [];
     for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (!esMuro(o) || !o.api.pilar) continue; e = extremosDe(o);
-      for (k = 0; k < 2; k++) { hay = false; for (j = 0; j < visto.length; j++) if (Math.abs(visto[j][0] - e[k].x) < 0.35 && Math.abs(visto[j][1] - e[k].z) < 0.35) { hay = true; break; } var pil = o.api.pilar(e[k].i); if (pil) pil.visible = !hay; if (!hay) visto.push([e[k].x, e[k].z]); } }
+      for (k = 0; k < 2; k++) { hay = false; for (j = 0; j < visto.length; j++) if (Math.abs(visto[j][0] - e[k].x) < 0.35 * K && Math.abs(visto[j][1] - e[k].z) < 0.35 * K) { hay = true; break; } var pil = o.api.pilar(e[k].i); if (pil) pil.visible = !hay; if (!hay) visto.push([e[k].x, e[k].z]); } }
   }
   function huerfanas() {   // torretas cuya columna ya no existe vuelven a tu stock
     var ex = todosExtremos(), i, j, o, ok, cambio = false;
-    for (i = colocadas.length - 1; i >= 0; i--) { o = colocadas[i]; if (o.item.defensa !== 'torretaf') continue; ok = false; for (j = 0; j < ex.length; j++) if (Math.hypot(ex[j].x - o.x, ex[j].z - o.z) < 0.5) { ok = true; break; }
+    for (i = colocadas.length - 1; i >= 0; i--) { o = colocadas[i]; if (o.item.defensa !== 'torretaf') continue; ok = false; for (j = 0; j < ex.length; j++) if (Math.hypot(ex[j].x - o.x, ex[j].z - o.z) < 0.5 * K) { ok = true; break; }
       if (!ok) { sc.remove(o.g); colocadas.splice(i, 1); stockMas('torretaf', 1); cambio = true; } }
     return cambio;
   }
   function validaDef(x, z) {
-    if (Math.hypot(x, z) + 4 > RADIO_BASE || (naveBaja && Math.hypot(x - naveTx, z - naveTz) < pad + 4)) return false;
-    var i, o, d; for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; d = Math.hypot(o.x - x, o.z - z); if (esMuro(o)) { if (d < 3.3) return false; } else if (o.item.defensa !== 'torretaf' && d < o.r + 4) return false; }
+    if (Math.hypot(x, z) + 4 * K > RADIO_BASE || (naveBaja && Math.hypot(x - naveTx, z - naveTz) < pad + 4 * K)) return false;
+    var i, o, d; for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; d = Math.hypot(o.x - x, o.z - z); if (esMuro(o)) { if (d < 3.3 * K) return false; } else if (o.item.defensa !== 'torretaf' && d < o.r + 4 * K) return false; }
     return true;
   }
   function posDefensa(cx, cz) {   // coloca el fantasma (encajado) y dice si se puede construir
     var it = ghost.item.defensa, g = ghost.g, ex = todosExtremos(), i, j, e, d, bd = 1e9, best = null, f, occ;
     if (it === 'torretaf') {
-      for (i = 0; i < ex.length; i++) { e = ex[i]; occ = false; for (j = 0; j < colocadas.length; j++) if (colocadas[j].item.defensa === 'torretaf' && Math.hypot(colocadas[j].x - e.x, colocadas[j].z - e.z) < 0.5) { occ = true; break; } d = Math.hypot(e.x - cx, e.z - cz); if (!occ && d < 16 && d < bd) { bd = d; best = e; } }
+      for (i = 0; i < ex.length; i++) { e = ex[i]; occ = false; for (j = 0; j < colocadas.length; j++) if (colocadas[j].item.defensa === 'torretaf' && Math.hypot(colocadas[j].x - e.x, colocadas[j].z - e.z) < 0.5 * K) { occ = true; break; } d = Math.hypot(e.x - cx, e.z - cz); if (!occ && d < 10 * K && d < bd) { bd = d; best = e; } }
       if (best) { g.position.set(best.x, ALTO_COL, best.z); g.rotation.y = (best.o.rot || 0) + rotG; ghost.okDef = true; } else { g.position.set(cx, 0, cz); g.rotation.y = rotG; ghost.okDef = false; }
       return ghost.okDef;
     }
-    for (i = 0; i < ex.length; i++) { e = ex[i]; f = true; for (j = 0; j < ex.length; j++) if (ex[j].o !== e.o && Math.hypot(ex[j].x - e.x, ex[j].z - e.z) < 0.35) { f = false; break; } d = Math.hypot(e.x - cx, e.z - cz); if (f && d < 16 && d < bd) { bd = d; best = e; } }
+    for (i = 0; i < ex.length; i++) { e = ex[i]; f = true; for (j = 0; j < ex.length; j++) if (ex[j].o !== e.o && Math.hypot(ex[j].x - e.x, ex[j].z - e.z) < 0.35 * K) { f = false; break; } d = Math.hypot(e.x - cx, e.z - cz); if (f && d < 10 * K && d < bd) { bd = d; best = e; } }
     var x, z, rot;
     if (best) {
-      rot = (best.o.rot || 0) + rotG; var ax = Math.cos(rot) * 2.5, az = -Math.sin(rot) * 2.5, x1 = best.x + ax, z1 = best.z + az, x2 = best.x - ax, z2 = best.z - az, d1 = Math.hypot(x1 - best.o.x, z1 - best.o.z), d2 = Math.hypot(x2 - best.o.x, z2 - best.o.z), u1;
-      u1 = Math.abs(d1 - d2) > 0.5 ? d1 > d2 : Math.hypot(x1 - cx, z1 - cz) < Math.hypot(x2 - cx, z2 - cz); x = u1 ? x1 : x2; z = u1 ? z1 : z2;
-    } else { x = Math.round(cx); z = Math.round(cz); rot = rotG; }
+      rot = (best.o.rot || 0) + rotG; var ax = Math.cos(rot) * 2.5 * K, az = -Math.sin(rot) * 2.5 * K, x1 = best.x + ax, z1 = best.z + az, x2 = best.x - ax, z2 = best.z - az, d1 = Math.hypot(x1 - best.o.x, z1 - best.o.z), d2 = Math.hypot(x2 - best.o.x, z2 - best.o.z), u1;
+      u1 = Math.abs(d1 - d2) > 0.5 * K ? d1 > d2 : Math.hypot(x1 - cx, z1 - cz) < Math.hypot(x2 - cx, z2 - cz); x = u1 ? x1 : x2; z = u1 ? z1 : z2;
+    } else { x = Math.round(cx / 2) * 2; z = Math.round(cz / 2) * 2; rot = rotG; }
     g.position.set(x, 0, z); g.rotation.y = rot; ghost.okDef = validaDef(x, z); return ghost.okDef;
   }
   function quitarGhost() { if (ghost) { sc.remove(ghost.g); ghost = null; } itemSel = null; }
@@ -423,7 +423,7 @@
   }
   function choqueDefensa(o, dx, dz) {   // muros y portones: rectángulos orientados (pilares 2 × 2 m, pared de 1 m; el portón cerrado también bloquea el centro)
     var a = o.rot || 0, ca = Math.cos(a), sa = Math.sin(a), lx = dx * ca - dz * sa, lz = dx * sa + dz * ca, R = 0.4, rs = [];
-    if (o.item.defensa === 'muro') rs.push([0, 3.5 + R, 1.1 + R]); else { rs.push([-2.5, 1 + R, 1.1 + R], [2.5, 1 + R, 1.1 + R]); if (!(o.ov > 0.5)) rs.push([0, 1.6 + R, 0.25 + R]); }
+    if (o.item.defensa === 'muro') rs.push([0, 3.5 * K + R, 1.1 * K + R]); else { rs.push([-2.5 * K, 1 * K + R, 1.1 * K + R], [2.5 * K, 1 * K + R, 1.1 * K + R]); if (!(o.ov > 0.5)) rs.push([0, 1.6 * K + R, 0.25 * K + R]); }
     var i, q, ex, ez, penx, penz;
     for (i = 0; i < rs.length; i++) { q = rs[i]; ex = lx - q[0]; ez = lz; if (Math.abs(ex) < q[1] && Math.abs(ez) < q[2]) { penx = q[1] - Math.abs(ex); penz = q[2] - Math.abs(ez); if (penx < penz) lx = q[0] + (ex >= 0 ? 1 : -1) * q[1]; else lz = (ez >= 0 ? 1 : -1) * q[2]; } }
     px = o.x + lx * ca + lz * sa; pz = o.z - lx * sa + lz * ca;
@@ -449,7 +449,7 @@
     cercaT = null; cercaG = null;
     for (i = 0; i < colocadas.length; i++) {
       o = colocadas[i]; var dx = px - o.x, dz = pz - o.z, dd = Math.hypot(dx, dz) || 0.01;
-      if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9) { if (o.item.defensa === 'porton' && dd < 5.5) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
+      if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9 * K) { if (o.item.defensa === 'porton' && dd < 5.5 * K) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
       if (o.item.arma && !o.fin && dd < 6.5) cercaT = o;
       if (!o.item.plano && !o.item.arma) { var lim = o.r * 0.85 + 0.6; if (dd < lim) { px = o.x + dx / dd * lim; pz = o.z + dz / dd * lim; } }
       else if (o.item.arma && dd < 1.6) { px = o.x + dx / dd * 1.6; pz = o.z + dz / dd * 1.6; }
@@ -504,7 +504,7 @@
       yaw += bR * dt * 1.2; dist = clamp(dist * (1 + bZ * dt * 1.4), 25, 4000);
       if (ghost) {
         var gx = Math.round(fx / 2) * 2, gz = Math.round(fz / 2) * 2, ok;
-        if (ghost.item.defensa) ok = posDefensa(modoPie ? px - Math.sin(pyaw) * 7 : fx, modoPie ? pz - Math.cos(pyaw) * 7 : fz);
+        if (ghost.item.defensa) ok = posDefensa(modoPie ? px - Math.sin(pyaw) * 5 * K : fx, modoPie ? pz - Math.cos(pyaw) * 5 * K : fz);
         else { if (modoPie) { gx = Math.round((px - Math.sin(pyaw) * 14) / 2) * 2; gz = Math.round((pz - Math.cos(pyaw) * 14) / 2) * 2; } ghost.g.position.set(gx, 0, gz); ghost.g.rotation.y = rotG; ok = valida(gx, gz, ghost.r, null); }
         try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;

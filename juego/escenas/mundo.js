@@ -97,7 +97,8 @@
       hud.bAtr = el('div', 'jn-atracar', L, 'ATRACAR'); hud.bAtr.onclick = function () { atracar(); };
       hud.bAter = el('div', 'jn-atracar jn-aterrizar', L, 'ATERRIZAR'); hud.bAter.onclick = function () { aterrizar(); };
       hud.merc = el('div', 'jn-pmenu jn-merc', L, '');
-      hud.flota = el('div', 'jn-pmenu jn-flota', L, '');
+      hud.flota = el('div', 'jn-pmenu jn-flota', L, ''); hud.invP = el('div', 'jn-pmenu jn-flota jn-invp', L, '');
+      hud.bInv = el('div', 'jn-ico jn-flotabtn jn-invbtn', L, 'MOCHILA'); hud.bInv.onclick = function () { abrirInv(); };
       hud.bFl = el('div', 'jn-ico jn-flotabtn', L, 'FLOTA'); hud.bFl.onclick = function () { abrirFlota(); };
       hud.bMod = el('div', 'jn-ico jn-modbtn', L, ''); hud.bMod.style.display = 'none'; hud.bMod.onclick = function () { ordenPiloto(nSel.minero ? 'mina' : 'sigue'); botonModo(); };
       hud.menu = el('div', 'jn-pmenu', L, '<h3>PAUSA</h3>');
@@ -227,6 +228,7 @@
     }
     function atracar() {
       if (mapaAbierto || atracado || !estCerca) return;
+      var tb = bodAInventario(jug.nave); if (tb) toast('+' + tb + ' A TU INVENTARIO', 1.6);   // lo de tu bodega pasa al inventario al atracar
       atracado = true; pausado = true; V.set(0, 0, 0); acelerador = 0; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null;
       hud.bAtr.style.display = 'none'; estVista = ''; if (estCerca.tipo === 'astillero') pintarAstillero(); else pintarMercado(); hud.merc.classList.add('on'); toast('ATRACADO', 1);
     }
@@ -235,27 +237,40 @@
       var M = hud.merc, k, orden = ['piedra', 'hierro', 'cobre', 'titanio', 'oro', 'piezas'];
       M.innerHTML = ''; var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M);
       el('h3', '', izq, esc(estCerca ? estCerca.nombre : 'Estación').toUpperCase() + ' · ' + (estCerca && estCerca.tipo === 'cantera' ? 'COMPRA DE MINERAL' : 'MERCADO'));
-      el('div', 'jn-cred', izq, '◎ ' + esp.creditos() + ' créditos');
-      var tabla = el('div', 'jn-tabla', der), total = 0;
+      el('div', 'jn-cred', izq, E.Iconos.svg('credito', 18) + ' ' + esp.creditos() + ' Toristina');
+      el('div', 'jn-lb-sub', der, 'TU INVENTARIO · TOCA VENDER');
+      var tabla = el('div', 'jn-grid', der), total = 0;
       orden.forEach(function (k) {
-        var n = esp.inv[k] || 0, pr = esp.precios[k], f = el('div', 'jn-venta', tabla);
+        var n = esp.inv[k] || 0, pr = esp.precios[k];
         if (k !== 'piedra') total += n * pr;
-        el('span', 'n', f, '<i style="background:' + esp.colorTipo(k) + '"></i>' + esp.nombreTipo(k)); el('span', 'q', f, n + ' × ' + pr); 
-        var b = el('button', 'jn-btn', f, n ? 'VENDER ' + (n * pr) : '—'); if (!n) b.disabled = true;
-        b.onclick = function () { var g = esp.vender(k); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
+        var c = E.Iconos.cuadro(tabla, { icono: k, titulo: esp.nombreTipo(k), sub: pr + ' Toristina c/u', badge: n, cls: n ? '' : 'vacio' });
+        var b = el('button', 'jn-btn', c, n ? 'VENDER ' + (n * pr) : '—'); if (!n) b.disabled = true;
+        b.onclick = function () { var g = esp.vender(k); toast('+' + g + ' TORISTINA', 1); pintarMercado(); };
       });
       var bt = el('button', 'jn-btn jn-grande', izq, total ? 'VENDER TODO (' + total + ')' : 'NADA QUE VENDER'); if (!total) bt.disabled = true;
-      bt.onclick = function () { var g = esp.venderTodo(); toast('+' + g + ' CRÉDITOS', 1); pintarMercado(); };
+      bt.onclick = function () { var g = esp.venderTodo(); toast('+' + g + ' TORISTINA', 1); pintarMercado(); };
       if (!(estCerca && estCerca.tipo === 'cantera')) {
-        var stk0 = esp.stock(); el('div', 'jn-lb-sub', der, 'DEFENSAS (para construir en planetas)');
+        var stk0 = esp.stock(); el('div', 'jn-lb-sub', der, 'DEFENSAS · PARA CONSTRUIR EN PLANETAS');
+        var gd = el('div', 'jn-grid', der);
         esp.CONSTR.forEach(function (q) {
-          var f = el('div', 'jn-venta', der), cs = Object.keys(q.cost).map(function (k) { return q.cost[k] + ' ' + esp.nombreTipo(k).toLowerCase(); }).join(' + ');
-          el('span', 'n', f, esc(q.n) + ' <small>(tienes ' + (stk0[q.id] || 0) + ')</small>'); el('span', 'q', f, cs);
-          var b = el('button', 'jn-btn', f, 'COMPRAR'); b.disabled = !esp.puedeComprar(q.id);
+          var cs = Object.keys(q.cost).map(function (k) { return q.cost[k] + ' ' + esp.nombreTipo(k).toLowerCase(); }).join(' + ');
+          var c = E.Iconos.cuadro(gd, { html: '<span class="jn-cuad-cargando">…</span>', titulo: q.n, sub: cs, badge: stk0[q.id] || 0 }), im = c.querySelector('.jn-cuad-im');
+          miniaturaDe(q, function (url) { if (url && im) { var i = new Image(); i.src = url; i.className = 'jn-cuad-img'; im.insertBefore(i, im.firstChild); var w = im.querySelector('.jn-cuad-cargando'); if (w) w.remove(); } });
+          var b = el('button', 'jn-btn', c, 'COMPRAR'); b.disabled = !esp.puedeComprar(q.id);
           b.onclick = function () { if (esp.comprar(q.id)) toast('+1 ' + q.n.toUpperCase(), 1); pintarMercado(); };
         });
       }
       var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
+    }
+    function miniaturaDe(q, cb) {   // imagen real del modelo 3D (se descarga el modelo una vez y se dibuja en una miniatura)
+      var arch = [].concat(q.arch), k = 0;
+      (function sig() {
+        if (typeof global[q.fn] === 'function' && k >= arch.length - 1 + 1) { }
+        if (k >= arch.length) { cb(E.Iconos.miniatura(q.id, function () { var m = global[q.fn](THREE); return m.group || m; }, 168)); return; }
+        var a = arch[k++]; if (a === 'defensas.js' && typeof global.createDefMuro === 'function') return sig();
+        if (/muro_piedra|porton_piedra|torreta_futurista/.test(a) && typeof global[{ 'muro_piedra.js': 'createStoneWall', 'porton_piedra.js': 'createGate', 'torreta_futurista.js': 'createTurret' }[a]] === 'function') return sig();
+        E.cargarScript(E.CONFIG.rutaEdificios + 'base/' + a, sig, function () { cb(''); });
+      })();
     }
     function pintarAstillero() {
       var M = hud.merc; M.innerHTML = ''; var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M), pz = esp.inv.piezas || 0;
@@ -671,7 +686,7 @@
       var id, s, n, dj;
       for (id in flota) {
         s = flota[id]; if (!s.g || s.modo === 'hangar' || s.modo === 'piloto') continue;
-        if (!pausado) iaPaso(s, dt);
+        if (!pausado || panelFlota) iaPaso(s, dt);
         s.g.position.set(s.x - P.x, s.y - P.y, s.z - P.z); s.g.quaternion.copy(s.q);
         dj = Math.abs(s.x - P.x) + Math.abs(s.y - P.y) + Math.abs(s.z - P.z); s.g.visible = dj < 150000; n = naveDe(id);
         if (dj < 25000) {
@@ -700,22 +715,31 @@
       if (!s || s.modo === 'hangar') return 'En el hangar';
       return ({ parada: 'Detenida', nav: 'Navegando', mina: 'Minando solo', sigue: 'Siguiendo al minero' }[s.modo] || s.modo) + d + b;
     }
+    var tFl = 0, claveFl = '';
+    function claveFlota() { var k = [], id, s2; for (id in flota) { s2 = flota[id]; k.push(id + ':' + s2.modo); } return k.join('|') + '|' + jug.nave + '|' + (ap.on ? 1 : 0) + (ap.minar ? 'm' : '') + (ap.seg ? 's' : ''); }
+    function refrescarFlota() {   // tiempo real: solo cambia los textos; si cambió el estado de una nave, repinta conservando el desplazamiento
+      if (!panelFlota) return; var k = claveFlota(); if (k !== claveFl) { pintarFlota(); return; }
+      var ls = hud.flota.querySelectorAll('[data-est]'), i; for (i = 0; i < ls.length; i++) { var id = ls[i].getAttribute('data-est'); ls[i].textContent = textoEstado(id, flota[id]); }
+      var cs = hud.flota.querySelectorAll('[data-col]'); for (i = 0; i < cs.length; i++) { var c = E.leer('colonias', {})[cs[i].getAttribute('data-col')]; if (c) cs[i].textContent = c.estructuras + ' estructuras · ' + fmtDist(Math.sqrt((c.x - P.x) * (c.x - P.x) + (c.y - P.y) * (c.y - P.y) + (c.z - P.z) * (c.z - P.z))); }
+    }
+    function bodegaTxt(id) { var b = bodDe(id), k, t = []; for (k in b.it) if (b.it[k] > 0) t.push(b.it[k] + ' ' + esp.nombreTipo(k).toLowerCase()); return t.join(', '); }
     function pintarFlota() {
-      var M = hud.flota; M.innerHTML = '';
+      var M = hud.flota, sy = 0, vl = M.querySelector('.jn-fl-lista'); if (vl) sy = vl.scrollTop; M.innerHTML = ''; claveFl = claveFlota();
       var top = el('div', 'jn-fl-top', M); el('span', 'jn-mapa-tit', top, 'MI FLOTA');
       var bx = el('button', 'jn-mapa-x', M, '✕'); bx.onclick = cerrarFlota;
       var lista = el('div', 'jn-fl-lista', M), hay = 0;
       E.NAVES.forEach(function (n) {
         if (!E.naveLibre(n.id) || !obtenerModelo(n.id)) return; hay++;
         var s = flota[n.id], act = n.id === jug.nave, r = el('div', 'jn-fl-fila' + (act ? ' act' : ''), lista);
-        var inf = el('div', 'jn-fl-inf', r); el('b', '', inf, n.nombre); el('span', '', inf, textoEstado(n.id, s));
+        var inf = el('div', 'jn-fl-inf', r); el('b', '', inf, n.nombre); var es = el('span', '', inf, textoEstado(n.id, s)); es.setAttribute('data-est', n.id);
+        var bg = bodegaTxt(n.id); if (bg) el('span', 'jn-fl-bod', inf, 'Bodega: ' + bg);
         var bt = el('div', 'jn-fl-bt', r);
-        function b(txt, f) { var x = el('button', 'jn-btn', bt, txt); x.onclick = function () { f(); pintarFlota(); }; return x; }
-        if (!act) { b('LLAMAR', function () { llamarNave(n.id); }); b('PILOTAR', function () { cambiarA(n.id); if (jug.nave === n.id) cerrarFlota(); }); }
-        if (n.minero) b(act && ap.minar ? 'DEJAR DE MINAR' : 'MINAR SOLA', function () { ordenar(n.id, 'mina'); });
-        if (n.id === 'mastodonte') b(act && ap.seg ? 'DEJAR DE SEGUIR' : 'SEGUIR AL MINERO', function () { ordenar(n.id, 'sigue'); });
-        b('A ESTACIÓN', function () { ordenar(n.id, 'estacion'); });
-        if (act ? ap.on : (s && s.modo !== 'hangar' && s.modo !== 'parada')) b('PARAR', function () { ordenar(n.id, 'parar'); });
+        function b(icono, txt, f, on) { var x = el('button', 'jn-fl-ib' + (on ? ' on' : ''), bt, E.Iconos.svg(icono, 24) + '<small>' + txt + '</small>'); x.onclick = function () { f(); pintarFlota(); }; return x; }
+        if (!act) { b('llamar', 'LLAMAR', function () { llamarNave(n.id); }); b('pilotar', 'PILOTAR', function () { cambiarA(n.id); if (jug.nave === n.id) cerrarFlota(); }); }
+        if (n.minero) b('minar', act && ap.minar ? 'DEJAR' : 'MINAR', function () { ordenar(n.id, 'mina'); }, act && ap.minar);
+        if (n.id === 'mastodonte') b('seguir', act && ap.seg ? 'DEJAR' : 'SEGUIR', function () { ordenar(n.id, 'sigue'); }, act && ap.seg);
+        b('estacion', 'ESTACIÓN', function () { ordenar(n.id, 'estacion'); });
+        if (act ? ap.on : (s && s.modo !== 'hangar' && s.modo !== 'parada')) b('parar', 'PARAR', function () { ordenar(n.id, 'parar'); });
       });
       if (!hay) el('div', 'jn-ayuda', lista, 'Aún no tienes más naves.');
       var cols = E.leer('colonias', {}), kc = Object.keys(cols);
@@ -723,8 +747,8 @@
         el('div', 'jn-fl-sub', lista, 'MIS COLONIAS');
         kc.forEach(function (k) {
           var c = cols[k], r = el('div', 'jn-fl-fila', lista), inf = el('div', 'jn-fl-inf', r), dd = Math.sqrt((c.x - P.x) * (c.x - P.x) + (c.y - P.y) * (c.y - P.y) + (c.z - P.z) * (c.z - P.z));
-          el('b', '', inf, c.nombre); el('span', '', inf, c.estructuras + ' estructuras · ' + fmtDist(dd));
-          var b = el('button', 'jn-btn', el('div', 'jn-fl-bt', r), 'VIAJAR'); b.onclick = function () {   // teletransporte: TÚ llegas al instante; la nave tiene que hacer todo el recorrido
+          el('b', '', inf, c.nombre); var ec = el('span', '', inf, c.estructuras + ' estructuras · ' + fmtDist(dd)); ec.setAttribute('data-col', k);
+          var b = el('button', 'jn-fl-ib', el('div', 'jn-fl-bt', r), E.Iconos.svg('viajar', 24) + '<small>VIAJAR</small>'); b.onclick = function () {   // teletransporte: TÚ llegas al instante; la nave tiene que hacer todo el recorrido
             cerrarFlota(); apParar(); var dd2 = Math.sqrt((c.x - P.x) * (c.x - P.x) + (c.y - P.y) * (c.y - P.y) + (c.z - P.z) * (c.z - P.z)), eta = Math.max(20, Math.min(1500, (dd2 - c.r * 0.6 - 1500) / 450));
             E.guardar('viaje', { nave: jug.nave, key: c.key, fin: Date.now() + eta * 1000 });
             var ux = (P.x - c.x) / (dd2 || 1), uy = (P.y - c.y) / (dd2 || 1), uz = (P.z - c.z) / (dd2 || 1), ro = c.r * 0.6 + 1500;
@@ -732,7 +756,24 @@
           };
         });
       }
-      el('div', 'jn-ayuda', lista, 'Las naves que no pilotas vuelan solas mientras estás en el juego. Su mineral pasa a tu inventario al llegar a una estación o al salir al hangar.');
+      el('div', 'jn-ayuda', lista, 'Las naves que no pilotas vuelan solas, incluso con esta ventana abierta. Su mineral pasa a tu inventario al llegar a una estación o al salir al hangar.');
+      lista.scrollTop = sy;
+    }
+    /* ---- MOCHILA: inventario en cuadros ---- */
+    var panelInv = false;
+    function abrirInv() { if (mapaAbierto || atracado || pausado) return; panelInv = true; pausado = true; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null; botFu = botGr = false; hud.invP.classList.add('on'); DOMcapas.hud.classList.add('sin-hud'); pintarInv(); }
+    function cerrarInv() { if (!panelInv) return; panelInv = false; pausado = false; hud.invP.classList.remove('on'); DOMcapas.hud.classList.remove('sin-hud'); botonModo(); }
+    function pintarInv() {
+      var M = hud.invP; M.innerHTML = ''; var top = el('div', 'jn-fl-top', M); el('span', 'jn-mapa-tit', top, 'MOCHILA'); var bx = el('button', 'jn-mapa-x', M, '✕'); bx.onclick = cerrarInv;
+      var lista = el('div', 'jn-fl-lista', M);
+      el('div', 'jn-cred', lista, E.Iconos.svg('credito', 20) + ' ' + esp.creditos() + ' Toristina');
+      el('div', 'jn-fl-sub', lista, 'MATERIALES');
+      var g = el('div', 'jn-grid', lista); ['piedra', 'hierro', 'cobre', 'titanio', 'oro', 'piezas'].forEach(function (k) { E.Iconos.cuadro(g, { icono: k, titulo: esp.nombreTipo(k), badge: esp.inv[k] || 0, cls: (esp.inv[k] || 0) ? '' : 'vacio' }); });
+      var tiene = [], id; for (id in bodegas) if (bodDe(id).n > 0) tiene.push(id);
+      if (tiene.length) { el('div', 'jn-fl-sub', lista, 'EN LAS BODEGAS DE TUS NAVES'); tiene.forEach(function (id2) { var gg = el('div', 'jn-grid', lista); el('div', 'jn-ayuda', lista, naveDe(id2).nombre + ' · ' + bodDe(id2).n + '/' + capDe(id2)); var b2 = bodDe(id2), k2; for (k2 in b2.it) if (b2.it[k2] > 0) E.Iconos.cuadro(gg, { icono: k2, titulo: esp.nombreTipo(k2), badge: b2.it[k2] }); }); }
+      var st = esp.stock(), ks = esp.CONSTR.filter(function (q) { return st[q.id] > 0; });
+      if (ks.length) { el('div', 'jn-fl-sub', lista, 'DEFENSAS PARA CONSTRUIR'); var gd = el('div', 'jn-grid', lista); ks.forEach(function (q) { var c = E.Iconos.cuadro(gd, { html: '<span class="jn-cuad-cargando">…</span>', titulo: q.n, badge: st[q.id] }), im = c.querySelector('.jn-cuad-im'); miniaturaDe(q, function (url) { if (url && im) { var i = new Image(); i.src = url; i.className = 'jn-cuad-img'; im.insertBefore(i, im.firstChild); var w = im.querySelector('.jn-cuad-cargando'); if (w) w.remove(); } }); }); }
+      el('div', 'jn-ayuda', lista, 'Los materiales se venden o se usan para construir. Lo que minan tus naves pasa aquí al llegar a una estación.');
     }
 
     /* ---------- física y cámara ---------- */
@@ -899,7 +940,7 @@
       hud.mv.firstChild.style.width = Math.round(clamp(vel / (nSel.vmax * 2.6), 0, 1) * 100) + '%'; hud.mt.firstChild.style.width = Math.round(turboE * 100) + '%';
       hud.palI.style.height = Math.round(acelerador * 100) + '%';
       var C = 1000; hud.hd.innerHTML = 'X ' + (P.x / C).toFixed(1) + ' · Y ' + (P.y / C).toFixed(1) + ' · Z ' + (P.z / C).toFixed(1) + ' km<br>' + Math.round(fps) + ' FPS' + (Red.activo ? ' · en línea (' + Object.keys(remotos).length + ')' : '');
-      hud.inv.innerHTML = '<b style="color:#ffe27a">◎ ' + esp.creditos() + '</b><br>' + esp.textoInv() + (capDe(jug.nave) ? '<br><span style="color:#9fe8ff">Bodega ' + bodDe(jug.nave).n + '/' + capDe(jug.nave) + '</span>' : '');
+      hud.inv.innerHTML = '<b style="color:#ffe27a">◎ ' + esp.creditos() + ' Toristina</b><br>' + esp.textoInv() + (capDe(jug.nave) ? '<br><span style="color:#9fe8ff">Bodega ' + bodDe(jug.nave).n + '/' + capDe(jug.nave) + '</span>' : '');
       hud.estado.textContent = ap.on && ap.minar ? (ap.espera ? 'BODEGA LLENA · ESPERANDO AL CARGUERO' : 'MINERÍA AUTOMÁTICA') : ap.on && ap.seg ? 'SIGUIENDO AL PROSPECTOR' : ap.on && ap.meta ? (ap.huir ? 'HUYENDO → ' : 'PILOTO AUTOMÁTICO → ') + ap.meta.nombre + ' · ' + fmtDist(Math.sqrt((ap.meta.x - P.x) * (ap.meta.x - P.x) + (ap.meta.y - P.y) * (ap.meta.y - P.y) + (ap.meta.z - P.z) * (ap.meta.z - P.z))) : esp.segura() ? 'ZONA SEGURA · armas bloqueadas' : planCercano ? 'Planeta cercano: ' + planCercano.o.nombre + ' (' + fmtDist(Math.max(0, planCercano.s)) + ')' : '';
     }
 
@@ -941,7 +982,7 @@
         mostrarCapas(['hud']); pausar(false); apParar(); if (E.refrescarTexturas) E.refrescarTexturas();
         pivote = new THREE.Group(); inclinar = new THREE.Group(); escalarN = new THREE.Group(); escalarN.scale.setScalar(nSel.m); escalarN.add(modelo.group); inclinar.add(escalarN); pivote.add(inclinar); sc.add(pivote);
         try { if (modelo.setAccent) modelo.setAccent(jug.acento); } catch (e) { }
-        hud.nom.textContent = nSel.nombre.toUpperCase() + ' · ' + esc(jug.nombre); limpiarFlota(); regFlota(jug.nave).modo = 'piloto'; panelFlota = false; hud.flota.classList.remove('on'); botonModo(); sincCarga(jug.nave);
+        hud.nom.textContent = nSel.nombre.toUpperCase() + ' · ' + esc(jug.nombre); limpiarFlota(); regFlota(jug.nave).modo = 'piloto'; panelFlota = false; panelInv = false; hud.flota.classList.remove('on'); hud.invP.classList.remove('on'); botonModo(); sincCarga(jug.nave);
         radarG = hud.radar.getContext('2d'); var dpr = Math.min(global.devicePixelRatio || 1, 2); hud.radar.width = radarS * dpr; hud.radar.height = radarS * dpr; radarG.setTransform(dpr, 0, 0, dpr, 0, 0);
         crearPolvo(); redimensionar4(E.ancho, E.alto);
         if (d && d.retorno) { P.x = d.retorno.p[0]; P.y = d.retorno.p[1]; P.z = d.retorno.p[2]; Q.set(d.retorno.q[0], d.retorno.q[1], d.retorno.q[2], d.retorno.q[3]); } else posicionInicial(); plAter = null; hud.bAter.style.display = 'none'; actualizarCeldas(true); esp.entrar(med.radio);
@@ -1002,7 +1043,7 @@
         if (modelo.laser && nSel.minero) { if (!laserT) laserT = new THREE.Vector3(0, -0.3, -45); apT += dt; brazos(modelo, apLaser, apSup, apT); var fl = (!pausado && !!(botFu || teclas.KeyF) && !esp.segura()) || apLaser; if (!apLaser) laserT.set(0, -0.3, -45); modelo.laser.target = fl ? laserT : null; modelo.laser.power = fl ? 1 : 0; }
         actualizarModelo(modelo, t, clamp(vel / nSel.vmax, 0, 1));
         moverPolvo(pausado ? 0 : dt, clamp(vel / (nSel.vmax * 2.0), 0, 1)); polvo.position.set(0, 0, 0);
-        actualizarFlota(dt, t);
+        actualizarFlota(dt, t); if (panelFlota) { tFl -= dt; if (tFl <= 0) { tFl = 0.5; refrescarFlota(); } }
         camara(pausado ? 0.0001 : dt, t); actualizarRemotos(dt, t);
         E.renderer.render(sc, cam);
         tHud += dt; if (tHud > 0.1) { tHud = 0; actualizarTextos(dt); }

@@ -206,3 +206,18 @@
 .jn-planeta .jn-pl-asc{position:absolute;right:calc(12px + env(safe-area-inset-right));top:90px;max-height:56vh;overflow:auto;display:none;flex-direction:column;gap:6px;padding:8px;border-radius:12px;background:rgba(10,16,30,.82);border:1px solid rgba(120,160,255,.4);color:#cfe0ff;font:600 11px system-ui;pointer-events:auto}
 .jn-planeta .jn-pl-asc b{letter-spacing:.08em;font-size:11px;margin-top:2px}
 .jn-planeta .jn-pl-asc .jn-btn{font-size:11px;padding:8px 10px}
+/* ===== cuadros de inventario, mercado y flota con iconos ===== */
+.jn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;width:100%}
+.jn-cuad{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;border-radius:12px;background:rgba(20,32,56,.75);border:1px solid rgba(120,160,220,.3);text-align:center;font:600 12px system-ui,sans-serif;color:#e6f0ff}
+.jn-cuad.vacio{opacity:.5}
+.jn-cuad-im{position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(5,10,22,.7)}
+.jn-cuad-img{width:72px;height:72px;object-fit:contain}.jn-cuad-cargando{color:#7fa6ff;font-size:20px}
+.jn-cuad-n{position:absolute;right:3px;bottom:2px;font:800 13px system-ui,sans-serif;color:#fff;background:rgba(20,40,90,.9);border-radius:8px;padding:1px 6px}
+.jn-cuad b{font-size:12px;line-height:1.15}.jn-cuad small{font-size:10px;color:#9fb4d8;line-height:1.2}
+.jn-cuad .jn-btn{width:100%;padding:6px 4px;font-size:11px;min-width:0;margin-top:2px}
+.jn-fl-ib{display:flex;flex-direction:column;align-items:center;gap:2px;width:58px;padding:6px 2px 4px;border-radius:10px;border:1px solid rgba(120,170,255,.35);background:rgba(14,26,48,.8);color:#cfe0ff;cursor:pointer}
+.jn-fl-ib small{font:700 8.5px system-ui,sans-serif;letter-spacing:.04em;color:#9fb4d8}.jn-fl-ib.on{background:#2a5fd0;border-color:#8fb8ff;color:#fff}.jn-fl-ib.on small{color:#fff}
+.jn-fl-bod{color:#ffe27a;font-size:11px}
+.jn-invbtn{right:calc(126px + env(safe-area-inset-right))!important}
+.jn-pmenu.jn-invp.on{display:block!important}
+.jn-merc-der .jn-grid{overflow:auto;max-height:46vh;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
