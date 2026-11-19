@@ -44,9 +44,10 @@
     arsenal: '<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
     motores: '<path d="M12 3c3 3 4 6 3 9l2 3-3 1v5l-2-2-2 2v-5l-3-1 2-3c-1-3 0-6 3-9z"/>',
     tienda: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+    amigos: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M17 14c2.6 0 4.5 2 4.5 5"/>',
     ajustes: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'
   };
-  var TABS = [['inicio', 'INICIO'], ['naves', 'NAVES'], ['arsenal', 'ARSENAL'], ['motores', 'MOTORES'], ['tienda', 'TIENDA'], ['ajustes', 'AJUSTES']];
+  var TABS = [['inicio', 'INICIO'], ['naves', 'NAVES'], ['arsenal', 'ARSENAL'], ['motores', 'MOTORES'], ['tienda', 'TIENDA'], ['amigos', 'AMIGOS'], ['ajustes', 'AJUSTES']];
   function svg(k) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">' + ICONOS[k] + '</svg>'; }
 
   jug.motor = leer('motor', 'Colmillo');
@@ -168,7 +169,8 @@
         el('div', 'jn-lb-cred', cont, '◎ ' + (leer('cred', 0) || 0) + ' <small>créditos</small>');
         el('div', 'jn-lb-nota', cont, 'La tienda abrirá pronto: naves, motores, armas y aspectos. Los créditos se ganan minando y vendiendo en las estaciones.');
         ['Naves', 'Motores', 'Armas', 'Aspectos del soldado'].forEach(function (t) { tarjeta(cont, t, 'Próximamente', '🔒', 'bloq'); });
-      } else if (tab === 'ajustes') pintarAjustes(cont);
+      } else if (tab === 'amigos') pintarAmigos(cont);
+      else if (tab === 'ajustes') pintarAjustes(cont);
       var nh = P.querySelector('.hor'); if (nh) nh.scrollLeft = sl;
     }
     /* ---- editor de controles: arrastra cada control; toca uno para elegirlo y cambiar su tamaño ---- */
@@ -242,6 +244,36 @@
       marcarSeg(c);
     }
 
+    /* ---- amigos (P2P): ID fijo, agregar amigo pegando su ID, lista en línea ---- */
+    function pintarAmigos(c) {
+      var Am = E.Amigos; if (!Am) { el('div', 'jn-lb-nota', c, 'La red de amigos no está disponible.'); return; }
+      Am.iniciar(jug.nombre); Am.onCambio = function () { if (tab === 'amigos' && ui.amgLista) listaAmigos(ui.amgLista); };
+      el('div', 'jn-lb-sub', c, 'MI ID');
+      var f = el('div', 'jn-fila', c), idc = el('input', 'jn-in', f); idc.readOnly = true; idc.value = Am.id();
+      var cp = el('button', 'jn-btn', f, 'COPIAR'); cp.onclick = function () { var ok = function () { cp.textContent = '¡COPIADO!'; setTimeout(function () { cp.textContent = 'COPIAR'; }, 1400); }; try { if (global.navigator.clipboard) global.navigator.clipboard.writeText(idc.value).then(ok, function () { idc.select(); document.execCommand('copy'); ok(); }); else { idc.select(); document.execCommand('copy'); ok(); } } catch (x) { } };
+      el('div', 'jn-lb-sub', c, 'AGREGAR AMIGO');
+      var f2 = el('div', 'jn-fila', c), ni = el('input', 'jn-in', f2); ni.placeholder = 'Pega el ID de tu amigo'; ni.maxLength = 20; ni.autocapitalize = 'none';
+      var ab = el('button', 'jn-btn', f2, 'AGREGAR'), msg = el('div', 'jn-lb-nota', c, '');
+      ab.onclick = function () { var r = Am.agregar(ni.value); msg.textContent = r || 'Agregado. Cuando tu amigo abra esta pestaña te verá y podrá aceptarte.'; if (!r) ni.value = ''; };
+      el('div', 'jn-lb-sub', c, 'LISTA');
+      ui.amgLista = el('div', '', c); listaAmigos(ui.amgLista);
+    }
+    function listaAmigos(L) {
+      var Am = E.Amigos; L.innerHTML = '';
+      el('div', 'jn-lb-nota', L, Am.cargando ? 'Conectando…' : Am.error ? '⚠ ' + esc(Am.error) : Am.listo ? '● Conectado a la red de amigos' : '○ Sin conexión todavía');
+      if (Am.error || (!Am.listo && !Am.cargando)) { var rb = el('button', 'jn-btn', L, 'REINTENTAR'); rb.onclick = function () { Am.reintentarRed(); }; }
+      Am.pendientes().forEach(function (p) {
+        var d = tarjeta(L, p.nombre, 'Quiere ser tu amigo · ' + p.id, '', 'sel'), bs = el('div', 'jn-fl-bt', d);
+        var a = el('button', 'jn-btn', bs, 'ACEPTAR'); a.onclick = function (e) { e.stopPropagation(); Am.aceptar(p.id); };
+        var r = el('button', 'jn-btn', bs, 'RECHAZAR'); r.onclick = function (e) { e.stopPropagation(); Am.rechazar(p.id); };
+      });
+      var l = Am.amigos(); if (!l.length) el('div', 'jn-lb-nota', L, 'Aún no tienes amigos. Intercambia tu ID con alguien: basta con que uno agregue al otro.');
+      l.forEach(function (a) {
+        var on = !!Am.enLinea[a.id], d = tarjeta(L, a.nombre, (Am.ultimo[a.id] || a.id), on ? '● EN LÍNEA' : '○', on ? 'sel' : ''), bs = el('div', 'jn-fl-bt', d);
+        var s = el('button', 'jn-btn', bs, 'SALUDAR'); s.disabled = !on; s.onclick = function (e) { e.stopPropagation(); Am.saludar(a.id); };
+        var q = el('button', 'jn-btn', bs, 'QUITAR'); q.onclick = function (e) { e.stopPropagation(); if (global.confirm('¿Quitar a ' + a.nombre + '?')) Am.quitar(a.id); };
+      });
+    }
     function cambiarTab(t) { tab = t; idx = indiceNaveElegida(); if (t === 'motores') { mIdx = 0; MOTORES.forEach(function (q, k) { if (q.n === jug.motor) mIdx = k; }); } marcarTabs(); escenario(); pintarPanel(); }
     function marcarTabs() { ui.tabs.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-t') === tab); }); }
 
