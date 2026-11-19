@@ -198,3 +198,7 @@
 @keyframes jnpulso{to{transform:translateX(-50%) scale(1.1)}}
 .jn-planeta .jn-pl-saltar{position:absolute;right:calc(18px + env(safe-area-inset-right));bottom:calc(168px + env(safe-area-inset-bottom));width:auto!important;padding:14px 18px!important;border-radius:999px!important}
 .jn-planeta .jn-pl-golpe{position:absolute;right:calc(110px + env(safe-area-inset-right));bottom:calc(86px + env(safe-area-inset-bottom));width:auto!important;padding:14px 18px!important;border-radius:999px!important;background:rgba(200,60,60,.85)!important}
+
+.jn-planeta .jn-pl-tor{position:absolute;left:calc(14px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));display:none;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,64px);gap:8px;grid-template-areas:". tu ." "tl td tr"}
+.jn-planeta .jn-pl-tor .tu{grid-area:tu}.jn-planeta .jn-pl-tor .td{grid-area:td}.jn-planeta .jn-pl-tor .tl{grid-area:tl}.jn-planeta .jn-pl-tor .tr{grid-area:tr}
+.jn-planeta .jn-pl-tor .jn-ico{width:64px;height:64px;font-size:26px}

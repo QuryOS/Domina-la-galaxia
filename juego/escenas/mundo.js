@@ -434,7 +434,7 @@
     function esLugar(o) { return o && (o.tipo === 'estacion' || o.tipo === 'astillero'); }
     function standoff(id) { var md = medidas[id]; return Math.max(48, (md ? md.radio * 0.5 : 0) + 30); }
     function apDistParada(m) { if (m.ro) return m.r + standoff(jug.nave); if (m.stop) return m.stop; return esLugar(m) ? (m.r || 260) + 70 : m.tipo === 'planeta' && m.colonia ? (m.r || 0) * 0.6 + 1200 : (m.r || 0) * (m.tipo === 'planeta' || m.tipo === 'minero' ? 1.15 : 1) + 250; }
-    function apParar(txt) { ap.on = false; ap.huir = false; ap.minar = false; ap.seg = false; ap.espera = false; apLaser = false; ap.meta = null; hzN = 0; if (hud.bMod) hud.bMod.classList.remove('on'); if (hud.bAuto) hud.bAuto.classList.remove('on'); if (txt) toast(txt, 1.5); }
+    function apParar(txt) { ap.on = false; ap.huir = false; ap.minar = false; ap.seg = false; ap.espera = false; ap.alCarg = false; apLaser = false; ap.meta = null; hzN = 0; if (hud.bMod) hud.bMod.classList.remove('on'); if (hud.bAuto) hud.bAuto.classList.remove('on'); if (txt) toast(txt, 1.5); }
     function apAlternar() {
       if (pausado || atracado) return;
       if (ap.on) { apParar(ap.minar ? 'MINERÍA APAGADA' : ap.seg ? 'SEGUIMIENTO APAGADO' : 'PILOTO AUTOMÁTICO APAGADO'); return; }
@@ -451,8 +451,8 @@
     function apPaso(dt) {   // calcula "palanca virtual" (apE) y acelerador para ir a ap.meta
       apLaser = false;
       if (ap.minar) {
-        if (bodLlena(jug.nave)) { if (!hayCarguero()) { apParar('FLOTA LLENA · MINERÍA DETENIDA'); return; } ap.espera = true; if (!ap.meta) ap.meta = elegirRoca(P.x, P.y, P.z, RADIO_MINA, jug.nave); }
-        else { ap.espera = false; if (!ap.meta || (ap.meta.ro && ap.meta.ro.dead)) { ap.meta = elegirRoca(P.x, P.y, P.z, RADIO_MINA, jug.nave); if (ap.meta) ap.meta.ro.res = jug.nave; } }
+        if (bodLlena(jug.nave)) { if (!hayCarguero()) { apParar('FLOTA LLENA · MINERÍA DETENIDA'); return; } var cv = cargueroVarado(); if (cv) { ap.espera = false; ap.alCarg = true; segMeta.x = cv.x; segMeta.y = cv.y; segMeta.z = cv.z; segMeta.stop = 300; ap.meta = segMeta; } else { ap.alCarg = false; ap.espera = true; if (!ap.meta || ap.meta === segMeta) ap.meta = elegirRoca(P.x, P.y, P.z, RADIO_MINA, jug.nave, Q); } }
+        else { ap.espera = false; ap.alCarg = false; if (!ap.meta || ap.meta === segMeta || (ap.meta.ro && ap.meta.ro.dead)) { ap.meta = elegirRoca(P.x, P.y, P.z, RADIO_MINA, jug.nave, Q); if (ap.meta) { ap.meta.ro.res = jug.nave; toast('OBJETIVO: ROCA A ' + fmtDist(Math.hypot(ap.meta.x - P.x, ap.meta.y - P.y, ap.meta.z - P.z)), 1.4); } } }
         if (!ap.meta) { apParar('SIN ROCAS CERCA'); return; }
       } else if (ap.seg) {
         var mi = buscarMinero(); if (!mi) { apParar('SIN PROSPECTOR QUE SEGUIR'); return; }
@@ -481,12 +481,12 @@
       if (apS.lengthSq() > 0.3) cruce = Math.min(cruce, ap.minar ? 0.75 : 0.5);
       if (hold && (llego || ap.espera)) {
         cruce = 0;
-        if (ap.minar && !ap.espera) { if (Math.abs(yawErr) < 0.14 && Math.abs(pitErr) < 0.14) { apLaser = true; danarRoca(m, dt, jug.nave); if (!laserT) laserT = new THREE.Vector3(); apSup = dist - m.r; laserT.copy(apL).multiplyScalar(Math.min(60, apSup / nSel.m)); } }
+        if (ap.minar && !ap.espera && !ap.alCarg) { if (Math.abs(yawErr) < 0.14 && Math.abs(pitErr) < 0.14) { apLaser = true; danarRoca(m, dt, jug.nave); if (!laserT) laserT = new THREE.Vector3(); apSup = dist - m.r; laserT.copy(apL).multiplyScalar(Math.min(60, apSup / nSel.m)); } }
         else if (ap.seg && llego) {
           if (necesitaRecogida(ap.mi)) { ap.tr += dt; hzN = 1; hzA[0] = P.x; hzA[1] = P.y; hzA[2] = P.z; hzB[0] = m.x; hzB[1] = m.y; hzB[2] = m.z; if (ap.tr >= 3.5) { ap.tr = 0; var mv = transferir(ap.mi, jug.nave); toast(mv ? 'CARGA RECIBIDA +' + mv : 'CARGUERO LLENO', 1.5); if (!mv) apParar('CARGUERO LLENO · VE A UNA ESTACIÓN'); } } else ap.tr = 0;
         }
       }
-      if (ap.minar && !ap.espera) {
+      if (ap.minar && !ap.espera && !ap.alCarg) {
         if (ap.mt !== m) { ap.mt = m; ap.mejor = 1e9; ap.ocio = 0; }
         if (apLaser || dist < ap.mejor - 25) { if (dist < ap.mejor) ap.mejor = dist; ap.ocio = 0; } else { ap.ocio = (ap.ocio || 0) + dt; if (ap.ocio > (llego ? 14 : 30)) { ap.ocio = 0; if (m.ro) m.ro.mal = true; ap.meta = null; toast('BUSCANDO OTRA ROCA', 1.2); } }
       }
@@ -512,12 +512,17 @@
     function buscarMinero() {
       if (nSel.minero) return jug.nave; var id; for (id in flota) if (naveDe(id) && naveDe(id).minero && posDe(id)) return id; return null;
     }
+    function cargueroVarado() { var c = flota.mastodonte; return c && c.modo === 'sigue' && c.varado && c.g ? c : null; }
     function hayCarguero() { var id, s; if (jug.nave === 'mastodonte' && ap.seg) return !bodLlena('mastodonte'); for (id in flota) { s = flota[id]; if (id === 'mastodonte' && s.modo === 'sigue' && !bodLlena(id)) return true; } return false; }
-    function elegirRoca(x, y, z, R, id) {
-      var i, o, dx, dy, dz, d, best = null, bd = R * R;
+    var elF = null;
+    function elegirRoca(x, y, z, R, id, q) {   // la más cercana, con preferencia por las que están de frente (menos giros = arranque más decidido)
+      var i, o, dx, dy, dz, d, best = null, bd = R * R, c;
+      if (q) { if (!elF) elF = new THREE.Vector3(); elF.set(0, 0, -1).applyQuaternion(q); }
       for (i = 0; i < listaRo.length; i++) {
         o = listaRo[i]; if (!o.ro || o.ro.dead || o.ro.mal || (o.ro.res && o.ro.res !== id)) continue;
-        dx = o.x - x; dy = o.y - y; dz = o.z - z; d = dx * dx + dy * dy + dz * dz; if (d < bd) { bd = d; best = o; }
+        dx = o.x - x; dy = o.y - y; dz = o.z - z; d = dx * dx + dy * dy + dz * dz; if (d >= bd * 4) continue;
+        if (q && d > 0) { c = (dx * elF.x + dy * elF.y + dz * elF.z) / Math.sqrt(d); d *= 1 + 0.7 * (1 - c); }
+        if (d < bd) { bd = d; best = o; }
       }
       return best;
     }
@@ -618,21 +623,28 @@
           s.modo = 'parada'; s.meta = null;
         }
       } else if (s.modo === 'mina') {
-        if (bodLlena(s.id)) { iaMover(s, s.x, s.y, s.z, 0, dt, 0, true); if (!hayCarguero()) { s.modo = 'parada'; toast('FLOTA LLENA · MINERÍA DETENIDA', 2.4); } return; }
-        if (!s.tgt || (s.tgt.ro && s.tgt.ro.dead)) { s.tgt = elegirRoca(s.x, s.y, s.z, RADIO_MINA, s.id); if (!s.tgt) { s.modo = 'parada'; toast('SIN ROCAS CERCA · ' + n.nombre.toUpperCase(), 2); return; } s.tgt.ro.res = s.id; }
+        if (bodLlena(s.id)) { var cv = cargueroVarado(); if (cv) iaMover(s, cv.x, cv.y, cv.z, 300, dt, 1.5, false); else iaMover(s, s.x, s.y, s.z, 0, dt, 0, true); if (!hayCarguero()) { s.modo = 'parada'; toast('FLOTA LLENA · MINERÍA DETENIDA', 2.4); } return; }
+        if (!s.tgt || (s.tgt.ro && s.tgt.ro.dead)) { s.tgt = elegirRoca(s.x, s.y, s.z, RADIO_MINA, s.id, s.q); if (!s.tgt) { s.modo = 'parada'; toast('SIN ROCAS CERCA · ' + n.nombre.toUpperCase(), 2); return; } s.tgt.ro.res = s.id; }
         if (s.mt !== s.tgt) { s.mt = s.tgt; s.mejor = 1e9; s.ocio = 0; }
         var dc = Math.sqrt((s.tgt.x - s.x) * (s.tgt.x - s.x) + (s.tgt.y - s.y) * (s.tgt.y - s.y) + (s.tgt.z - s.z) * (s.tgt.z - s.z));
-        if (s.minando || dc < s.mejor - 25) { if (dc < s.mejor) s.mejor = dc; s.ocio = 0; } else { s.ocio = (s.ocio || 0) + dt; if (s.ocio > 40) { s.ocio = 0; if (s.tgt.ro) s.tgt.ro.mal = true; s.tgt = null; return; } }
+        if (s.minando || dc < s.mejor - 25) { if (dc < s.mejor) s.mejor = dc; s.ocio = 0; } else { s.ocio = (s.ocio || 0) + dt; if (s.ocio > 20) { s.ocio = 0; if (s.tgt.ro) s.tgt.ro.mal = true; s.tgt = null; return; } }
         o = s.tgt; var so = standoff(s.id), d0 = Math.sqrt((o.x - s.x) * (o.x - s.x) + (o.y - s.y) * (o.y - s.y) + (o.z - s.z) * (o.z - s.z)) - o.r - so; iaMarg = d0 < 2000 ? 40 : 180;
         d = iaMover(s, o.x, o.y, o.z, o.r + so, dt, d0 > 3000 ? 2.4 : 0.8, false);
         if (d <= 25 && s.err < 0.2) { s.minando = true; danarRoca(o, dt, s.id); s.sup = d + so; if (!s.lz) s.lz = new THREE.Vector3(); s.lz.set(0, -0.3, -Math.min(60, s.sup / n.m)); }
       } else if (s.modo === 'sigue') {
         mi = buscarMinero(); pp = mi && posDe(mi); if (!pp) { s.modo = 'parada'; toast('SIN PROSPECTOR QUE SEGUIR', 2); return; }
         nec = necesitaRecogida(mi);
-        d = iaMover(s, pp.x, pp.y, pp.z, nec ? 260 : 700, dt, d > 3000 ? 2 : 1, false);
-        if (nec && d <= 60) {
+        if (!nec) { s.varado = false; s.sOcio = 0; s.sMejor = 1e9; }
+        if (nec && s.varado) {   // no puede acercarse (rocas): se queda quieto y el Prospector viene hasta él
+          iaMover(s, s.x, s.y, s.z, 0, dt, 0, true); s.vTim = (s.vTim || 0) + dt; d = Math.sqrt((pp.x - s.x) * (pp.x - s.x) + (pp.y - s.y) * (pp.y - s.y) + (pp.z - s.z) * (pp.z - s.z)) - 260;
+          if (s.vTim > 90) { s.varado = false; s.sMejor = 1e9; s.sOcio = 0; }
+        } else {
+          d = iaMover(s, pp.x, pp.y, pp.z, nec ? 260 : 700, dt, d > 3000 ? 2 : 1, false);
+          if (nec && d > 60) { if (s.sMejor == null || d < s.sMejor - 20) { s.sMejor = d; s.sOcio = 0; } else { s.sOcio = (s.sOcio || 0) + dt; if (s.sOcio > 6) { s.varado = true; s.vTim = 0; s.vel = 0; toast('CARGUERO ESPERANDO · EL PROSPECTOR VA HACIA ÉL', 2.2); } } } else { s.sOcio = 0; s.sMejor = 1e9; }
+        }
+        if (nec && d <= (s.varado ? 90 : 60)) {
           s.tr += dt; hzN = 1; hzA[0] = s.x; hzA[1] = s.y; hzA[2] = s.z; hzB[0] = pp.x; hzB[1] = pp.y; hzB[2] = pp.z;
-          if (s.tr >= 3.5) { s.tr = 0; var mv = transferir(mi, s.id); if (mv) toast('CARGA TRANSFERIDA +' + mv, 1.6); else if (!s.avisoLleno) { s.avisoLleno = 1; toast('CARGUERO LLENO', 2.2); } }
+          if (s.tr >= 3.5) { s.tr = 0; var mv = transferir(mi, s.id); if (mv) { toast('CARGA TRANSFERIDA +' + mv, 1.6); s.varado = false; s.sMejor = 1e9; s.sOcio = 0; } else if (!s.avisoLleno) { s.avisoLleno = 1; toast('CARGUERO LLENO', 2.2); } }
         } else s.tr = 0;
       } else iaMover(s, s.x, s.y, s.z, 0, dt, 0, true);   // parada: se frena
     }

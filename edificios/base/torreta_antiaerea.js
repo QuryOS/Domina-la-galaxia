@@ -234,6 +234,10 @@ function createTorreta(THREE, opts) {
     recargar: function () { if (!reloadState && ammo < 120) { reloadState = 1; rt = 0; } },
     municion: function () { return ammo; }, recargando: function () { return reloadState > 0; },
     vistaArtillero: function (on) { mirT.visible = !on; },
+    elevacion: function () { return pitchA; },
+    boca: function (pos, dir) {   // punta de los cañones (mundo) y hacia dónde disparan
+      group.updateMatrixWorld(true); pitch.getWorldQuaternion(qa); dir.set(1, 0, 0).applyQuaternion(qa); pos.copy(pitch.localToWorld(vb.set(5.5, 0, 0))); return dir;
+    },
     agarres: function (o) {   // posiciones del mundo: asiento, palancas, manivela de elevación, y hacia dónde mira la torreta
       group.updateMatrixWorld(true);
       o.sitio.copy(yaw.localToWorld(vb.set(-1.35, 1.02, 0))); o.izq.copy(levs[1].localToWorld(vb.set(0, 0.2, 0))); o.der.copy(levs[0].localToWorld(vb.set(0, 0.2, 0)));
