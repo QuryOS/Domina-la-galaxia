@@ -514,7 +514,7 @@
     /* ---------- flota: tus naves vuelan solas; minería automática y carguero que sigue al minero ---------- */
     var RADIO_MINA = 15000;   // la minería automática busca rocas hasta 15 km a la redonda
     var flota = {}, bodegas = {}, CAPAC = CONFIG.capacidades || { prospector: 40, mastodonte: 360 }, hzN = 0, hzA = [0, 0, 0], hzB = [0, 0, 0], haz = null, panelFlota = false, segMeta = { nombre: 'PROSPECTOR', tipo: 'seg', r: 0, x: 0, y: 0, z: 0, stop: 700 };
-    var iaF = null, iaD, iaA, iaQ, iaR, iaUp;
+    var iaF = null, iaD, iaA, iaQ, iaR, iaUp, iaCerca = false;
     function capDe(id) { return CAPAC[id] || 0; }
     function bodDe(id) { return bodegas[id] || (bodegas[id] = { n: 0, it: {} }); }
     function bodLlena(id) { var c = capDe(id); return c > 0 && bodDe(id).n >= c; }
@@ -617,7 +617,7 @@
       }
       var n = naveDe(s.id), dx = tx - s.x, dy = ty - s.y, dz = tz - s.z, dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, i, o;
       iaD.set(dx / dist, dy / dist, dz / dist); iaR.set(0, 0, 0);
-      if (Math.abs(s.x - P.x) + Math.abs(s.y - P.y) + Math.abs(s.z - P.z) < 30000) {
+      if (!iaCerca && Math.abs(s.x - P.x) + Math.abs(s.y - P.y) + Math.abs(s.z - P.z) < 30000) {
         var look = Math.max(1400, s.vel * 12), Rn = Math.max(n.m * 3, 12), lst = esp._ast;
         for (i = 0; i < listaRo.length; i++) { o = listaRo[i]; if (o === s.tgt || (o.ro && o.ro.dead) || o.x - s.x > look + 400 || s.x - o.x > look + 400) continue; iaObst(s, o.x, o.y, o.z, o.r, look, Rn); }
         for (i = 0; i < lst.length; i++) iaObst(s, lst[i].x, lst[i].y, lst[i].z, lst[i].r, look, Rn);
@@ -633,7 +633,7 @@
     }
     function iaPaso(s, dt) {
       var n = naveDe(s.id), d, m, o, mi, pp, nec;
-      s.minando = false; iaMarg = 180;
+      s.minando = false; iaMarg = 180; iaCerca = false;
       if (s.modo === 'nav') {
         m = s.meta; if (!m) { s.modo = 'parada'; return; }
         if (m.jugador) d = iaMover(s, P.x, P.y, P.z, 300 + n.m * 12, dt, 1, false); else d = iaMover(s, m.x, m.y, m.z, apDistParada(m), dt, 1, false);
@@ -646,8 +646,8 @@
         if (!s.tgt || (s.tgt.ro && s.tgt.ro.dead)) { s.tgt = elegirRoca(s.x, s.y, s.z, RADIO_MINA, s.id, s.q); if (!s.tgt) { s.modo = 'parada'; toast('SIN ROCAS CERCA · ' + n.nombre.toUpperCase(), 2); return; } s.tgt.ro.res = s.id; }
         if (s.mt !== s.tgt) { s.mt = s.tgt; s.mejor = 1e9; s.ocio = 0; }
         var dc = Math.sqrt((s.tgt.x - s.x) * (s.tgt.x - s.x) + (s.tgt.y - s.y) * (s.tgt.y - s.y) + (s.tgt.z - s.z) * (s.tgt.z - s.z));
-        if (s.minando || dc < s.mejor - 25) { if (dc < s.mejor) s.mejor = dc; s.ocio = 0; } else { s.ocio = (s.ocio || 0) + dt; if (s.ocio > 20) { s.ocio = 0; if (s.tgt.ro) s.tgt.ro.mal = true; s.tgt = null; return; } }
-        o = s.tgt; var so = standoff(s.id), d0 = Math.sqrt((o.x - s.x) * (o.x - s.x) + (o.y - s.y) * (o.y - s.y) + (o.z - s.z) * (o.z - s.z)) - o.r - so; iaMarg = d0 < 2000 ? 40 : 180;
+        if (s.minando || dc < s.mejor - 25) { if (dc < s.mejor) s.mejor = dc; s.ocio = 0; } else { s.ocio = (s.ocio || 0) + dt; if (s.ocio > 12) { s.ocio = 0; if (s.tgt.ro) s.tgt.ro.mal = true; s.tgt = null; return; } }
+        o = s.tgt; var so = standoff(s.id), d0 = Math.sqrt((o.x - s.x) * (o.x - s.x) + (o.y - s.y) * (o.y - s.y) + (o.z - s.z) * (o.z - s.z)) - o.r - so; iaMarg = d0 < 2000 ? 40 : 180; iaCerca = d0 < 500;   // ya pegado a la roca: vuela directo, sin esquivar (así no oscila de lado a lado)
         d = iaMover(s, o.x, o.y, o.z, o.r + so, dt, d0 > 3000 ? 2.4 : 0.8, false);
         if (d <= 25 && s.err < 0.2) { s.minando = true; danarRoca(o, dt, s.id); s.sup = d + so; if (!s.lz) s.lz = new THREE.Vector3(); s.lz.set(0, -0.3, -Math.min(60, s.sup / n.m)); }
       } else if (s.modo === 'sigue') {
@@ -774,8 +774,9 @@
     function romperRoca(o, id) {   // id = bodega que recibe el mineral (minería automática); sin id, el mineral sale flotando
       var ro = o.ro; if (!ro || ro.dead) return; ro.dead = true;
       if (ro.im) { dummy.position.set(0, 0, 0); dummy.scale.set(0, 0, 0); dummy.updateMatrix(); ro.im.setMatrixAt(ro.ii, dummy.matrix); ro.im.instanceMatrix.needsUpdate = true; }
-      if (id) { var t = bodAgregar(id, esp.sacarMineral(o.r, o.cp ? o.cp.mat : 0)); esp.chispa(o.x, o.y, o.z, o.r); if (id === jug.nave) toast('+' + t + ' · BODEGA ' + bodDe(id).n + '/' + capDe(id), 1); }
-      else { esp.botinRoca(o.x, o.y, o.z, o.r, o.cp ? o.cp.mat : 0); toast('ROCA EXTRAÍDA', 0.8); }
+      var sp = !!(id ? naveDe(id) : nSel).minero;   // las naves mineras (Prospector) solo sacan piedra
+      if (id) { var t = bodAgregar(id, esp.sacarMineral(o.r, o.cp ? o.cp.mat : 0, sp)); esp.chispa(o.x, o.y, o.z, o.r); if (id === jug.nave) toast('+' + t + ' · BODEGA ' + bodDe(id).n + '/' + capDe(id), 1); }
+      else { esp.botinRoca(o.x, o.y, o.z, o.r, o.cp ? o.cp.mat : 0, sp); toast(sp ? 'PIEDRA EXTRAÍDA' : 'ROCA EXTRAÍDA', 0.8); }
     }
     function danarRoca(o, dt, id) { var ro = o.ro; if (!ro || ro.dead) return; if (ro.hp == null) ro.hp = 25 + o.r * 4; ro.hp -= 40 * dt; if (ro.hp <= 0) romperRoca(o, id); }
     function colisiones() {

@@ -106,16 +106,16 @@
       if (Math.random() < 0.22) nuevoBotin('piezas', a.x, a.y, a.z, a.vx * 0.4 + rnd(-10, 10), a.vy * 0.4 + rnd(-10, 10), a.vz * 0.4 + rnd(-10, 10));
     }
     var MEZCLA = [[['hierro', 0.65], ['cobre', 0.95], ['titanio', 1]], [['hierro', 0.35], ['cobre', 0.8], ['titanio', 0.98], ['oro', 1]], [['cobre', 0.3], ['titanio', 0.8], ['oro', 1]]];
-    function botinRoca(x, y, z, r, mat) {   // al romper una roca quieta: mineral según el tipo de roca del campo
+    function botinRoca(x, y, z, r, mat, solo) {   // al romper una roca quieta: mineral según el tipo de roca del campo
       var n = 2 + Math.min(10, (r / 14) | 0) + ((Math.random() * 3) | 0), i, u, k, tipo, mz = MEZCLA[mat] || MEZCLA[0];
       explosion(x, y, z, r, 0xffa860);
-      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } if (Math.random() < PIEDRA_P) tipo = 'piedra'; nuevoBotin(tipo, x + rnd(-r, r) * 0.7, y + rnd(-r, r) * 0.7, z + rnd(-r, r) * 0.7, rnd(-16, 16), rnd(-16, 16), rnd(-16, 16)); }
-      if (Math.random() < 0.18) nuevoBotin('piezas', x, y, z, rnd(-10, 10), rnd(-10, 10), rnd(-10, 10));
+      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } if (solo || Math.random() < PIEDRA_P) tipo = 'piedra'; nuevoBotin(tipo, x + rnd(-r, r) * 0.7, y + rnd(-r, r) * 0.7, z + rnd(-r, r) * 0.7, rnd(-16, 16), rnd(-16, 16), rnd(-16, 16)); }
+      if (!solo && Math.random() < 0.18) nuevoBotin('piezas', x, y, z, rnd(-10, 10), rnd(-10, 10), rnd(-10, 10));
     }
-    function sacarMineral(r, mat) {   // lo que da una roca rota, directo a una bodega (minería automática): { hierro: n, ..., piezas: n }
+    function sacarMineral(r, mat, solo) {   // lo que da una roca rota, directo a una bodega (minería automática): { hierro: n, ..., piezas: n }
       var n = 2 + Math.min(10, (r / 14) | 0) + ((Math.random() * 3) | 0), i, u, k, tipo, mz = MEZCLA[mat] || MEZCLA[0], out = {};
-      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } if (Math.random() < PIEDRA_P) tipo = 'piedra'; out[tipo] = (out[tipo] || 0) + 1; }
-      if (Math.random() < 0.18) out.piezas = 1;
+      for (i = 0; i < n; i++) { u = Math.random(); tipo = mz[mz.length - 1][0]; for (k = 0; k < mz.length; k++) if (u <= mz[k][1]) { tipo = mz[k][0]; break; } if (solo || Math.random() < PIEDRA_P) tipo = 'piedra'; out[tipo] = (out[tipo] || 0) + 1; }
+      if (!solo && Math.random() < 0.18) out.piezas = 1;
       return out;
     }
     function depositar(it) { var k, t = 0; for (k in it) if (typeof inv[k] === 'number') { inv[k] += it[k]; t += it[k]; } guardar('inv', inv); return t; }
