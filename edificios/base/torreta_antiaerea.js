@@ -78,8 +78,9 @@ function createTorreta(THREE, opts) {
     /* Detalles de la plataforma: dentado, placa antideslizante, volantes de giro y elevación, asideros, apoyabrazos y cabecera */
     for (var tn = 0; tn < 36; tn++) { var ta = tn * Math.PI / 18, tb2 = B(yaw, 0.12, 0.08, 0.1, 1.4 * Math.cos(ta), 0.03, 1.4 * Math.sin(ta), steel2); tb2.rotation.y = -ta; }
     for (var sp = 0; sp < 9; sp++) B(yaw, 0.05, 0.012, 0.9, -1.2 + sp * 0.3, 0.157, 0, black);
+    var wheels = [];
     function wheel(x, y, z) {
-      var wg = new THREE.Group(); wg.position.set(x, y, z); yaw.add(wg);
+      var wg = new THREE.Group(); wheels.push(wg); wg.position.set(x, y, z); yaw.add(wg);
       wg.add(new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.03, 8, 24), black));
       for (var k = 0; k < 3; k++) { var spk = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.04, 0.04), steel2); spk.rotation.z = k * Math.PI / 3; wg.add(spk); }
       var hub = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), steel); wg.add(hub);
@@ -104,26 +105,21 @@ function createTorreta(THREE, opts) {
     [[-0.95, 0.6], [0.95, 0.6], [-1.0, -0.7], [1.0, -0.7]].forEach(function (p) { S(pitch, 1.03, p[1], p[0], 0.05); });
     /* Mando del artillero: FIJO a la plataforma (no sube ni baja con los cañones). Dos palancas con gatillo rojo; las manos las agarran */
     var mando = new THREE.Group(); mando.position.set(-0.8, 1.4, 0); yaw.add(mando);
-    var skin = mat(0xd8a47f, 0, 0.8), manga = mat(0x4a5a34, 0.1, 0.8), levs = [], manos = [];
+    var levs = [];
     R(mando, 0, -0.1, -0.6, 0, -0.1, 0.6, 0.05, steel);
     [1, -1].forEach(function (sd) {
       R(mando, 0.35, -0.5, 0.45 * sd, 0, -0.1, 0.6 * sd, 0.05, steel);
       var lv = new THREE.Group(); lv.position.set(0, -0.1, 0.6 * sd); mando.add(lv); levs.push(lv);
       CY(lv, 0.045, 0.36, 0, 0.18, 0, black); CY(lv, 0.06, 0.05, 0, 0.0, 0, steel2);
       var tb = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.08, 12), red); tb.rotation.x = Math.PI / 2; tb.position.set(0.06, 0.3, 0); lv.add(tb);
-      /* mano: palma, cuatro dedos enrollados, pulgar y antebrazo con manga */
-      var mn = new THREE.Group(); mn.visible = false; manos.push(mn); lv.add(mn);
-      var palma = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.12), skin); palma.position.set(-0.07, 0.17, 0); mn.add(palma);
-      for (var fi = 0; fi < 4; fi++) { var fg = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.115, 8), skin); fg.rotation.x = Math.PI / 2; fg.position.set(0.04, 0.07 + fi * 0.045, 0); mn.add(fg); var fj = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.02), skin); fj.position.set(-0.01, 0.07 + fi * 0.045, 0.055 * -sd); mn.add(fj); }
-      var pul = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.1, 8), skin); pul.position.set(0.035, 0.27, -0.02 * sd); pul.rotation.z = 1.2; mn.add(pul);
-      var anti = R(mn, -0.1, 0.17, 0, -0.75, -0.1, 0.35 * sd, 0.05, manga); var pu = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), skin); pu.position.set(-0.11, 0.17, 0); mn.add(pu);
     });
     /* Mira de anillos CENTRAL: puente sobre las dos cajas, poste trasero, poste delantero apoyado en el escudo */
-    B(pitch, 0.9, 0.08, 1.3, -0.2, 0.5, 0, steel2); B(pitch, 0.3, 0.1, 0.3, -0.6, 0.58, 0, steel2);
-    [[-0.6, 0.36], [-0.6, -0.36], [0.2, 0.36], [0.2, -0.36]].forEach(function (p) { S(pitch, p[0], 0.55, p[1], 0.04); });
-    R(pitch, -0.6, 0.53, 0, -0.6, 0.98, 0, 0.04, steel2);
-    var rg1 = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 8, 28), steel2); rg1.rotation.y = Math.PI / 2; rg1.position.set(-0.6, 1.2, 0); pitch.add(rg1);
-    B(pitch, 0.04, 0.5, 0.03, -0.6, 1.2, 0, steel2); B(pitch, 0.04, 0.03, 0.5, -0.6, 1.2, 0, steel2);
+    var mirT = new THREE.Group(); pitch.add(mirT);
+    B(mirT, 0.9, 0.08, 1.3, -0.2, 0.5, 0, steel2); B(mirT, 0.3, 0.1, 0.3, -0.6, 0.58, 0, steel2);
+    [[-0.6, 0.36], [-0.6, -0.36], [0.2, 0.36], [0.2, -0.36]].forEach(function (p) { S(mirT, p[0], 0.55, p[1], 0.04); });
+    R(mirT, -0.6, 0.53, 0, -0.6, 0.98, 0, 0.04, steel2);
+    var rg1 = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 8, 28), steel2); rg1.rotation.y = Math.PI / 2; rg1.position.set(-0.6, 1.2, 0); mirT.add(rg1);
+    B(mirT, 0.04, 0.5, 0.03, -0.6, 1.2, 0, steel2); B(mirT, 0.04, 0.03, 0.5, -0.6, 1.2, 0, steel2);
     R(pitch, 1.0, 0.95, 0, 1.0, 1.2, 0, 0.04, steel2); R(pitch, 1.0, 1.2, 0, 1.5, 1.2, 0, 0.035, steel2);
     var rg2 = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.02, 8, 20), steel2); rg2.rotation.y = Math.PI / 2; rg2.position.set(1.6, 1.2, 0); pitch.add(rg2); B(pitch, 0.03, 0.12, 0.03, 1.6, 1.2, 0, red);
     B(pitch, 0.5, 0.05, 0.3, 1.0, 0.97, 0, steel2); S(pitch, 0.9, 0.99, 0.1, 0.035); S(pitch, 0.9, 0.99, -0.1, 0.035);
@@ -197,7 +193,7 @@ function createTorreta(THREE, opts) {
   }
   function update(t) {
     var dt = tPrev == null ? 0.016 : Math.min(Math.max(t - tPrev, 0), 0.1); tPrev = t;
-    yawA += aimY * 1.1 * dt; pitchA = Math.min(1.45, Math.max(-0.08, pitchA + aimP * 0.8 * dt)); yaw.rotation.y = yawA; pitch.rotation.z = pitchA; levs.forEach(function (lv, k) { lv.rotation.z = -aimP * 0.3; lv.rotation.x = aimY * 0.25 * (k ? -1 : 1); if (k === 0) lv.children[2].position.y = 0.3 - (firing ? 0.025 : 0); });
+    yawA += aimY * 1.1 * dt; pitchA = Math.min(1.45, Math.max(-0.08, pitchA + aimP * 0.8 * dt)); yaw.rotation.y = yawA; pitch.rotation.z = pitchA; wheels.forEach(function (w, k) { w.rotation.z -= aimP * dt * 5; });
     cd -= dt;
     if (firing && cd <= 0 && ammo > 0 && !reloadState) { shoot(); cd = 1 / 12; }
     gn.forEach(function (G) { G.rec *= Math.exp(-dt * 14); G.g.position.x = -0.4 * G.rec; G.flash -= dt; G.fs.visible = G.flash > 0; if (G.fs.visible) G.fs.scale.setScalar(1.2 + Math.random() * 0.8); });
@@ -224,7 +220,7 @@ function createTorreta(THREE, opts) {
   /* cámara del artillero: ojos en el asiento, mirando por donde apuntan los cañones */
   var qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
   function asiento(pos, quat) {
-    group.updateMatrixWorld(true); pos.copy(yaw.localToWorld(vb.set(-0.9, 1.95, 0))); pitch.getWorldQuaternion(qa); quat.copy(qa).multiply(qy);
+    group.updateMatrixWorld(true); pos.copy(yaw.localToWorld(vb.set(-1.3, 1.9, 0))); pitch.getWorldQuaternion(qa); quat.copy(qa).multiply(qy);
   }
   var mats = null;
   function setGhost(on, ok) {
@@ -237,7 +233,14 @@ function createTorreta(THREE, opts) {
     disparar: function (on) { firing = !!on; },
     recargar: function () { if (!reloadState && ammo < 120) { reloadState = 1; rt = 0; } },
     municion: function () { return ammo; }, recargando: function () { return reloadState > 0; },
-    manos: function (on) { manos.forEach(function (m) { m.visible = !!on; }); },
+    vistaArtillero: function (on) { mirT.visible = !on; },
+    agarres: function (o) {   // posiciones del mundo: asiento, palancas, manivela de elevación, y hacia dónde mira la torreta
+      group.updateMatrixWorld(true);
+      o.sitio.copy(yaw.localToWorld(vb.set(-1.35, 1.02, 0))); o.izq.copy(levs[1].localToWorld(vb.set(0, 0.2, 0))); o.der.copy(levs[0].localToWorld(vb.set(0, 0.2, 0)));
+      o.vol.copy(wheels[0].localToWorld(vb.set(0.26, 0.0, 0.1)));
+      var q = new THREE.Quaternion(); yaw.getWorldQuaternion(q); var f = new THREE.Vector3(1, 0, 0).applyQuaternion(q); o.ang = Math.atan2(f.x, f.z);
+      o.volR = wheels[0].rotation.z; return o;
+    },
     setAccent: function () { }
   };
 }

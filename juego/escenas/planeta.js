@@ -183,36 +183,66 @@
     ui.est.textContent = cargando ? 'Descargando ' + cargando + '…' : (itemSel && !ghost ? 'Preparando…' : (ghost ? 'Mueve la cámara para elegir el sitio · verde = cabe' : ''));
     rejilla.visible = pon && !pie;
   }
+  /* ---- el personaje: el soldado espacial del lobby, visto en primera persona (cabeza oculta, se ven sus brazos y su cuerpo) ---- */
+  var LB = 0.29, LA = 0.26, hand = { izq: null, der: null }, wk = 0, ag = null;
   function crearManosPie() {
-    if (manosPie) return;
-    manosPie = new THREE.Group(); sc.add(cam); cam.add(manosPie);
-    var skin = new THREE.MeshStandardMaterial({ color: 0xd8a47f, roughness: 0.8, metalness: 0 }), manga = new THREE.MeshStandardMaterial({ color: 0x4a5a34, roughness: 0.8, metalness: 0 });
-    [-1, 1].forEach(function (sd) {
-      var h = new THREE.Group(); h.userData.sd = sd; manosPie.add(h);
-      var ante = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.5, 10), manga); ante.rotation.x = Math.PI / 2; ante.position.set(0, 0, 0.2); h.add(ante);
-      var pal = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 0.1), skin); pal.position.set(0, 0, -0.1); h.add(pal);
-      for (var f = 0; f < 4; f++) { var d = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.022, 0.07), skin); d.position.set(-0.033 + f * 0.022, 0.0, -0.18); d.rotation.x = 0.35; h.add(d); }
-      var p = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.022, 0.06), skin); p.position.set(0.055 * -sd, 0.0, -0.12); p.rotation.y = 0.5 * sd; h.add(p);
-      h.position.set(0.2 * sd, -0.27, -0.45); h.rotation.set(-0.25, -0.15 * sd, 0);
-    });
+    if (manosPie || typeof global.createSoldadoEspacialV2 !== 'function') return;
+    var u; try { u = global.createSoldadoEspacialV2(THREE, { metersPerUnit: 1, height: 1.8, armor: jug.acento, glow: 0x62d6ff }); } catch (e) { return; }
+    var pa = u.parts; pa.head.visible = false; sc.add(u.group); u.group.updateMatrixWorld(true);
+    var v = new THREE.Vector3(); pa.head.getWorldPosition(v); var eye = v.y; pa.legL.getWorldPosition(v);
+    manosPie = { u: u, pa: pa, eye: eye, hip: v.y, body: pa.armL.parent };
+    if (!ag) ag = { sitio: new THREE.Vector3(), izq: new THREE.Vector3(), der: new THREE.Vector3(), vol: new THREE.Vector3(), ang: 0, volR: 0 };
   }
-  function animarManos(t, dt, mag) {
-    if (!manosPie) return; var cam1 = correr ? 11 : 7, a = Math.sin(t * cam1) * (correr ? 0.07 : 0.035) * mag, g = golpeT > 0 ? Math.sin((1 - golpeT / 0.45) * Math.PI) : 0, en = saltoY > 0.02 ? 0.05 : 0;
-    manosPie.children.forEach(function (h) {
-      var sd = h.userData.sd, ph = sd * a;   // brazos alternados al andar
-      h.position.set(0.2 * sd, -0.27 + Math.abs(a) * 0.4 + en - (sd > 0 ? g * 0.02 : 0), -0.45 + ph * 1.6 - (sd > 0 ? g * 0.35 : 0) + (correr ? -0.04 : 0));
-      h.rotation.set(-0.25 + ph * 2 - (sd > 0 ? g * 0.7 : 0), -0.15 * sd - (sd > 0 ? g * 0.3 : 0), (correr ? 0.15 * sd : 0));
-    });
+  function lerp(a, b, k) { return a + (b - a) * k; }
+  function ik(brazo, codo, T, lado) {   // dos huesos: el hombro apunta y el codo se dobla para que la mano llegue a T (mundo)
+    var body = manosPie.body, tl = body.worldToLocal(T.clone()), S = brazo.position;
+    var dx = tl.x - S.x, dy = tl.y - S.y, dz = tl.z - S.z, D = Math.sqrt(dx * dx + dy * dy + dz * dz) || 0.001, mx = LB + LA - 0.004;
+    var Dc = Math.min(Math.max(D, 0.1), mx), cf = Math.max(-1, Math.min(1, (Dc * Dc - LB * LB - LA * LA) / (2 * LB * LA))), phi = Math.acos(cf), del = Math.asin(Math.min(1, LA * Math.sin(phi) / Dc));
+    var d = [dx / D, dy / D, dz / D], p = [lado * 0.6, -1, -0.3], pd = p[0] * d[0] + p[1] * d[1] + p[2] * d[2]; p = [p[0] - pd * d[0], p[1] - pd * d[1], p[2] - pd * d[2]]; var pl = Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]) || 1; p = [p[0] / pl, p[1] / pl, p[2] / pl];
+    var cd = Math.cos(del), sdl = Math.sin(del), uu = [d[0] * cd + p[0] * sdl, d[1] * cd + p[1] * sdl, d[2] * cd + p[2] * sdl];
+    var E = [S.x + uu[0] * LB, S.y + uu[1] * LB, S.z + uu[2] * LB], f = [S.x + d[0] * Dc - E[0], S.y + d[1] * Dc - E[1], S.z + d[2] * Dc - E[2]], fl = Math.sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]) || 1; f = [f[0] / fl, f[1] / fl, f[2] / fl];
+    var fu = f[0] * uu[0] + f[1] * uu[1] + f[2] * uu[2], b = [f[0] - fu * uu[0], f[1] - fu * uu[1], f[2] - fu * uu[2]], bl = Math.sqrt(b[0] * b[0] + b[1] * b[1] + b[2] * b[2]); b = bl < 1e-4 ? [0, 0, 1] : [b[0] / bl, b[1] / bl, b[2] / bl];
+    var Y = [-uu[0], -uu[1], -uu[2]], Z = b, X = [Y[1] * Z[2] - Y[2] * Z[1], Y[2] * Z[0] - Y[0] * Z[2], Y[0] * Z[1] - Y[1] * Z[0]];
+    var m11 = X[0], m12 = Y[0], m13 = Z[0], m21 = X[1], m22 = Y[1], m23 = Z[1], m31 = X[2], m32 = Y[2], m33 = Z[2], tr = m11 + m22 + m33, qx, qy, qz, qw, r;
+    if (tr > 0) { r = Math.sqrt(tr + 1) * 2; qw = r / 4; qx = (m32 - m23) / r; qy = (m13 - m31) / r; qz = (m21 - m12) / r; }
+    else if (m11 > m22 && m11 > m33) { r = Math.sqrt(1 + m11 - m22 - m33) * 2; qw = (m32 - m23) / r; qx = r / 4; qy = (m12 + m21) / r; qz = (m13 + m31) / r; }
+    else if (m22 > m33) { r = Math.sqrt(1 + m22 - m11 - m33) * 2; qw = (m13 - m31) / r; qx = (m12 + m21) / r; qy = r / 4; qz = (m23 + m32) / r; }
+    else { r = Math.sqrt(1 + m33 - m11 - m22) * 2; qw = (m21 - m12) / r; qx = (m13 + m31) / r; qy = (m23 + m32) / r; qz = r / 4; }
+    brazo.quaternion.set(qx, qy, qz, qw); codo.rotation.set(-phi, 0, 0);
+  }
+  function golpePose(k) {   // k 0..1: preparar, golpear, recoger → [hombro, codo]
+    if (k < 0.3) { var a = k / 0.3; return [lerp(-1.4, -1.15, a), lerp(-0.25, -1.7, a)]; }
+    if (k < 0.55) { var b = (k - 0.3) / 0.25; return [lerp(-1.15, -1.5, b), lerp(-1.7, -0.02, b)]; }
+    var c = (k - 0.55) / 0.45; return [lerp(-1.5, -1.4, c), lerp(-0.02, -0.25, c)];
+  }
+  function animarManos(t, dt, mag) {   // a pie: el soldado camina; los brazos van "en guardia" y se balancean
+    if (!manosPie) return; var pa = manosPie.pa, g = manosPie.u.group, ph = t * (correr ? 11 : 7), sw = Math.sin(ph) * mag, cw = Math.cos(ph) * mag, gk = golpeT > 0 ? golpePose(1 - golpeT / 0.45) : null;
+    g.visible = true; g.position.set(px, saltoY, pz); g.rotation.set(0, pyaw + PI, 0);
+    var amp = correr ? 0.55 : 0.28, up = -ppit * 0.55;
+    pa.armL.rotation.set(-1.4 + up + cw * amp * 0.5, 0, -0.07); pa.forearmL.rotation.set(-0.25 - Math.abs(sw) * 0.15 - (correr ? 0.6 : 0), 0, 0);
+    pa.armR.rotation.set((gk ? gk[0] : -1.4 - cw * amp * 0.5) + up, 0, 0.07); pa.forearmR.rotation.set(gk ? gk[1] : -0.25 - Math.abs(sw) * 0.15 - (correr ? 0.6 : 0), 0, 0);
+    var air = saltoY > 0.02 ? 0.6 : 0; pa.legL.rotation.set(sw * (correr ? 0.9 : 0.5) - air, 0, 0); pa.legR.rotation.set(-sw * (correr ? 0.9 : 0.5) - air * 0.3, 0, 0);
+    pa.shinL.rotation.set(Math.max(0, -sw) * (correr ? 1.0 : 0.5) + air, 0, 0); pa.shinR.rotation.set(Math.max(0, sw) * (correr ? 1.0 : 0.5) + air * 0.4, 0, 0);
+    g.updateMatrixWorld(true);
+  }
+  function sentadoPose(t, dt, ax, ay, api) {   // sentado: el soldado en el asiento, manos en las dos palancas; la mano derecha gira la manivela al subir/bajar
+    var pa = manosPie.pa, g = manosPie.u.group; api.agarres(ag);
+    g.visible = true; g.rotation.set(0, ag.ang, 0); g.position.set(ag.sitio.x, ag.sitio.y - manosPie.hip + 0.03, ag.sitio.z); g.updateMatrixWorld(true);
+    pa.legL.rotation.set(-1.45, 0, -0.05); pa.legR.rotation.set(-1.45, 0, 0.05); pa.shinL.rotation.set(1.4, 0, 0); pa.shinR.rotation.set(1.4, 0, 0); g.updateMatrixWorld(true);
+    wk += ((Math.abs(ay) > 0.12 ? 1 : 0) - wk) * Math.min(1, dt * 7);
+    var tD = ag.der.clone().lerp(ag.vol, wk);
+    ik(pa.armL, pa.forearmL, ag.izq, -1); ik(pa.armR, pa.forearmR, tD, 1); g.updateMatrixWorld(true);
+    pa.head.getWorldPosition(vA);
   }
   function entrarPie() {
     quitarGhost(); modoBorrar = false; modoPie = true; px = fx; pz = fz; if (Math.hypot(px, pz) > RADIO_BASE) { px = 0; pz = 160; } pyaw = yaw + PI; ppit = 0; sentado = null;
-    saltoY = 0; saltoV = 0; golpeT = 0; crearManosPie(); manosPie.visible = true; cam.fov = 75; cam.near = 0.1; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
+    saltoY = 0; saltoV = 0; golpeT = 0; crearManosPie(); if (manosPie) manosPie.u.group.visible = true; cam.fov = 75; cam.near = 0.05; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
   }
   function salirPie() {
-    if (sentado) levantarse(); if (manosPie) manosPie.visible = false; modoPie = false; fx = px; fz = pz; yaw = pyaw + PI; cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); stk = null; lookId = null; ui.sb.style.display = ui.sk.style.display = 'none'; actualizarUI();
+    if (sentado) levantarse(); if (manosPie) manosPie.u.group.visible = false; modoPie = false; fx = px; fz = pz; yaw = pyaw + PI; cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); stk = null; lookId = null; ui.sb.style.display = ui.sk.style.display = 'none'; actualizarUI();
   }
-  function sentarse(o) { sentado = o; try { o.api.manos && o.api.manos(true); } catch (e) { } if (manosPie) manosPie.visible = false; stk = null; ui.sb.style.display = ui.sk.style.display = 'none'; toast('ARTILLERO · IZQUIERDA APUNTA', 2); actualizarUI(); }
-  function levantarse() { if (!sentado) return; sentado.api.disparar(false); sentado.api.apuntar(0, 0); try { sentado.api.manos && sentado.api.manos(false); } catch (e) { } px = sentado.x + 3.5; pz = sentado.z + 3.5; sentado = null; if (manosPie) manosPie.visible = true; actualizarUI(); }
+  function sentarse(o) { sentado = o; wk = 0; try { o.api.vistaArtillero && o.api.vistaArtillero(true); } catch (e) { } stk = null; ui.sb.style.display = ui.sk.style.display = 'none'; toast('ARTILLERO · IZQUIERDA APUNTA', 2); actualizarUI(); }
+  function levantarse() { if (!sentado) return; sentado.api.disparar(false); sentado.api.apuntar(0, 0); try { sentado.api.vistaArtillero && sentado.api.vistaArtillero(false); } catch (e) { } px = sentado.x + 3.5; pz = sentado.z + 3.5; sentado = null; actualizarUI(); }
   function despegar() {
     if (!ret) { irA('lobby'); return; }
     var r = ret; irA('mundo', { modo: r.modo, retorno: r });
@@ -240,7 +270,7 @@
     var i, o, ax = stk ? stk.ax : 0, ay = stk ? stk.ay : 0;
     if (!vA) { vA = new THREE.Vector3(); qA = new THREE.Quaternion(); }
     if (sentado) {
-      sentado.api.apuntar(-ax, -ay); sentado.api.update(t); sentado.api.asiento(vA, qA); cam.position.copy(vA); cam.quaternion.copy(qA);
+      sentado.api.apuntar(-ax, -ay); sentado.api.update(t); sentado.api.asiento(vA, qA); if (manosPie) { sentadoPose(t, dt, ax, ay, sentado.api); } cam.position.copy(vA); cam.quaternion.copy(qA);
       ui.est.textContent = 'Munición: ' + sentado.api.municion() + (sentado.api.recargando() ? ' · recargando…' : ''); return;
     }
     var mag = Math.min(1, Math.hypot(ax, ay)), v = (correr ? 7.5 : 3.2) * mag, sn = Math.sin(pyaw), cs = Math.cos(pyaw);
@@ -257,7 +287,7 @@
     if (!!cercaT !== !!ui._ct) { ui._ct = !!cercaT; actualizarUI(); }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
     if (golpeT > 0) golpeT -= dt;
-    cam.position.set(px, 1.7 + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
+    cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
     if (ui.est.textContent.indexOf('Munición') === 0) ui.est.textContent = '';
   }
   escenas.planeta = {
@@ -265,7 +295,7 @@
     _test: function () { return { pie: function () { return { modoPie: modoPie, px: px, pz: pz, sentado: !!sentado }; }, entrarPie: entrarPie, salirPie: salirPie, sentarse: sentarse, levantarse: levantarse, punteroPie: punteroPie, buscarLibre: buscarLibre, colocadas: function () { return colocadas; }, elegir: elegir, colocar: colocar, itemDe: itemDe, CATALOGO: CATALOGO, ghost: function () { return ghost; }, mover: function (x, z) { fx = x; fz = z; }, borrarEn: borrarEn, despegar: despegar }; },
     entrar: function (d) {
       if (!construido) construir();
-      if (manosPie) manosPie.visible = false; saltoY = 0; saltoV = 0; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
+      if (manosPie) manosPie.u.group.visible = false; saltoY = 0; saltoV = 0; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
       pl = d.pl; ret = d.retorno; key = pl.key; colocadas = []; ghost = null; itemSel = null; modoBorrar = false; cargando = ''; punteros = {}; mov = 0;
       var pj = PAISAJE[pl.tipo] || PAISAJE.rocoso; suelo.material.map = texSuelo(pj[0]); suelo.material.needsUpdate = true; sc.background = new THREE.Color(pj[1]); sc.fog = new THREE.Fog(pj[1], 1800, 9500);
       // la nave posada en el centro
