@@ -81,6 +81,9 @@
     if (api.footprint) r = 0.5 * esc4 * Math.max(api.footprint.w, api.footprint.d);   // huella en unidades de 4 m: radio = mitad del lado
     if (!isFinite(r) || r <= 0) r = 40;
     if (item.defensa) r = (item.defensa === 'torretaf' ? 1.2 : 3.6) * (item.esc || 1);
+    var hw = 0.5 * s.x, hd = 0.5 * s.z;   // media huella REAL (ejes del modelo): rectángulo, no círculo
+    if (api.footprint) { hw = 0.5 * esc4 * api.footprint.w; hd = 0.5 * esc4 * api.footprint.d; }
+    if (item.defensa === 'muro' || item.defensa === 'porton') { hw = 3.5 * (item.esc || 1); hd = 1.1 * (item.esc || 1); } else if (item.defensa) { hw = hd = r; }
     api.group.position.y = 0;
     if (!item.defensa) {   // apoya el edificio por su BASE (las mallas anchas de abajo), ignorando fosos, cables o antenas que se salen
       try {
@@ -90,12 +93,27 @@
       } catch (eg) { api.group.position.y = 0; }
     }
     var raiz = new THREE.Group(); raiz.add(w); sc.add(raiz);
-    return { item: item, api: api, g: raiz, r: r };
+    return { item: item, api: api, g: raiz, r: r, hw: hw, hd: hd };
   }
-  function valida(x, z, r, ignorar) {
+  function chocaRect(ax, az, aa, ahw, ahd, bx, bz, ba, bhw, bhd) {   // dos rectángulos orientados (SAT)
+    var A = [[Math.cos(aa), -Math.sin(aa)], [Math.sin(aa), Math.cos(aa)]], B = [[Math.cos(ba), -Math.sin(ba)], [Math.sin(ba), Math.cos(ba)]], dx = bx - ax, dz = bz - az, i, k, ej, pa, pb, d, L;
+    var ejes = [A[0], A[1], B[0], B[1]];
+    for (i = 0; i < 4; i++) {
+      ej = ejes[i]; pa = ahw * Math.abs(A[0][0] * ej[0] + A[0][1] * ej[1]) + ahd * Math.abs(A[1][0] * ej[0] + A[1][1] * ej[1]);
+      pb = bhw * Math.abs(B[0][0] * ej[0] + B[0][1] * ej[1]) + bhd * Math.abs(B[1][0] * ej[0] + B[1][1] * ej[1]);
+      d = Math.abs(dx * ej[0] + dz * ej[1]); if (d > pa + pb) return false;
+    }
+    return true;
+  }
+  function valida(x, z, r, ignorar, rot, hw, hd) {
     var d = Math.sqrt(x * x + z * z), i, o;
     if (d + r > RADIO_BASE || (naveBaja && Math.hypot(x - naveTx, z - naveTz) < pad + r)) return false;
-    for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (o === ignorar) continue; if (Math.hypot(o.x - x, o.z - z) < o.r + r) return false; }
+    if (hw == null) { hw = hd = r; rot = 0; }
+    for (i = 0; i < colocadas.length; i++) {
+      o = colocadas[i]; if (o === ignorar) continue;
+      if (Math.hypot(o.x - x, o.z - z) > o.r + r + 2) continue;   // lejos: ni se calcula
+      if (chocaRect(x, z, rot || 0, hw + 0.5, hd + 0.5, o.x, o.z, o.rot || 0, o.hw != null ? o.hw : o.r, o.hd != null ? o.hd : o.r)) return false;
+    }
     return true;
   }
   function buscarLibre(cx, cz) {   // sitio despejado más cercano a (cx, cz) donde cabe la nave
@@ -195,7 +213,7 @@
   function quitarGhost() { if (ghost) { sc.remove(ghost.g); ghost = null; } itemSel = null; }
   function colocar() {
     if (!ghost) return; var x = ghost.g.position.x, z = ghost.g.position.z, df = ghost.item.defensa;
-    if (df ? !ghost.okDef : !valida(x, z, ghost.r, null)) { toast(df === 'torretaf' ? 'PONLA SOBRE UNA COLUMNA' : 'NO CABE AQUÍ'); return; }
+    if (df ? !ghost.okDef : !valida(x, z, ghost.r, null, ghost.g.rotation.y, ghost.hw, ghost.hd)) { toast(df === 'torretaf' ? 'PONLA SOBRE UNA COLUMNA' : 'NO CABE AQUÍ'); return; }
     if (df) { if (stockDe(ghost.item.id) <= 0) { toast('NO TE QUEDAN'); return; } stockMas(ghost.item.id, -1); }
     else { if (!alcanza(COSTOS[ghost.item.id])) { toast('TE FALTAN MATERIALES', 2); return; } gastar(COSTOS[ghost.item.id]); }
     var o = ghost; ghost = null; itemSel = null; o.x = x; o.z = z; o.rot = o.g.rotation.y; try { if (o.api.setGhost) o.api.setGhost(false); } catch (e) { }
@@ -410,10 +428,15 @@
   }
   /* ---- colisión con la malla real de las construcciones (pistas y la ciudad): paredes y pisos ---- */
   var STEP = 1.6, o3 = null, d3 = null;
+  function solida(m) {   // solo lo que de verdad es sólido: fuera haces, halos, cristales tenues, brillos y mallas ocultas
+    var mt = m.material, i, q; if (!mt) return true; var ls = Array.isArray(mt) ? mt : [mt], n = 0;
+    for (i = 0; i < ls.length; i++) { q = ls[i]; if (!q || q.visible === false) continue; if (q.transparent && q.opacity < 0.6) continue; if (q.blending === THREE.AdditiveBlending) continue; if (q.depthWrite === false && q.transparent) continue; n++; }
+    if (!n) return false; if (/glow|beam|halo|haz|luz|light|aura|zona|field|campo|shield|escudo|holo|ghost|fantasma|sombra_suelo|shadow/i.test(m.name || '')) return false; return true;
+  }
   function cajasDe(o) {
     if (o._cj) return o._cj; var lst = []; o.g.updateMatrixWorld(true);
     o.g.traverse(function (m) {
-      if (!m.isMesh || !m.geometry || (m.material && m.material.visible === false)) return;
+      if (!m.isMesh || !m.geometry || !m.visible || !solida(m)) return;
       var b = new THREE.Box3().setFromObject(m); if (!isFinite(b.min.x) || !isFinite(b.max.x)) return;
       if (Math.max(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z) < 0.4) return; lst.push({ m: m, b: b });
     });
@@ -536,7 +559,7 @@
       if (o.mant && !o.fin && dd < o.r + 10 && !(cercaB && cercaB._d < dd)) { o._d = dd; cercaB = o; }
       if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9 * K && saltoY < 3) { if (o.item.defensa === 'porton' && dd < 5.5 * K) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
       if (o.item.arma && !o.fin && dd < 6.5) cercaT = o;
-      if (!o.item.plano && (o.item.arma || !(o._cj && o._cj.length)) && saltoY < 3) { var lim = o.r * 0.85 + 0.6; if (dd < lim) { px = o.x + dx / dd * lim; pz = o.z + dz / dd * lim; } }
+      if (!o.item.plano && (o.item.arma || !cajasDe(o).length) && saltoY < 3) { var lim = o.r * 0.85 + 0.6; if (dd < lim) { px = o.x + dx / dd * lim; pz = o.z + dz / dd * lim; } }
       else if (o.item.arma && dd < 1.6) { px = o.x + dx / dd * 1.6; pz = o.z + dz / dd * 1.6; }
     }
     if (naveBaja && naveY < 8) { var dn = Math.hypot(px - naveX, pz - naveZ), ln = pad * 0.55; if (dn < ln) { px = naveX + (px - naveX) / (dn || 1) * ln; pz = naveZ + (pz - naveZ) / (dn || 1) * ln; } }
@@ -595,7 +618,7 @@
       if (ghost) {
         var gx = Math.round(fx / 2) * 2, gz = Math.round(fz / 2) * 2, ok;
         if (ghost.item.defensa) ok = posDefensa(modoPie ? px - Math.sin(pyaw) * 5 * K : fx, modoPie ? pz - Math.cos(pyaw) * 5 * K : fz);
-        else { if (modoPie) { gx = Math.round((px - Math.sin(pyaw) * 14) / 2) * 2; gz = Math.round((pz - Math.cos(pyaw) * 14) / 2) * 2; } ghost.g.position.set(gx, 0, gz); ghost.g.rotation.y = rotG; ok = valida(gx, gz, ghost.r, null); }
+        else { if (modoPie) { gx = Math.round((px - Math.sin(pyaw) * 14) / 2) * 2; gz = Math.round((pz - Math.cos(pyaw) * 14) / 2) * 2; } ghost.g.position.set(gx, 0, gz); ghost.g.rotation.y = rotG; ok = valida(gx, gz, ghost.r, null, rotG, ghost.hw, ghost.hd); }
         try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;
       }
