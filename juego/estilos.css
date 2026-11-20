@@ -235,3 +235,5 @@
 .jn-ed-tabs{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(6px + env(safe-area-inset-bottom));display:flex;gap:6px;z-index:2;pointer-events:auto}
 .jn-ed-tabs button{padding:6px 12px;font-size:11px;border-radius:999px}
 .jn-ed-tabs button.on{background:#2a5fd0;color:#fff}
+
+.jn-lb-card.tpq{cursor:default}.jn-lb-card .tw{padding:8px 10px;font-size:11px;text-decoration:none;background:#1c8f4a;border-color:#6fe3a0;white-space:nowrap}

@@ -12,6 +12,7 @@
   "juego/red/red.js",
   "juego/red/amigos.js",
   "juego/escenas/carga.js",
+  "juego/mundo/tienda.js",
   "juego/escenas/lobby.js",
   "juego/mundo/espacio.js",
   "juego/escenas/mundo.js",

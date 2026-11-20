@@ -51,7 +51,7 @@
   function svg(k) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">' + ICONOS[k] + '</svg>'; }
 
   jug.motor = leer('motor', 'Colmillo');
-  function motorLibre(q) { return !!jug.pruebas || q.libre; }
+  function motorLibre(q) { return !!jug.pruebas || q.libre || (E.Tienda && E.Tienda.motorComprado(q.tam)); }
   function naveLibre(id) { return !!jug.pruebas || E.NAVES_INICIALES.indexOf(id) >= 0 || (leer('desbloq', []) || []).indexOf(id) >= 0; }
   E.naveLibre = naveLibre;
 
@@ -167,8 +167,17 @@
         el('div', 'jn-lb-nota', cont, '12 motores en total: 4 categorías × 3 tamaños. De momento no cambian el manejo.');
       } else if (tab === 'tienda') {
         el('div', 'jn-lb-cred', cont, '◎ ' + (leer('cred', 0) || 0) + ' <small>Toristina</small>');
-        el('div', 'jn-lb-nota', cont, 'La tienda abrirá pronto: naves, motores, armas y aspectos. La Toristina se gana minando y vendiendo en las estaciones.');
-        ['Naves', 'Motores', 'Armas', 'Aspectos del soldado'].forEach(function (t) { tarjeta(cont, t, 'Próximamente', '🔒', 'bloq'); });
+        el('div', 'jn-lb-nota', cont, 'Los paquetes se compran por WhatsApp: te enviamos un código y lo canjeas aquí abajo.');
+        var T = E.Tienda;
+        T.PAQUETES.forEach(function (pq) {
+          if (pq.oculto) return;
+          var cd = el('div', 'jn-lb-card tpq', cont, '<div class="t"><b>' + esc(pq.n) + '</b><small>' + esc(pq.d) + '</small></div>');
+          var bw = el('a', 'jn-btn tw', cd, 'WHATSAPP'); bw.href = T.whatsapp(pq); bw.target = '_blank'; bw.rel = 'noopener';
+        });
+        el('div', 'jn-lb-sub', cont, 'CANJEAR CÓDIGO');
+        var fc = el('div', 'jn-fila', cont), ic = el('input', 'jn-in', fc); ic.placeholder = 'XXXX-XXXX-XXXX'; ic.maxLength = 14; ic.autocapitalize = 'characters';
+        var bc = el('button', 'jn-btn', fc, 'CANJEAR'), rc = el('div', 'jn-lb-nota', cont, '');
+        bc.onclick = function () { var r = T.canjear(ic.value); rc.textContent = r.msg; rc.style.color = r.ok ? '#8fe3a0' : '#ff9a9a'; if (r.ok) { ic.value = ''; } };
       } else if (tab === 'amigos') pintarAmigos(cont);
       else if (tab === 'ajustes') pintarAjustes(cont);
       var nh = P.querySelector('.hor'); if (nh) nh.scrollLeft = sl;
@@ -251,7 +260,7 @@
     }
     function marcarSeg(c) {
       var b = c.querySelectorAll('.jn-seg button'), i;
-      for (i = 0; i < b.length; i++) { var k = b[i].parentNode.getAttribute('data-k'), v = b[i].getAttribute('data-v'); b[i].className = 'jn-btn' + ((k === 'calidad' && jug.calidad === v) || (k === 'inv' && String(jug.invertirY ? 1 : 0) === v) || (k === 'pruebas' && String(jug.pruebas ? 1 : 0) === v) || (k === 'rapido' && String(leer('rapido', false) ? 1 : 0) === v) ? ' on' : ''); }
+      for (i = 0; i < b.length; i++) { var k = b[i].parentNode.getAttribute('data-k'), v = b[i].getAttribute('data-v'); b[i].className = 'jn-btn' + ((k === 'calidad' && jug.calidad === v) || (k === 'inv' && String(jug.invertirY ? 1 : 0) === v) ? ' on' : ''); }
     }
     function pintarAjustes(c) {
       seg(c, 'CALIDAD GRÁFICA', 'calidad', [['baja', 'Baja'], ['media', 'Media'], ['alta', 'Alta']]);
@@ -271,9 +280,6 @@
       el('div', 'jn-lb-sub', c, 'CUENTA');
       var g = el('button', 'jn-btn jn-lb-sel', c, 'VINCULAR CON GOOGLE · próximamente'); g.disabled = true;
       el('div', 'jn-lb-nota', c, 'Cuando haya servidor, tu progreso se guardará en tu cuenta y podrás jugar desde cualquier dispositivo.');
-      el('div', 'jn-lb-sub', c, 'PRUEBAS');
-      seg(c, 'DESBLOQUEAR TODAS LAS NAVES', 'pruebas', [['0', 'No'], ['1', 'Sí']]);
-      seg(c, 'CONSTRUCCIÓN INSTANTÁNEA (sin esperar)', 'rapido', [['0', 'No'], ['1', 'Sí']]);
       el('div', 'jn-lb-nota', c, 'Versión ' + esc(CONFIG.version) + (global.JN_V ? ' · ' + esc(global.JN_V) : ''));
       marcarSeg(c);
     }
@@ -331,7 +337,7 @@
       /* el panel de ajustes reutiliza un solo manejador de clics */
       L.addEventListener('click', function (e) {
         var b = e.target; if (!b || !b.getAttribute || b.parentNode === null || !b.parentNode.getAttribute) return; var v = b.getAttribute('data-v'); if (v == null) return; var k = b.parentNode.getAttribute('data-k'); if (!k) return;
-        if (k === 'calidad') { jug.calidad = v; guardar('calidad', v); redimensionar(); } else if (k === 'inv') { jug.invertirY = v === '1'; guardar('invY', jug.invertirY); } else if (k === 'pruebas') { jug.pruebas = v === '1'; guardar('pruebas', jug.pruebas); } else if (k === 'rapido') { guardar('rapido', v === '1'); }
+        if (k === 'calidad') { jug.calidad = v; guardar('calidad', v); redimensionar(); } else if (k === 'inv') { jug.invertirY = v === '1'; guardar('invY', jug.invertirY); }
         marcarSeg(ui.panel);
       });
       uiHecha = true;

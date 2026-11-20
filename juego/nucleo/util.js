@@ -36,7 +36,7 @@
   var jug = {   // preferencias del jugador (se guardan en el navegador)
     nombre: leer('nombre', 'Piloto'), nave: leer('nave', 'sombra'), acento: leer('acento', ACENTOS[0]),
     calidad: leer('calidad', 'media'), invertirY: leer('invY', false),
-    layout: leer('layout', {}) || {}, sensGiro: leer('sensGiro', 1), sensCam: leer('sensCam', 1), pruebas: leer('pruebas', false)
+    layout: leer('layout', {}) || {}, sensGiro: leer('sensGiro', 1), sensCam: leer('sensCam', 1), pruebas: (leer('migr1', false) ? leer('pruebas', false) : false)
   };
   var escenas = {};
   var disponibles = {};     // id de nave -> true si su .js cargó
@@ -67,6 +67,7 @@
   E.tex = tex;
   E.limpiar = limpiar;
   E.DOMcapas = DOMcapas;
+  if (!leer('migr1', false)) { guardar('pruebas', false); guardar('rapido', false); guardar('migr1', true); }
   E.jug = jug;
   E.escenas = escenas;
   E.disponibles = disponibles;
