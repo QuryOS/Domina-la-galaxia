@@ -14,9 +14,6 @@
     { id: 'minerales_l', n: 'Minerales L', d: '1500 piedra · 500 hierro · 250 cobre · 60 titanio · 12 oro', inv: { piedra: 1500, hierro: 500, cobre: 250, titanio: 60, oro: 12 } },
     { id: 'piezas_s', n: 'Piezas de nave S', d: '40 piezas', inv: { piezas: 40 } },
     { id: 'piezas_l', n: 'Piezas de nave L', d: '200 piezas', inv: { piezas: 200 } },
-    { id: 'motores_p', n: 'Motores pequeños', d: 'Desbloquea los 4 motores pequeños', motor: 0 },
-    { id: 'motores_m', n: 'Motores medianos', d: 'Desbloquea los 4 motores medianos', motor: 1 },
-    { id: 'motores_g', n: 'Motores grandes', d: 'Desbloquea los 4 motores grandes', motor: 2 },
     { id: 'dev', n: 'Modo desarrollador', d: 'Todo desbloqueado y construcción gratis', dev: true, oculto: true }
   ];
   function h(s, seed) { var x = seed >>> 0; for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x >>> 0; }
@@ -33,12 +30,26 @@
     var pq = r.paq, k, inv, st;
     if (pq.inv) { inv = leer('inv', null) || {}; for (k in pq.inv) inv[k] = (inv[k] || 0) + pq.inv[k]; guardar('inv', inv); }
     if (pq.def) { st = leer('stock', null) || {}; for (k in pq.def) st[k] = (st[k] || 0) + pq.def[k]; guardar('stock', st); }
-    if (typeof pq.motor === 'number') { var m = leer('motoresLib', []) || []; if (m.indexOf(pq.motor) < 0) m.push(pq.motor); guardar('motoresLib', m); }
     if (pq.dev) { E.jug.pruebas = true; guardar('pruebas', true); }
     us.push(r.serial); guardar('codigosUsados', us);
     return { ok: true, msg: '¡Canjeado! ' + pq.n + ': ' + pq.d, paq: pq };
   };
-  T.motorComprado = function (tam) { return (leer('motoresLib', []) || []).indexOf(tam) >= 0; };
+  /* qué trae cada paquete, para dibujar los cuadros con imagen */
+  var DEFS = { muro: { n: 'Muro de piedra', arch: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro' }, porton: { n: 'Portón', arch: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton' }, torretaf: { n: 'Torreta futurista', arch: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF' } };
+  var NRES = { piedra: 'Piedra', hierro: 'Hierro', cobre: 'Cobre', titanio: 'Titanio', oro: 'Oro', piezas: 'Piezas de nave' };
+  T.contenido = function (pq) {
+    var r = [], k; if (pq.def) for (k in pq.def) r.push({ tipo: 'def', k: k, n: DEFS[k].n, cant: pq.def[k] });
+    if (pq.inv) for (k in pq.inv) r.push({ tipo: 'res', k: k, n: NRES[k] || k, cant: pq.inv[k] }); return r;
+  };
+  T.miniDef = function (id, cb) {   /* imagen real del modelo (se carga una vez, usa la miniatura cacheada) */
+    var q = DEFS[id], arch = q.arch.slice(), THREE = global.THREE;
+    (function sig() {
+      if (!arch.length) { cb(E.Iconos.miniatura(id, function () { var m = global[q.fn](THREE); return m.group || m; }, 168)); return; }
+      var a = arch.shift(); if (a === 'defensas.js' && typeof global.createDefMuro === 'function') return sig();
+      if (/muro_piedra|porton_piedra|torreta_futurista/.test(a) && typeof global[{ 'muro_piedra.js': 'createStoneWall', 'porton_piedra.js': 'createGate', 'torreta_futurista.js': 'createTurret' }[a]] === 'function') return sig();
+      E.cargarScript(E.CONFIG.rutaEdificios + 'base/' + a, sig, function () { cb(''); });
+    })();
+  };
   T.whatsapp = function (pq) {
     var id = ''; try { id = E.Amigos && E.Amigos.id ? E.Amigos.id() : ''; } catch (e) { }
     var msg = 'Hola, quiero comprar el paquete "' + pq.n + '" (' + pq.d + ') de Universo Abierto.' + (id ? ' Mi ID de jugador: ' + id : '');

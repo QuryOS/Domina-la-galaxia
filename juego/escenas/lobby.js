@@ -51,7 +51,7 @@
   function svg(k) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">' + ICONOS[k] + '</svg>'; }
 
   jug.motor = leer('motor', 'Colmillo');
-  function motorLibre(q) { return !!jug.pruebas || q.libre || (E.Tienda && E.Tienda.motorComprado(q.tam)); }
+  function motorLibre(q) { return !!jug.pruebas || q.libre; }
   function naveLibre(id) { return !!jug.pruebas || E.NAVES_INICIALES.indexOf(id) >= 0 || (leer('desbloq', []) || []).indexOf(id) >= 0; }
   E.naveLibre = naveLibre;
 
@@ -138,7 +138,7 @@
     }
     function pintarPanel() {
       var P = ui.panel, vh = P.querySelector('.hor'), sl = vh ? vh.scrollLeft : 0; P.innerHTML = '';
-      P.classList.toggle('on', tab !== 'inicio'); ui.inicio.style.display = tab === 'inicio' ? 'flex' : 'none';
+      P.classList.toggle('on', tab !== 'inicio'); P.classList.toggle('full', tab === 'tienda'); ui.inicio.style.display = tab === 'inicio' ? 'flex' : 'none';
       if (tab === 'inicio') return;
       var tt = TABS.filter(function (t) { return t[0] === tab; })[0][1]; el('div', 'jn-lb-tit', P, tt);
       var cont = el('div', 'jn-lb-cont', P), i;
@@ -167,12 +167,17 @@
         el('div', 'jn-lb-nota', cont, '12 motores en total: 4 categorías × 3 tamaños. De momento no cambian el manejo.');
       } else if (tab === 'tienda') {
         el('div', 'jn-lb-cred', cont, '◎ ' + (leer('cred', 0) || 0) + ' <small>Toristina</small>');
-        el('div', 'jn-lb-nota', cont, 'Los paquetes se compran por WhatsApp: te enviamos un código y lo canjeas aquí abajo.');
-        var T = E.Tienda;
+        el('div', 'jn-lb-nota', cont, 'Los paquetes se compran por WhatsApp: te enviamos un código y lo canjeas al final de esta pantalla. Los motores y las naves no se venden aquí.');
+        var T = E.Tienda, gr = el('div', 'jn-tgrid', cont);
         T.PAQUETES.forEach(function (pq) {
           if (pq.oculto) return;
-          var cd = el('div', 'jn-lb-card tpq', cont, '<div class="t"><b>' + esc(pq.n) + '</b><small>' + esc(pq.d) + '</small></div>');
-          var bw = el('a', 'jn-btn tw', cd, 'WHATSAPP'); bw.href = T.whatsapp(pq); bw.target = '_blank'; bw.rel = 'noopener';
+          var cd = el('div', 'jn-tpaq', gr), ct = el('div', 'jn-tcont', cd);
+          el('b', 'jn-tnom', cd, esc(pq.n)); cd.insertBefore(cd.lastChild, ct);
+          T.contenido(pq).forEach(function (it) {
+            var q = E.Iconos.cuadro(ct, it.tipo === 'res' ? { html: E.Iconos.svg(it.k, 44), badge: 'x' + it.cant, titulo: it.n } : { html: '<span class="jn-cuad-cargando">…</span>', badge: 'x' + it.cant, titulo: it.n });
+            if (it.tipo === 'def') T.miniDef(it.k, function (u) { var im = q.querySelector('.jn-cuad-im span, .jn-cuad-im .jn-cuad-cargando'); if (im && u) { im.outerHTML = '<img class="jn-cuad-img" src="' + u + '">'; } else if (im) im.textContent = '▣'; });
+          });
+          var bw = el('a', 'jn-btn tw', cd, 'COMPRAR POR WHATSAPP'); bw.href = T.whatsapp(pq); bw.target = '_blank'; bw.rel = 'noopener';
         });
         el('div', 'jn-lb-sub', cont, 'CANJEAR CÓDIGO');
         var fc = el('div', 'jn-fila', cont), ic = el('input', 'jn-in', fc); ic.placeholder = 'XXXX-XXXX-XXXX'; ic.maxLength = 14; ic.autocapitalize = 'characters';

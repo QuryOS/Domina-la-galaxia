@@ -237,3 +237,11 @@
 .jn-ed-tabs button.on{background:#2a5fd0;color:#fff}
 
 .jn-lb-card.tpq{cursor:default}.jn-lb-card .tw{padding:8px 10px;font-size:11px;text-decoration:none;background:#1c8f4a;border-color:#6fe3a0;white-space:nowrap}
+
+.jn-lb-panel.full{left:0;right:0;width:100%;background:#050912;top:calc(62px + env(safe-area-inset-top))}
+.jn-tgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+.jn-tpaq{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid rgba(120,170,255,.3);border-radius:14px;background:rgba(14,26,48,.85)}
+.jn-tnom{font:700 14px system-ui,sans-serif;text-align:center}
+.jn-tcont{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;flex:1}
+.jn-tpaq .tw{text-align:center;text-decoration:none;white-space:normal;font-size:11px;padding:9px 6px}
+@media (orientation:landscape){.jn-tgrid{grid-template-columns:repeat(3,1fr)}}
