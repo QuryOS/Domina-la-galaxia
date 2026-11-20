@@ -45,9 +45,11 @@
 
   /* Posición y tamaño de los controles del juego (los guarda el editor del lobby). Cada control lleva data-ctl="id";
      dx/dy son fracciones del ancho/alto de pantalla respecto a su sitio original y s es la escala. */
+  var IND = false; try { IND = !!(global.CSS && global.CSS.supports && global.CSS.supports('translate', '1px') && global.CSS.supports('scale', '1')); } catch (e) { }
   function aplicarLayout(raiz) {
     if (!raiz) return; var W = E.ancho || 1, H = E.alto || 1, l = jug.layout || {}, n = raiz.querySelectorAll('[data-ctl]'), i, c, e;
-    for (i = 0; i < n.length; i++) { e = n[i]; c = l[e.getAttribute('data-ctl')]; e.style.transform = c ? 'translate(' + Math.round((c.dx || 0) * W) + 'px,' + Math.round((c.dy || 0) * H) + 'px) scale(' + (c.s || 1) + ')' : ''; }
+    for (i = 0; i < n.length; i++) { e = n[i]; c = l[e.getAttribute('data-ctl')]; if (IND) { e.style.translate = c ? Math.round((c.dx || 0) * W) + 'px ' + Math.round((c.dy || 0) * H) + 'px' : ''; e.style.scale = c ? String(c.s || 1) : ''; }   // propiedades individuales: no pisan los transform propios de cada botón
+      else e.style.transform = c ? 'translate(' + Math.round((c.dx || 0) * W) + 'px,' + Math.round((c.dy || 0) * H) + 'px) scale(' + (c.s || 1) + ')' : ''; }
   }
   E.aplicarLayout = aplicarLayout;
   E.PI = PI;

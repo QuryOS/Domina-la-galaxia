@@ -104,6 +104,7 @@
       hud.menu = el('div', 'jn-pmenu', L, '<h3>PAUSA</h3>');
       var bc = el('button', 'jn-btn jn-grande', hud.menu, 'CONTINUAR'); bc.onclick = function () { pausar(false); };
       var bh = el('button', 'jn-btn', hud.menu, 'VOLVER AL HANGAR'); bh.onclick = function () { irA('lobby'); };
+      hud.bFl.setAttribute('data-ctl', 'flota'); hud.bInv.setAttribute('data-ctl', 'mochila'); hud.bAtr.setAttribute('data-ctl', 'atracar'); hud.bAter.setAttribute('data-ctl', 'aterrizar');
       E.aplicarLayout(L);
     }
     var plAter = null;   // planeta donde puedes aterrizar ahora mismo

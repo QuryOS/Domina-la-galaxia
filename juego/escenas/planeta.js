@@ -34,7 +34,7 @@
   E.ATERRIZABLES = { arido: 1, rocoso: 1, hielo: 1, tormenta: 1 };
 
   var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
-  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaG = null, cercaB = null, vA = null, qA = null, vB = null, vC = null;
+  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, jet = 1, volar = false, jetOn = false, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaG = null, cercaB = null, vA = null, qA = null, vB = null, vC = null;
   var pl = null, ret = null, key = '', nave = null, pad = 60, colocadas = [], ghost = null, itemSel = null, rotG = 0, modoBorrar = false, cargando = '', alt = false;
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
 
@@ -81,7 +81,14 @@
     if (api.footprint) r = 0.5 * esc4 * Math.max(api.footprint.w, api.footprint.d);   // huella en unidades de 4 m: radio = mitad del lado
     if (!isFinite(r) || r <= 0) r = 40;
     if (item.defensa) r = (item.defensa === 'torretaf' ? 1.2 : 3.6) * (item.esc || 1);
-    api.group.position.y = 0;   // convención de los modelos: la base de la losa está en y = 0 (no se mide la caja: fosos y cables bajo el suelo los levantaban)
+    api.group.position.y = 0;
+    if (!item.defensa) {   // apoya el edificio por su BASE (las mallas anchas de abajo), ignorando fosos, cables o antenas que se salen
+      try {
+        var tot = new THREE.Box3().setFromObject(w), foot = Math.max(tot.max.x - tot.min.x, tot.max.z - tot.min.z), ymin = Infinity, bb = new THREE.Box3();
+        w.traverse(function (m) { if (!m.isMesh || !m.geometry) return; bb.setFromObject(m); if (!isFinite(bb.min.y)) return; if (Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z) >= foot * 0.3 && bb.min.y < ymin) ymin = bb.min.y; });
+        if (isFinite(ymin) && Math.abs(ymin) > 0.02) api.group.position.y = -ymin / esc4;
+      } catch (eg) { api.group.position.y = 0; }
+    }
     var raiz = new THREE.Group(); raiz.add(w); sc.add(raiz);
     return { item: item, api: api, g: raiz, r: r };
   }
@@ -234,6 +241,9 @@
     ui.bSen = el('button', 'jn-btn', ui.barra, 'BAJAR DE LA TORRETA'); ui.bSen.onclick = function () { if (sentado) levantarse(); };
     ui.bUsar = el('div', 'jn-pl-usar', L); el('span', '', ui.bUsar, '✋'); el('b', '', ui.bUsar, 'USAR'); ui.bUsar.addEventListener('pointerdown', function (ev) { if (cercaT && !sentado) sentarse(cercaT); else if (cercaB && !cercaG && !sentado) abrirMant(cercaB); else if (cercaG && !sentado) { cercaG.abierto = !cercaG.abierto; toast(cercaG.abierto ? 'PORTÓN ABIERTO' : 'PORTÓN CERRADO', 1); } ev.preventDefault(); });
     ui.bSal = el('button', 'jn-btn jn-grande jn-pl-saltar', L, 'SALTAR'); ui.bSal.addEventListener('pointerdown', function (ev) { if (saltoY <= 0.001 && modoPie && !sentado) saltoV = 4.6; ev.preventDefault(); });
+    ui.bVol = el('button', 'jn-btn jn-grande jn-pl-volar', L, 'VOLAR');
+    ui.bVol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado) volar = true; try { ui.bVol.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); });
+    ['pointerup', 'pointercancel'].forEach(function (n) { ui.bVol.addEventListener(n, function () { volar = false; }); });
     ui.bGol = el('button', 'jn-btn jn-grande jn-pl-golpe', L, 'GOLPEAR'); ui.bGol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado && golpeT <= 0) golpeT = 0.45; ev.preventDefault(); });
     ui.bRec = el('button', 'jn-btn', ui.barra, 'RECARGAR'); ui.bRec.onclick = function () { if (sentado) sentado.api.recargar(); };
     ui.bFue = el('button', 'jn-btn jn-grande jn-fuego', L, 'DISPARAR'); ['pointerdown'].forEach(function (n) { ui.bFue.addEventListener(n, function (ev) { if (sentado) sentado.api.disparar(true); ev.preventDefault(); }); }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { ui.bFue.addEventListener(n, function () { if (sentado) sentado.api.disparar(false); }); });
@@ -245,6 +255,8 @@
     ui.panel = el('div', 'jn-pmenu jn-pl-panel', L, ''); var cab = el('div', 'jn-pl-cab', ui.panel); el('b', '', cab, 'ESTRUCTURAS'); var x = el('button', 'jn-mapa-x', ui.panel, '✕'); x.onclick = function () { ui.panel.classList.remove('on'); };
     ui.lstCat = el('div', 'jn-fl-lista', ui.panel);
     ui.mant = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, '');
+    [['p_cons', ui.bCons], ['p_col', ui.bCol], ['p_rot', ui.bRot], ['p_can', ui.bCan], ['p_demoler', ui.bBor], ['p_nave', ui.bNave], ['p_despegar', ui.bDes], ['p_pie', ui.bPie], ['p_correr', ui.bCor], ['p_usar', ui.bUsar], ['p_saltar', ui.bSal], ['p_golpe', ui.bGol], ['p_volar', ui.bVol], ['p_disparar', ui.bFue], ['p_torreta', ui.tor], ['p_zoom', ui.izq], ['p_recargar', ui.bRec], ['p_sen', ui.bSen]].forEach(function (q) { if (q[1]) q[1].setAttribute('data-ctl', q[0]); });
+    E.aplicarLayout(L);
   }
   var colaMini = [], miniOn = false;
   function miniDe(it, cb) {   // miniatura real del modelo (se genera una vez, en segundo plano)
@@ -302,7 +314,7 @@
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
     vis(ui.bCons, !pon && !modoBorrar && !sen); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
     vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, !pie && !pon); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
-    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
+    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bVol, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
     vis(ui.bRec, sen); vis(ui.bFue, sen); vis(ui.mira, pie); ui.tor.style.display = sen ? 'grid' : 'none'; if (!sen) { ui.mira.style.left = ui.mira.style.top = ''; tIx = tIy = 0; } ui.izq.style.display = pie ? 'none' : '';
     ui.est.textContent = cargando ? 'Descargando ' + cargando + '…' : (itemSel && !ghost ? 'Preparando…' : (ghost ? 'Mueve la cámara para elegir el sitio · verde = cabe' : ''));
     rejilla.visible = pon && !pie && !(ghost && ghost.item.defensa);
@@ -315,6 +327,11 @@
     var pa = u.parts; pa.head.visible = false; sc.add(u.group); u.group.updateMatrixWorld(true);
     var v = new THREE.Vector3(); pa.head.getWorldPosition(v); var eye = v.y; pa.legL.getWorldPosition(v);
     manosPie = { u: u, pa: pa, eye: eye, hip: v.y, body: pa.armL.parent };
+    try {   // llamas del jetpack bajo los dos propulsores de la espalda
+      var fm = new THREE.MeshBasicMaterial({ color: 0x8feaff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), fg = new THREE.ConeGeometry(0.07, 0.5, 8), ll = [];
+      [-1, 1].forEach(function (sd) { var c = new THREE.Mesh(fg, fm); c.rotation.x = PI; c.position.set(sd * 0.17, 0.98, -0.3); c.visible = false; u.group.add(c); ll.push(c); });
+      manosPie.llamas = ll;
+    } catch (ef) { }
     if (!ag) ag = { sitio: new THREE.Vector3(), izq: new THREE.Vector3(), der: new THREE.Vector3(), vol: new THREE.Vector3(), ang: 0, volR: 0 };
   }
   function lerp(a, b, k) { return a + (b - a) * k; }
@@ -406,7 +423,7 @@
     if (Math.hypot(x - cm.x, z - cm.z) < 3 && cm.n === colocadas.length) return cm.list;
     var lst = [], i, j, o, cj, c, now = Date.now();
     for (i = 0; i < colocadas.length; i++) {
-      o = colocadas[i]; if (!o.item.plano || (o.fin && o.fin > now) || Math.hypot(x - o.x, z - o.z) > o.r + 40) continue;
+      o = colocadas[i]; if (o.item.defensa || o.item.arma || (o.fin && o.fin > now) || Math.hypot(x - o.x, z - o.z) > o.r + 40) continue;
       cj = cajasDe(o); for (j = 0; j < cj.length; j++) { c = cj[j].b; if (c.max.x < x - 16 || c.min.x > x + 16 || c.max.z < z - 16 || c.min.z > z + 16) continue; lst.push(cj[j].m); }
     }
     cm.x = x; cm.z = z; cm.list = lst; cm.n = colocadas.length; return lst;
@@ -509,7 +526,7 @@
       ui.mira.style.left = mxp + 'px'; ui.mira.style.top = myp + 'px';
       ui.est.textContent = 'Munición: ' + sentado.api.municion() + (sentado.api.recargando() ? ' · recargando…' : ''); return;
     }
-    var mag = Math.min(1, Math.hypot(ax, ay)), v = (correr ? 7.5 : 3.2) * mag, sn = Math.sin(pyaw), cs = Math.cos(pyaw);
+    var mag = Math.min(1, Math.hypot(ax, ay)), v = (correr ? 7.5 : 3.2) * (jetOn ? 2.2 : 1) * mag, sn = Math.sin(pyaw), cs = Math.cos(pyaw);
     var mvx = 0, mvz = 0; if (mag > 0.05) { mvx = (-sn * (-ay) + cs * ax) * v / mag * dt; mvz = (-cs * (-ay) - sn * ax) * v / mag * dt; }
     moverConColision(mvx, mvz, dt);
     var d0 = Math.hypot(px, pz); if (d0 > RADIO_BASE + 200) { px *= (RADIO_BASE + 200) / d0; pz *= (RADIO_BASE + 200) / d0; }
@@ -517,14 +534,19 @@
     for (i = 0; i < colocadas.length; i++) {
       o = colocadas[i]; var dx = px - o.x, dz = pz - o.z, dd = Math.hypot(dx, dz) || 0.01;
       if (o.mant && !o.fin && dd < o.r + 10 && !(cercaB && cercaB._d < dd)) { o._d = dd; cercaB = o; }
-      if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9 * K) { if (o.item.defensa === 'porton' && dd < 5.5 * K) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
+      if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9 * K && saltoY < 3) { if (o.item.defensa === 'porton' && dd < 5.5 * K) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
       if (o.item.arma && !o.fin && dd < 6.5) cercaT = o;
-      if (!o.item.plano && !o.item.arma) { var lim = o.r * 0.85 + 0.6; if (dd < lim) { px = o.x + dx / dd * lim; pz = o.z + dz / dd * lim; } }
+      if (!o.item.plano && (o.item.arma || !(o._cj && o._cj.length)) && saltoY < 3) { var lim = o.r * 0.85 + 0.6; if (dd < lim) { px = o.x + dx / dd * lim; pz = o.z + dz / dd * lim; } }
       else if (o.item.arma && dd < 1.6) { px = o.x + dx / dd * 1.6; pz = o.z + dz / dd * 1.6; }
     }
     if (naveBaja && naveY < 8) { var dn = Math.hypot(px - naveX, pz - naveZ), ln = pad * 0.55; if (dn < ln) { px = naveX + (px - naveX) / (dn || 1) * ln; pz = naveZ + (pz - naveZ) / (dn || 1) * ln; } }
     panelEdificio();
     if (!!(cercaT || cercaG || cercaB) !== !!ui._ct) { ui._ct = !!(cercaT || cercaG || cercaB); actualizarUI(); }
+    jetOn = volar && jet > 0.01 && !sentado;
+    if (jetOn) { saltoV = Math.min(saltoV + 34 * dt, 7.5); jet = Math.max(0, jet - 0.22 * dt); }
+    else if (saltoY <= 0.01) jet = Math.min(1, jet + 0.45 * dt);
+    ui.bVol.style.background = 'linear-gradient(to top,rgba(0,200,255,.75) ' + Math.round(jet * 100) + '%,rgba(20,30,50,.6) ' + Math.round(jet * 100) + '%)';
+    if (manosPie) { var fl = manosPie.llamas; if (fl) { fl[0].visible = fl[1].visible = jetOn; if (jetOn) { var fs = 0.8 + Math.random() * 0.5; fl[0].scale.set(1, fs, 1); fl[1].scale.set(1, fs, 1); } } }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
     if (golpeT > 0) golpeT -= dt;
     cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
@@ -534,7 +556,7 @@
     construir: construir, redimensionar: redimensionar5,
     _test: function () { return { pie: function () { return { modoPie: modoPie, px: px, pz: pz, sentado: !!sentado }; }, entrarPie: entrarPie, salirPie: salirPie, sentarse: sentarse, levantarse: levantarse, punteroPie: punteroPie, buscarLibre: buscarLibre, colocadas: function () { return colocadas; }, elegir: elegir, colocar: colocar, itemDe: itemDe, CATALOGO: CATALOGO, ghost: function () { return ghost; }, mover: function (x, z) { fx = x; fz = z; }, borrarEn: borrarEn, despegar: despegar }; },
     entrar: function (d) {
-      if (!construido) construir();
+      if (!construido) construir(); else E.aplicarLayout(ui.izq.parentNode);
       if (manosPie) manosPie.u.group.visible = false; saltoY = 0; saltoV = 0; pyF = 0; fallV = 0; cm.x = 1e9; ascKey = ''; pendAsc = null; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
       pl = d.pl; ret = d.retorno; key = pl.key; colocadas = []; ghost = null; itemSel = null; modoBorrar = false; cargando = ''; punteros = {}; mov = 0;
       var pj = PAISAJE[pl.tipo] || PAISAJE.rocoso; suelo.material.map = texSuelo(pj[0]); suelo.material.needsUpdate = true; sc.background = new THREE.Color(pj[1]); sc.fog = new THREE.Fog(pj[1], 1800, 9500);
