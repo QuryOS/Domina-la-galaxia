@@ -221,3 +221,12 @@
 .jn-invbtn{right:calc(126px + env(safe-area-inset-right))!important}
 .jn-pmenu.jn-invp.on{display:block!important}
 .jn-merc-der .jn-grid{overflow:auto;max-height:46vh;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+/* ===== etapa 2: menú de construcción y mantenimiento ===== */
+.jn-grid-cat{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))}
+.jn-grid-cat .jn-cuad-im{width:96px;height:96px}.jn-grid-cat .jn-cuad-img{width:96px;height:96px}
+.jn-chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;font:700 11px system-ui,sans-serif;color:#cfe0ff}
+.jn-chips span{display:inline-flex;align-items:center;gap:2px;padding:1px 5px;border-radius:8px;background:rgba(40,70,130,.55)}
+.jn-chips span.falta{background:rgba(160,40,40,.65);color:#ffd0d0}
+.jn-vida{display:flex;flex-direction:column;gap:4px;font:700 13px system-ui,sans-serif;color:#e6f0ff}
+.jn-vida-b{height:12px;border-radius:7px;background:rgba(255,255,255,.12);overflow:hidden}.jn-vida-b i{display:block;height:100%}
+.jn-pmenu.jn-pl-mant{z-index:6}

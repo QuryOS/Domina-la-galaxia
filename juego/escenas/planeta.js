@@ -25,16 +25,16 @@
     { id: 'taller1', nombre: 'Taller de reparación', archivo: 'taller_reparacion_nivel1.js', fn: 'createTallerReparacion1', desc: 'Nivel 1.' },
     { id: 'taller2', nombre: 'Taller de reparación doble', archivo: 'taller_reparacion_nivel2.js', fn: 'createTallerReparacion2', desc: 'Nivel 2.' },
     { id: 'torreta', nombre: 'Torreta antiaérea doble', archivo: 'torreta_antiaerea.js', fn: 'createTorreta', desc: 'Arma antigua y barata. Puedes sentarte y disparar.', esc: 1, arma: true },
-    { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 6 },
-    { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 6 },
-    { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 6 },
+    { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 10 },
+    { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 10 },
+    { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 10 },
     { id: 'astillero', nombre: 'Astillero planetario', archivo: 'astillero_planetario.js', fn: 'createAstillero', desc: 'Construye naves en el suelo.' }
   ];
   var PAISAJE = { arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
   E.ATERRIZABLES = { arido: 1, rocoso: 1, hielo: 1, tormenta: 1 };
 
   var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
-  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaG = null, vA = null, qA = null, vB = null, vC = null;
+  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaG = null, cercaB = null, vA = null, qA = null, vB = null, vC = null;
   var pl = null, ret = null, key = '', nave = null, pad = 60, colocadas = [], ghost = null, itemSel = null, rotG = 0, modoBorrar = false, cargando = '', alt = false;
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
 
@@ -104,7 +104,7 @@
     }
     return null;
   }
-  function guardarBase() { guardar('base_' + key, colocadas.map(function (o) { return { i: o.item.id, x: Math.round(o.x * 100) / 100, z: Math.round(o.z * 100) / 100, y: Math.round((o.g.position.y || 0) * 100) / 100, r: o.rot, fin: o.fin || 0, dur: o.dur || 0 }; }));
+  function guardarBase() { guardar('base_' + key, colocadas.map(function (o) { return { i: o.item.id, x: Math.round(o.x * 100) / 100, z: Math.round(o.z * 100) / 100, y: Math.round((o.g.position.y || 0) * 100) / 100, r: o.rot, fin: o.fin || 0, dur: o.dur || 0, v: o.vida == null ? undefined : Math.round(o.vida * 10) / 10, b: o.bod, tm: o.tm }; }));
     var cs = leer('colonias', {}) || {}; if (colocadas.length) cs[key] = { key: key, nombre: pl.nombre, tipo: pl.tipo, x: pl.x || 0, y: pl.y || 0, z: pl.z || 0, r: pl.r || 1000, estructuras: colocadas.length }; else delete cs[key]; guardar('colonias', cs); }
   function cargarBase() {
     var lst = leer('base_' + key, []) || [], i = 0;
@@ -113,14 +113,14 @@
       if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); return; }
       var e = lst[i++], item = itemDe(e.i); if (!item) return sig();
       asegurar(item, function (ok) {
-        if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = leer('rapido', false) ? 0 : (e.fin || 0); o.dur = e.dur || 0; o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
+        if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = leer('rapido', false) ? 0 : (e.fin || 0); o.dur = e.dur || 0; o.vida = e.v; o.bod = e.b; o.tm = e.tm; iniMant(o); if (o.mant) { o.vida = o.vida == null ? 100 : o.vida; tickMant(o, Math.min(Date.now(), o.tm + MAX_OFFLINE)); o.tm = Date.now(); } o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
         setTimeout(sig, 0);
       });
     })();
   }
   function elegir(item) {
     if (item.defensa) { if (stockDe(item.id) <= 0) { toast('NO TIENES · CÓMPRALO EN UNA ESTACIÓN', 2.2); return; } if (colocadas.length - nEst() >= MAX_DEF) { toast('LÍMITE DE DEFENSAS'); return; } }
-    else if (nEst() >= MAX_EST) { toast('LÍMITE DE ' + MAX_EST + ' ESTRUCTURAS'); return; }
+    else { if (nEst() >= MAX_EST) { toast('LÍMITE DE ' + MAX_EST + ' ESTRUCTURAS'); return; } if (!alcanza(COSTOS[item.id])) { toast('TE FALTAN MATERIALES', 2); return; } }
     quitarGhost(); modoBorrar = false; itemSel = item; ui.panel.classList.remove('on');
     asegurar(item, function (ok) {
       if (!ok || itemSel !== item) { if (!ok) { toast('NO SE PUDO DESCARGAR'); itemSel = null; } actualizarUI(); return; }
@@ -129,8 +129,25 @@
     });
     actualizarUI();
   }
+  /* ---- costos de construcción y mantenimiento ---- */
+  var N1 = { piedra: 60, hierro: 20, cobre: 10 }, N2 = { piedra: 150, hierro: 60, cobre: 30, titanio: 10, piezas: 10 }, N3 = { piedra: 400, hierro: 150, cobre: 80, titanio: 40, oro: 10, piezas: 30 };
+  var COSTOS = { com1: N1, inv1: N1, pista1: N1, taller1: N1, torreta: { hierro: 20, cobre: 10 }, com2: N2, inv2: N2, pista2: N2, taller2: N2, extr_min: N2, extr_pet: N2, planta: N2, refineria: N2, com3: N3, complejo: N3, ciudad: N3, astillero: N3 };
+  var DIA = 86400, REGEN = 100 / DIA, DECAY = 100 / (3 * DIA), MAX_OFFLINE = 48 * 3600 * 1000, DIAS_BODEGA = 14;
+  function invL() { return leer('inv', {}) || {}; }
+  function alcanza(c) { if (!c || jug.pruebas) return true; var iv = invL(), k; for (k in c) if ((iv[k] || 0) < c[k]) return false; return true; }
+  function gastar(c, f) { if (!c || jug.pruebas) return; var iv = invL(), k; for (k in c) iv[k] = Math.max(0, (iv[k] || 0) + (f || -1) * c[k]); guardar('inv', iv); }
+  function mantDe(id) { var c = COSTOS[id], m = {}, k, h = false; if (!c) return null; ['piedra', 'hierro'].forEach(function (k2) { if (c[k2]) { m[k2] = Math.max(1, Math.ceil(c[k2] * 0.1)); h = true; } }); return h ? m : null; }   // por día: 10 % del costo en piedra y hierro
+  function iniMant(o) { o.mant = mantDe(o.item.id); if (o.mant) { if (o.vida == null) o.vida = 100; if (!o.bod) o.bod = {}; o.tm = o.tm || Date.now(); } }
+  function tickMant(o, ahora) {
+    var m = o.mant; if (!m || o.fin) return; var dt = (ahora - o.tm) / 1000; if (dt <= 0) return; o.tm = ahora;
+    var f = 1, k, need; for (k in m) { need = m[k] / DIA * dt; if (need > 0) f = Math.min(f, (o.bod[k] || 0) / need); } f = Math.max(0, Math.min(1, f));
+    for (k in m) o.bod[k] = Math.max(0, (o.bod[k] || 0) - m[k] / DIA * dt * f);
+    o.vida = clamp(o.vida + dt * (f * REGEN - (1 - f) * DECAY), 0, 100);
+  }
+  function capBod(o, k) { return Math.ceil(o.mant[k] * DIAS_BODEGA); }
+  function estadoVida(o) { return o.vida <= 0 ? 'EN RUINAS' : o.vida < 35 ? 'DAÑADO' : 'OPERATIVO'; }
   /* ---- defensas: muros y portones que se encajan columna con columna; torretas sobre las columnas ---- */
-  var MAX_DEF = 120, K = 6, ALTO_COL = 2.92 * K;   // las defensas se construyen 6 veces más grandes que el modelo original (el muro mide 42 m)
+  var MAX_DEF = 120, K = 10, ALTO_COL = 2.92 * K;   // las defensas se construyen 10 veces más grandes que el modelo original (el muro mide 70 m)
   function nEst() { var n = 0, i; for (i = 0; i < colocadas.length; i++) if (!colocadas[i].item.defensa) n++; return n; }
   function stockDe(id) { var s = leer('stock', {}) || {}; return s[id] || 0; }
   function stockMas(id, d) { var s = leer('stock', {}) || {}; s[id] = Math.max(0, (s[id] || 0) + d); guardar('stock', s); }
@@ -173,16 +190,20 @@
     if (!ghost) return; var x = ghost.g.position.x, z = ghost.g.position.z, df = ghost.item.defensa;
     if (df ? !ghost.okDef : !valida(x, z, ghost.r, null)) { toast(df === 'torretaf' ? 'PONLA SOBRE UNA COLUMNA' : 'NO CABE AQUÍ'); return; }
     if (df) { if (stockDe(ghost.item.id) <= 0) { toast('NO TE QUEDAN'); return; } stockMas(ghost.item.id, -1); }
+    else { if (!alcanza(COSTOS[ghost.item.id])) { toast('TE FALTAN MATERIALES', 2); return; } gastar(COSTOS[ghost.item.id]); }
     var o = ghost; ghost = null; itemSel = null; o.x = x; o.z = z; o.rot = o.g.rotation.y; try { if (o.api.setGhost) o.api.setGhost(false); } catch (e) { }
     o.dur = leer('rapido', false) ? 0 : (DUR[o.item.id] || 30) * 1000; o.fin = o.dur ? Date.now() + o.dur : 0; if (o.dur) o.g.scale.y = 0.04;
-    colocadas.push(o); actualizarPilares(); guardarBase(); toast(o.dur ? 'CONSTRUYENDO · ' + Math.round(o.dur / 1000) + ' s' : 'CONSTRUIDO', 1.4); actualizarUI();
+    iniMant(o); colocadas.push(o); actualizarPilares(); guardarBase(); toast(o.dur ? 'CONSTRUYENDO · ' + Math.round(o.dur / 1000) + ' s' : 'CONSTRUIDO', 1.4); actualizarUI();
   }
-  function borrarEn(px, py) {
+  function estructuraEn(px, py) {
     v2p.set(px / E.ancho * 2 - 1, -(py / E.alto) * 2 + 1); ray.setFromCamera(v2p, cam);
     var i, hits = [], o;
     for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; var h = ray.intersectObject(o.g, true); if (h.length) hits.push({ d: h[0].distance, o: o }); }
-    if (!hits.length) return; hits.sort(function (a, b) { return a.d - b.d; }); o = hits[0].o;
-    sc.remove(o.g); colocadas.splice(colocadas.indexOf(o), 1); if (o.item.defensa) { stockMas(o.item.id, 1); huerfanas(); actualizarPilares(); } guardarBase(); toast('DEMOLIDO: ' + o.item.nombre.toUpperCase(), 1.4); actualizarUI();
+    if (!hits.length) return null; hits.sort(function (a, b) { return a.d - b.d; }); return hits[0].o;
+  }
+  function borrarEn(px, py) {
+    var o = estructuraEn(px, py); if (!o) return;
+    sc.remove(o.g); colocadas.splice(colocadas.indexOf(o), 1); if (o.item.defensa) { stockMas(o.item.id, 1); huerfanas(); actualizarPilares(); } else if (COSTOS[o.item.id] && !jug.pruebas) { var rf = {}, kk; for (kk in COSTOS[o.item.id]) rf[kk] = Math.floor(COSTOS[o.item.id][kk] / 2); gastar(rf, 1); toast('RECUPERAS LA MITAD DE LOS MATERIALES', 1.6); } guardarBase(); toast('DEMOLIDO: ' + o.item.nombre.toUpperCase(), 1.4); actualizarUI();
   }
 
   /* ---- interfaz ---- */
@@ -194,7 +215,7 @@
     function hold(t, f) { var b = el('div', 'jn-ico', izq, t); b.addEventListener('pointerdown', function (ev) { f(1); b.setPointerCapture && b.setPointerCapture(ev.pointerId); ev.preventDefault(); }); ['pointerup', 'pointercancel'].forEach(function (n) { b.addEventListener(n, function () { f(0); }); }); return b; }
     hold('⟲', function (v) { bR = v ? -1 : 0; }); hold('⟳', function (v) { bR = v ? 1 : 0; }); hold('＋', function (v) { bZ = v ? -1 : 0; }); hold('－', function (v) { bZ = v ? 1 : 0; });
     ui.barra = el('div', 'jn-pl-barra', L);
-    ui.bCons = el('button', 'jn-btn', ui.barra, 'CONSTRUIR'); ui.bCons.onclick = function () { quitarGhost(); modoBorrar = false; refrescarStock(); ui.panel.classList.add('on'); actualizarUI(); };
+    ui.bCons = el('button', 'jn-btn', ui.barra, 'CONSTRUIR'); ui.bCons.onclick = function () { quitarGhost(); modoBorrar = false; pintarCatalogo(); ui.panel.classList.add('on'); actualizarUI(); };
     ui.bCol = el('button', 'jn-btn jn-grande', ui.barra, 'COLOCAR'); ui.bCol.onclick = colocar;
     ui.bRot = el('button', 'jn-btn', ui.barra, 'GIRAR'); ui.bRot.onclick = function () { rotG += PI / 4; };
     ui.bCan = el('button', 'jn-btn', ui.barra, 'CANCELAR'); ui.bCan.onclick = function () { quitarGhost(); actualizarUI(); };
@@ -211,7 +232,7 @@
     ui.bPie = el('button', 'jn-btn', ui.barra, 'BAJAR A PIE'); ui.bPie.onclick = function () { if (modoPie) salirPie(); else entrarPie(); };
     ui.bCor = el('button', 'jn-btn', ui.barra, 'CORRER'); ui.bCor.onclick = function () { correr = !correr; ui.bCor.classList.toggle('on', correr); };
     ui.bSen = el('button', 'jn-btn', ui.barra, 'BAJAR DE LA TORRETA'); ui.bSen.onclick = function () { if (sentado) levantarse(); };
-    ui.bUsar = el('div', 'jn-pl-usar', L); el('span', '', ui.bUsar, '✋'); el('b', '', ui.bUsar, 'USAR'); ui.bUsar.addEventListener('pointerdown', function (ev) { if (cercaT && !sentado) sentarse(cercaT); else if (cercaG && !sentado) { cercaG.abierto = !cercaG.abierto; toast(cercaG.abierto ? 'PORTÓN ABIERTO' : 'PORTÓN CERRADO', 1); } ev.preventDefault(); });
+    ui.bUsar = el('div', 'jn-pl-usar', L); el('span', '', ui.bUsar, '✋'); el('b', '', ui.bUsar, 'USAR'); ui.bUsar.addEventListener('pointerdown', function (ev) { if (cercaT && !sentado) sentarse(cercaT); else if (cercaB && !cercaG && !sentado) abrirMant(cercaB); else if (cercaG && !sentado) { cercaG.abierto = !cercaG.abierto; toast(cercaG.abierto ? 'PORTÓN ABIERTO' : 'PORTÓN CERRADO', 1); } ev.preventDefault(); });
     ui.bSal = el('button', 'jn-btn jn-grande jn-pl-saltar', L, 'SALTAR'); ui.bSal.addEventListener('pointerdown', function (ev) { if (saltoY <= 0.001 && modoPie && !sentado) saltoV = 4.6; ev.preventDefault(); });
     ui.bGol = el('button', 'jn-btn jn-grande jn-pl-golpe', L, 'GOLPEAR'); ui.bGol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado && golpeT <= 0) golpeT = 0.45; ev.preventDefault(); });
     ui.bRec = el('button', 'jn-btn', ui.barra, 'RECARGAR'); ui.bRec.onclick = function () { if (sentado) sentado.api.recargar(); };
@@ -222,20 +243,66 @@
     tb('▲', 'tu', function (v) { tIy = v; }); tb('◀', 'tl', function (v) { tIx = v; }); tb('▶', 'tr', function (v) { tIx = -v; }); tb('▼', 'td', function (v) { tIy = -v; });
     ui.sb = el('div', 'jn-pl-sb', L); ui.sk = el('div', 'jn-pl-sk', L); ui.mira = el('div', 'jn-pl-mira', L, '+'); ui.izq = izq;
     ui.panel = el('div', 'jn-pmenu jn-pl-panel', L, ''); var cab = el('div', 'jn-pl-cab', ui.panel); el('b', '', cab, 'ESTRUCTURAS'); var x = el('button', 'jn-mapa-x', ui.panel, '✕'); x.onclick = function () { ui.panel.classList.remove('on'); };
-    var lst = el('div', 'jn-fl-lista', ui.panel);
-    CATALOGO.forEach(function (it) {
-      var f = el('div', 'jn-fl-fila', lst), inf = el('div', 'jn-fl-inf', f); el('b', '', inf, it.nombre); el('span', '', inf, it.desc);
-      var b = el('button', 'jn-btn', f, 'ELEGIR'); b.onclick = function () { elegir(it); }; if (it.defensa) { it._bt = b; it._inf = inf; }
-    });
+    ui.lstCat = el('div', 'jn-fl-lista', ui.panel);
+    ui.mant = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, '');
   }
-  function refrescarStock() { CATALOGO.forEach(function (it) { if (!it.defensa || !it._bt) return; var n = stockDe(it.id); it._bt.textContent = n > 0 ? 'ELEGIR (' + n + ')' : 'SIN STOCK'; it._bt.disabled = n <= 0; }); }
+  var colaMini = [], miniOn = false;
+  function miniDe(it, cb) {   // miniatura real del modelo (se genera una vez, en segundo plano)
+    var c = E.Iconos.miniatura(it.id, null); if (c) { cb(c); return; }
+    colaMini.push([it, cb]); if (miniOn) return; miniOn = true;
+    (function sig() {
+      var q = colaMini.shift(); if (!q) { miniOn = false; return; }
+      asegurar(q[0], function (ok) {
+        var url = ''; if (ok) url = E.Iconos.miniatura(q[0].id, function () { var api = global[q[0].fn](THREE, { accent: jug.acento }); if (/^pista/.test(q[0].id) && api.demo === true && api.setState) { try { api.setState('working'); } catch (e) { } } return api.group; }, 168);
+        try { q[1](url); } catch (e2) { } setTimeout(sig, 30);
+      });
+    })();
+  }
+  function chipsCosto(padre, c) {
+    var d = el('div', 'jn-chips', padre), iv = invL(), k;
+    for (k in c) { var ok = jug.pruebas || (iv[k] || 0) >= c[k]; el('span', ok ? '' : 'falta', d, E.Iconos.svg(k, 14) + c[k]); }
+  }
+  function pintarCatalogo() {
+    var L = ui.lstCat, sy = L.scrollTop; L.innerHTML = '';
+    var cr = el('div', 'jn-cred', L, 'TU INVENTARIO · ' + ['piedra', 'hierro', 'cobre', 'titanio', 'oro', 'piezas'].map(function (k) { return E.Iconos.svg(k, 16) + (invL()[k] || 0); }).join('  ')); cr.style.fontSize = '13px';
+    if (jug.pruebas) el('div', 'jn-lb-nota', L, 'Modo pruebas: construir no cuesta materiales.');
+    var g = el('div', 'jn-grid jn-grid-cat', L);
+    CATALOGO.forEach(function (it) {
+      var c = E.Iconos.cuadro(g, { html: '<span class="jn-cuad-cargando">…</span>', titulo: it.nombre, sub: it.desc }), im = c.querySelector('.jn-cuad-im');
+      miniDe(it, function (url) { if (url && im && im.parentNode) { var i = new Image(); i.src = url; i.className = 'jn-cuad-img'; im.insertBefore(i, im.firstChild); var w = im.querySelector('.jn-cuad-cargando'); if (w) w.remove(); } });
+      var b;
+      if (it.defensa) { var n = stockDe(it.id); el('div', 'jn-chips', c, '<span>Ya comprado: ' + n + '</span>'); b = el('button', 'jn-btn', c, n > 0 ? 'COLOCAR (' + n + ')' : 'CÓMPRALO EN UNA ESTACIÓN'); b.disabled = n <= 0; }
+      else { var co = COSTOS[it.id]; if (co) chipsCosto(c, co); b = el('button', 'jn-btn', c, alcanza(co) ? 'CONSTRUIR' : 'FALTAN MATERIALES'); b.disabled = !alcanza(co); }
+      b.onclick = function () { elegir(it); };
+    });
+    L.scrollTop = sy;
+  }
+  /* ---- mantenimiento: cada edificio tiene vida y una bodega de piedra/hierro que se gasta poco a poco ---- */
+  var mantO = null, tMant = 0, tGuardar = 0;
+  function abrirMant(o) { if (!o || !o.mant) return; mantO = o; ui.mant.classList.add('on'); pintarMant(); }
+  function pintarMant() {
+    var o = mantO, M = ui.mant; if (!o) return; var sy = (M.querySelector('.jn-fl-lista') || {}).scrollTop || 0; M.innerHTML = '';
+    var cab = el('div', 'jn-pl-cab', M); el('b', '', cab, o.item.nombre.toUpperCase()); var x = el('button', 'jn-mapa-x', M, '✕'); x.onclick = function () { ui.mant.classList.remove('on'); mantO = null; };
+    var L = el('div', 'jn-fl-lista', M), pc = Math.round(o.vida);
+    el('div', 'jn-vida', L, '<div class="jn-vida-b"><i style="width:' + pc + '%;background:' + (o.vida <= 0 ? '#ff4d4d' : o.vida < 35 ? '#ffb02e' : '#5dff9a') + '"></i></div><b>' + estadoVida(o) + ' · ' + pc + '%</b>');
+    el('div', 'jn-lb-nota', L, o.vida <= 0 ? 'En ruinas: no funciona hasta que le pongas materiales y se recupere.' : 'Gasta por día: ' + Object.keys(o.mant).map(function (k) { return o.mant[k] + ' ' + E.Iconos.RES[k].n.toLowerCase(); }).join(' y ') + '. Si se queda sin ellos pierde vida (en unos 3 días queda en ruinas); con materiales se recupera.');
+    el('div', 'jn-fl-sub', L, 'BODEGA DEL EDIFICIO');
+    var g = el('div', 'jn-grid', L), iv = invL();
+    Object.keys(o.mant).forEach(function (k) {
+      var cap = capBod(o, k), have = Math.floor(o.bod[k] || 0), c = E.Iconos.cuadro(g, { icono: k, titulo: E.Iconos.RES[k].n, sub: have + ' / ' + cap + ' · en tu inventario: ' + (iv[k] || 0), badge: have });
+      var f = el('div', 'jn-fl-bt', c);
+      [10, 50, 1e9].forEach(function (n) { var b = el('button', 'jn-btn', f, n > 1e6 ? 'TODO' : '+' + n); b.disabled = !(iv[k] > 0) || have >= cap; b.onclick = function () {
+        var iv2 = invL(), q = Math.min(n, iv2[k] || 0, cap - Math.floor(o.bod[k] || 0)); if (q <= 0) return; iv2[k] -= q; guardar('inv', iv2); o.bod[k] = (o.bod[k] || 0) + q; guardarBase(); pintarMant(); }; });
+    });
+    L.scrollTop = sy;
+  }
   function actualizarUI() {
     if (!ui) return; var pon = !!(ghost || itemSel), pie = modoPie, sen = !!sentado;
     function vis(b, v) { b.style.display = v ? '' : 'none'; }
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
     vis(ui.bCons, !pon && !modoBorrar && !sen); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
     vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, !pie && !pon); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
-    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
+    vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
     vis(ui.bRec, sen); vis(ui.bFue, sen); vis(ui.mira, pie); ui.tor.style.display = sen ? 'grid' : 'none'; if (!sen) { ui.mira.style.left = ui.mira.style.top = ''; tIx = tIy = 0; } ui.izq.style.display = pie ? 'none' : '';
     ui.est.textContent = cargando ? 'Descargando ' + cargando + '…' : (itemSel && !ghost ? 'Preparando…' : (ghost ? 'Mueve la cámara para elegir el sitio · verde = cabe' : ''));
     rejilla.visible = pon && !pie && !(ghost && ghost.item.defensa);
@@ -378,7 +445,7 @@
   function pisoY(o, i) { return (o.api.group.position.y + o.api.torre.pisos[i]) * (o.item.esc || 4); }
   function panelEdificio() {   // ascensor y hangares de la ciudad-torre
     var i, o, ciu = null, nivelJ = 0, key, tw, h, b;
-    for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (o.api && o.api.torre && !(o.fin && o.fin > Date.now()) && Math.hypot(px - o.x, pz - o.z) < (o.api.torre.ascensorRadio + 3) * (o.item.esc || 4)) { ciu = o; break; } }
+    for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (o.api && o.api.torre && !(o.fin && o.fin > Date.now()) && !(o.vida <= 0) && Math.hypot(px - o.x, pz - o.z) < (o.api.torre.ascensorRadio + 3) * (o.item.esc || 4)) { ciu = o; break; } }
     if (!ciu) { if (ascKey !== '') { ascKey = ''; ui.asc.style.display = 'none'; } return; }
     tw = ciu.api.torre; for (i = 0; i < 3; i++) if (Math.abs(pyF - pisoY(ciu, i)) < Math.abs(pyF - pisoY(ciu, nivelJ))) nivelJ = i;
     var hg = ciu.api.hangares ? ciu.api.hangares() : [], oc = tw.ocupado();
@@ -446,9 +513,10 @@
     var mvx = 0, mvz = 0; if (mag > 0.05) { mvx = (-sn * (-ay) + cs * ax) * v / mag * dt; mvz = (-cs * (-ay) - sn * ax) * v / mag * dt; }
     moverConColision(mvx, mvz, dt);
     var d0 = Math.hypot(px, pz); if (d0 > RADIO_BASE + 200) { px *= (RADIO_BASE + 200) / d0; pz *= (RADIO_BASE + 200) / d0; }
-    cercaT = null; cercaG = null;
+    cercaT = null; cercaG = null; cercaB = null;
     for (i = 0; i < colocadas.length; i++) {
       o = colocadas[i]; var dx = px - o.x, dz = pz - o.z, dd = Math.hypot(dx, dz) || 0.01;
+      if (o.mant && !o.fin && dd < o.r + 10 && !(cercaB && cercaB._d < dd)) { o._d = dd; cercaB = o; }
       if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9 * K) { if (o.item.defensa === 'porton' && dd < 5.5 * K) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
       if (o.item.arma && !o.fin && dd < 6.5) cercaT = o;
       if (!o.item.plano && !o.item.arma) { var lim = o.r * 0.85 + 0.6; if (dd < lim) { px = o.x + dx / dd * lim; pz = o.z + dz / dd * lim; } }
@@ -456,7 +524,7 @@
     }
     if (naveBaja && naveY < 8) { var dn = Math.hypot(px - naveX, pz - naveZ), ln = pad * 0.55; if (dn < ln) { px = naveX + (px - naveX) / (dn || 1) * ln; pz = naveZ + (pz - naveZ) / (dn || 1) * ln; } }
     panelEdificio();
-    if (!!(cercaT || cercaG) !== !!ui._ct) { ui._ct = !!(cercaT || cercaG); actualizarUI(); }
+    if (!!(cercaT || cercaG || cercaB) !== !!ui._ct) { ui._ct = !!(cercaT || cercaG || cercaB); actualizarUI(); }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
     if (golpeT > 0) golpeT -= dt;
     cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
@@ -481,7 +549,7 @@
       cargarBase();
     },
     salir: function () {
-      var i; modoPie = false; sentado = null; for (i = 0; i < colocadas.length; i++) sc.remove(colocadas[i].g); colocadas = []; quitarGhost();
+      var i; try { if (pl) guardarBase(); } catch (e0) { } mantO = null; ui.mant && ui.mant.classList.remove('on'); modoPie = false; sentado = null; for (i = 0; i < colocadas.length; i++) sc.remove(colocadas[i].g); colocadas = []; quitarGhost();
       if (nave) { sc.remove(nave); nave = null; } pl = null;
     },
     puntero: function (tipo, e) {
@@ -494,7 +562,7 @@
         else { var k = dist * 0.0022; fx -= (-dx * Math.cos(yaw) - dy * Math.sin(yaw)) * k; fz -= (dx * Math.sin(yaw) - dy * Math.cos(yaw)) * k; var rr = Math.hypot(fx, fz); if (rr > RADIO_BASE + 300) { fx *= (RADIO_BASE + 300) / rr; fz *= (RADIO_BASE + 300) / rr; } }
       } else if (tipo === 'arriba' && punteros[e.pointerId]) {
         var q = punteros[e.pointerId]; delete punteros[e.pointerId];
-        if (mov < 8 && modoBorrar) borrarEn(q.x0, q.y0);
+        if (mov < 8 && modoBorrar) borrarEn(q.x0, q.y0); else if (mov < 8 && !ghost) { var oe = estructuraEn(q.x0, q.y0); if (oe && oe.mant) abrirMant(oe); }
       }
     },
     tecla: function (e, abajo) { if (abajo && e.code === 'Escape' && ghost) { quitarGhost(); actualizarUI(); } },
@@ -518,6 +586,7 @@
       }
       for (i = 0; i < colocadas.length; i++) { var gt = colocadas[i]; if (gt.item.defensa === 'porton' && !gt.fin) { var tg = gt.abierto ? 1 : 0, ov0 = gt.ov || 0; if (ov0 !== tg) { gt.ov = ov0 + clamp(tg - ov0, -dt * 0.9, dt * 0.9); try { gt.api.setOpen(gt.ov); } catch (eg) { } } } }
       var now = Date.now(), prox = null, pr;
+      tMant -= dt; if (tMant <= 0) { tMant = 2; for (i = 0; i < colocadas.length; i++) tickMant(colocadas[i], now); if (mantO) pintarMant(); tGuardar += 2; if (tGuardar >= 30) { tGuardar = 0; guardarBase(); } }
       for (i = 0; i < colocadas.length; i++) { var c = colocadas[i]; if (c.fin) { if (now >= c.fin) { c.fin = 0; c.g.scale.y = 1; c.g.updateMatrixWorld(true); c._cj = null; cm.x = 1e9; guardarBase(); toast('TERMINADA: ' + c.item.nombre.toUpperCase(), 2); } else { pr = 1 - (c.fin - now) / c.dur; c.g.scale.y = 0.04 + 0.96 * pr; if (!prox || c.fin < prox.fin) prox = c; } } }
       avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }
       if (ghost) { rejilla.position.set(Math.round(ghost.g.position.x / 20) * 20, 0.5, Math.round(ghost.g.position.z / 20) * 20); }

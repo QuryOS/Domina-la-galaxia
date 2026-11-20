@@ -182,6 +182,7 @@
     /* ----- ciclo ----- */
     function entrar(r) {
       iniciarRecursos(); radio = r || 6; limpiar(true);
+      var s2 = leer('inv', null); if (s2) ['hierro', 'cobre', 'titanio', 'oro', 'piezas', 'piedra'].forEach(function (k) { if (typeof s2[k] === 'number') inv[k] = s2[k]; });   // el planeta pudo gastar materiales
       var i; for (i = 0; i < MAX_AST; i++) ast.push(nuevoAst(true));
       for (i = 0; i < 4; i++) piezaFlotante();
     }
