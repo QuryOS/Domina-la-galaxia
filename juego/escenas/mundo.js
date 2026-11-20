@@ -273,19 +273,71 @@
         E.cargarScript(E.CONFIG.rutaEdificios + 'base/' + a, sig, function () { cb(''); });
       })();
     }
+    var astTab = 'fab', astTimer = 0;
+    E.Astillero.onLlega = function (ls) { var n = E.NAVES.filter(function (x) { return x.id === ls[0].id; })[0]; try { toast('LLEGÓ A TU COLONIA: ' + (n ? n.nombre : ls[0].id).toUpperCase(), 3); if (panelFlota) pintarFlota(); } catch (e) { } };
+    var NOMRES = { piezas: 'trozos', hierro: 'hierro', cobre: 'cobre', titanio: 'titanio', oro: 'oro' };
+    function costoTxt(c) { var k, t = []; for (k in c) t.push(c[k] + ' ' + NOMRES[k]); return t.join(' · '); }
     function pintarAstillero() {
-      var M = hud.merc; M.innerHTML = ''; var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M), pz = esp.inv.piezas || 0;
+      var M = hud.merc, As = E.Astillero, sy = 0, vv = M.querySelector('.jn-tabla'); if (vv) sy = vv.scrollTop; M.innerHTML = ''; clearInterval(astTimer);
+      var izq = el('div', 'jn-merc-izq', M), der = el('div', 'jn-merc-der', M), inv = esp.inv, pz = inv.piezas || 0;
       el('h3', '', izq, esc(estCerca ? estCerca.nombre : 'Astillero').toUpperCase());
       el('div', 'jn-cred', izq, '⬢ ' + pz + ' trozos metálicos');
-      el('div', 'jn-ayuda', izq, 'Aquí se canjean los trozos metálicos que encuentras flotando por partes de nave. Con las partes podrás armar naves nuevas (muy pronto).');
-      var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
+      var tb = el('div', 'jn-acc', izq), b1 = el('button', 'jn-btn' + (astTab === 'fab' ? ' on' : ''), tb, 'NAVES'), b2 = el('button', 'jn-btn' + (astTab === 'par' ? ' on' : ''), tb, 'PARTES');
+      b1.onclick = function () { astTab = 'fab'; pintarAstillero(); }; b2.onclick = function () { astTab = 'par'; pintarAstillero(); };
+      var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { clearInterval(astTimer); desatracar(); };
       var tabla = el('div', 'jn-tabla', der);
-      esp.PARTES.forEach(function (q) {
-        var f = el('div', 'jn-venta', tabla), tiene = esp.partes[q.id] || 0;
-        el('span', 'n', f, esc(q.n) + ' <small>(tienes ' + tiene + ')</small>'); el('span', 'q', f, q.c + ' ⬢');
-        var b = el('button', 'jn-btn', f, pz >= q.c ? 'CANJEAR' : 'FALTAN ' + (q.c - pz)); if (pz < q.c) b.disabled = true;
-        b.onclick = function () { if (esp.canjear(q.id)) toast('+1 ' + q.n.toUpperCase(), 1); pintarAstillero(); };
+      if (astTab === 'par') {
+        el('div', 'jn-ayuda', tabla, 'Canjea los trozos metálicos por partes sueltas de nave.');
+        esp.PARTES.forEach(function (q) {
+          var f = el('div', 'jn-venta', tabla), tiene = esp.partes[q.id] || 0;
+          el('span', 'n', f, esc(q.n) + ' <small>(tienes ' + tiene + ')</small>'); el('span', 'q', f, q.c + ' ⬢');
+          var b = el('button', 'jn-btn', f, pz >= q.c ? 'CANJEAR' : 'FALTAN ' + (q.c - pz)); if (pz < q.c) b.disabled = true;
+          b.onclick = function () { if (esp.canjear(q.id)) toast('+1 ' + q.n.toUpperCase(), 1); pintarAstillero(); };
+        });
+        return;
+      }
+      var st = As.estado(), cols = E.leer('colonias', {}) || {}, kc = Object.keys(cols), ahora = Date.now();
+      /* pedidos en fabricación o listos */
+      if (st.cola.length) {
+        el('div', 'jn-fl-sub', tabla, 'MIS PEDIDOS');
+        st.cola.forEach(function (q) {
+          var n = E.NAVES.filter(function (x) { return x.id === q.id; })[0] || { nombre: q.id }, f = el('div', 'jn-venta', tabla), lista = q.fin <= ahora;
+          el('span', 'n', f, esc(n.nombre) + ' <small data-ast="' + q.fin + '">' + (lista ? 'LISTA' : 'Fabricando · ' + As.fmt(q.fin - ahora)) + '</small>');
+          if (lista) {
+            var bx = el('div', 'jn-ast-ent', tabla);
+            var ba = el('button', 'jn-btn', bx, 'RETIRAR AQUÍ'); ba.onclick = function () { toast(As.entregarAqui(q.id).toUpperCase(), 2); pintarAstillero(); };
+            kc.forEach(function (k) {
+              var c = cols[k], bc = el('button', 'jn-btn', bx, 'ENVIAR A ' + esc(c.nombre).toUpperCase()), dd = Math.sqrt((c.x - P.x) * (c.x - P.x) + (c.y - P.y) * (c.y - P.y) + (c.z - P.z) * (c.z - P.z));
+              bc.onclick = function () { toast(As.enviar(q.id, k, dd).toUpperCase(), 3); pintarAstillero(); };
+            });
+            if (!kc.length) el('div', 'jn-ayuda', bx, 'Aún no tienes colonia: solo puedes retirarla aquí.');
+          }
+        });
+      }
+      if (st.viaje.length) {
+        el('div', 'jn-fl-sub', tabla, 'EN CAMINO (protegidas)');
+        st.viaje.forEach(function (q) {
+          var n = E.NAVES.filter(function (x) { return x.id === q.id; })[0] || { nombre: q.id }, c = cols[q.col], f = el('div', 'jn-venta', tabla);
+          el('span', 'n', f, esc(n.nombre) + ' <small data-ast="' + q.fin + '">→ ' + esc(c ? c.nombre : 'colonia') + ' · llega en ' + As.fmt(q.fin - ahora) + '</small>');
+        });
+      }
+      el('div', 'jn-fl-sub', tabla, 'FABRICAR NAVE');
+      As.fabricables().forEach(function (n) {
+        var niv = As.nivelDe(n), nv = As.NIVELES[niv], f = el('div', 'jn-venta jn-ast-n', tabla), ya = As.tiene(n.id) || st.cola.some(function (q) { return q.id === n.id; }) || st.viaje.some(function (q) { return q.id === n.id; });
+        el('span', 'n', f, esc(n.nombre) + ' <small>' + esc(n.clase || '') + '</small>');
+        el('span', 'q', f, costoTxt(nv.cost) + '<br>⏱ ' + As.fmt(nv.seg * 1000));
+        var ok = As.puede(n, inv), b = el('button', 'jn-btn', f, ya ? 'YA LA TIENES' : ok ? 'FABRICAR' : 'FALTAN MATERIALES'); if (ya || !ok) b.disabled = true;
+        b.onclick = function () { var r = As.comprar(n, inv); toast(r.msg.toUpperCase(), 2); pintarAstillero(); };
       });
+      el('div', 'jn-ayuda', tabla, 'Al terminar podrás retirar la nave aquí o enviarla a tu colonia. Mientras se fabrica o viaja, nadie puede atacarla ni robarla.');
+      tabla.scrollTop = sy;
+      astTimer = setInterval(function () {   // cuenta atrás en vivo; si algún pedido termina, se repinta
+        if (!atracado || !hud.merc.classList.contains('on')) { clearInterval(astTimer); return; }
+        var ls = hud.merc.querySelectorAll('[data-ast]'), i, t, rep = false, no = Date.now();
+        As.procesar();
+        for (i = 0; i < ls.length; i++) { t = Number(ls[i].getAttribute('data-ast')) - no; if (t <= 0) { rep = true; break; } ls[i].textContent = ls[i].textContent.replace(/\d+:\d\d/, As.fmt(t)); }
+        if (rep) pintarAstillero();
+      }, 1000);
     }
     function pausar(p) { if (atracado || mapaAbierto) return; pausado = p; if (p) hud.menu.classList.add('on'); else hud.menu.classList.remove('on'); }
 
@@ -743,6 +795,11 @@
         if (act ? ap.on : (s && s.modo !== 'hangar' && s.modo !== 'parada')) b('parar', 'PARAR', function () { ordenar(n.id, 'parar'); });
       });
       if (!hay) el('div', 'jn-ayuda', lista, 'Aún no tienes más naves.');
+      var vj = E.Astillero.estado().viaje;
+      if (vj.length) {
+        el('div', 'jn-fl-sub', lista, 'NAVES EN CAMINO A LA COLONIA (protegidas)');
+        vj.forEach(function (q) { var nn = E.NAVES.filter(function (x) { return x.id === q.id; })[0], c0 = (E.leer('colonias', {}) || {})[q.col], r0 = el('div', 'jn-fl-fila', lista), i0 = el('div', 'jn-fl-inf', r0); el('b', '', i0, nn ? nn.nombre : q.id); el('span', '', i0, '→ ' + (c0 ? c0.nombre : 'colonia') + ' · llega en ' + E.Astillero.fmt(q.fin - Date.now())); });
+      }
       var cols = E.leer('colonias', {}), kc = Object.keys(cols);
       if (kc.length) {
         el('div', 'jn-fl-sub', lista, 'MIS COLONIAS');
