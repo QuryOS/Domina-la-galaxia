@@ -8,9 +8,10 @@
   A.NIVELES = {
     1: { cost: { piezas: 30, hierro: 200, cobre: 80, titanio: 20, oro: 4 }, seg: 180 },
     2: { cost: { piezas: 80, hierro: 500, cobre: 200, titanio: 60, oro: 12 }, seg: 480 },
-    3: { cost: { piezas: 160, hierro: 1000, cobre: 400, titanio: 140, oro: 30 }, seg: 900 }
+    3: { cost: { piezas: 160, hierro: 1000, cobre: 400, titanio: 140, oro: 30 }, seg: 900 },
+    4: { cost: { piezas: 400, hierro: 2500, cobre: 1000, titanio: 400, oro: 90 }, seg: 2400 }   // gigantes de 400+ m
   };
-  var NIV_ID = {};   // nivel fijo por nave (si lo quieres): { id: 2 }
+  var NIV_ID = { centinela: 1, aguijon: 1, prospector: 1, halcon: 2, martillo: 2, ariete: 2, mastodonte: 3, titan: 3, nodriza: 4, vanguardia: 4, leviatan: 4 };   // nivel fijo por nave
   A.nivelDe = function (n) {
     if (NIV_ID[n.id]) return NIV_ID[n.id]; var c = String((n.clase || '') + ' ' + (n.nombre || '')).toLowerCase();
     if (/carguero|pesad|crucero|nodriza|acoraz|titan|mastodonte|fragata|destructor/.test(c)) return 3;
