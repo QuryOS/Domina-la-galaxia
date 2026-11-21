@@ -115,6 +115,35 @@
     while (ob.n < t) ob.lst[ob.n++].m.visible = true;
   }
   function terminarObra(o) { var ob = o._ob; if (!ob) return; for (var i = 0; i < ob.lst.length; i++) ob.lst[i].m.visible = true; o._ob = null; }
+  /* ---- hangares: las naves entregadas a esta colonia se guardan en los hangares de pistas (pista circular, grande y pista-ciudad) ---- */
+  var HANGARES = { pista1: 1, pista2: 1, ciudad: 1 }, enHangar = {}, hgT = 0;
+  function navesColonia() { var c = (leer('colonias', {}) || {})[key]; return (c && c.naves) || []; }
+  function capHangar(o) { var n = 0, b = (o.api && o.api.bays) || [], i; for (i = 0; i < b.length; i++) if (b[i].type === 'hangar') n++; return n; }
+  function cabeEnPista(o, id) {   // solo naves pequeñas y medianas (lo que admite la pista)
+    try { E.obtenerModelo(id); var md = medidas[id], ms = o.api.maxShip; return !!(md && ms && md.largo / 4 <= ms.length && md.ancho / 4 <= ms.width); } catch (e) { return false; }
+  }
+  function crearNaveHangar(id) {
+    var r = E.crearModeloNuevo(id, jug.acento), md = medidas[id]; if (!r || !md) return null;
+    var w = new THREE.Group(); w.scale.setScalar(r.n.m / 4); w.add(r.m.group); w.position.set(-md.centro.x / 4, -(md.centro.y - md.alto / 2) / 4, -md.centro.z / 4);
+    var g = new THREE.Group(); g.add(w); g.userData = { length: md.largo / 4, width: md.ancho / 4, baseY: 0, hangarId: id };
+    try { if (r.m.setAccent) r.m.setAccent(jug.acento); } catch (e) { }
+    return g;
+  }
+  function sincronizarHangares() {
+    if (!pl || cargando) return; var lst = navesColonia(), i, j, o, id, usados, cap;
+    for (id in enHangar) if (colocadas.indexOf(enHangar[id].o) < 0 || lst.indexOf(id) < 0) delete enHangar[id];
+    for (i = 0; i < lst.length; i++) {
+      id = lst[i]; if (enHangar[id] || id === jug.nave) continue;
+      for (j = 0; j < colocadas.length; j++) {
+        o = colocadas[j]; if (!HANGARES[o.item.id] || o.fin || o.vida <= 0 || !o.api || !o.api.land || !o.api.service) continue;
+        usados = 0; for (var k in enHangar) if (enHangar[k].o === o) usados++;
+        cap = capHangar(o); if (usados >= cap || !cabeEnPista(o, id)) continue;
+        var ship = crearNaveHangar(id); if (!ship) break;
+        try { o.api.group.add(ship); o.api.land(ship, {}); o.api.service(ship, { repair: false, pilot: false }); enHangar[id] = { o: o, g: ship }; } catch (e) { if (global.console) console.error('Hangar', e); }
+        break;
+      }
+    }
+  }
   function chocaRect(ax, az, aa, ahw, ahd, bx, bz, ba, bhw, bhd) {   // dos rectángulos orientados (SAT)
     var A = [[Math.cos(aa), -Math.sin(aa)], [Math.sin(aa), Math.cos(aa)]], B = [[Math.cos(ba), -Math.sin(ba)], [Math.sin(ba), Math.cos(ba)]], dx = bx - ax, dz = bz - az, i, k, ej, pa, pb, d, L;
     var ejes = [A[0], A[1], B[0], B[1]];
@@ -150,12 +179,12 @@
     return null;
   }
   function guardarBase() { guardar('base_' + key, colocadas.map(function (o) { return { i: o.item.id, x: Math.round(o.x * 100) / 100, z: Math.round(o.z * 100) / 100, y: Math.round((o.g.position.y || 0) * 100) / 100, r: o.rot, fin: o.fin || 0, dur: o.dur || 0, v: o.vida == null ? undefined : Math.round(o.vida * 10) / 10, b: o.bod, tm: o.tm }; }));
-    var cs = leer('colonias', {}) || {}; if (colocadas.length) cs[key] = { key: key, nombre: pl.nombre, tipo: pl.tipo, x: pl.x || 0, y: pl.y || 0, z: pl.z || 0, r: pl.r || 1000, estructuras: colocadas.length }; else delete cs[key]; guardar('colonias', cs); }
+    var cs = leer('colonias', {}) || {}; if (colocadas.length) cs[key] = { key: key, nombre: pl.nombre, tipo: pl.tipo, x: pl.x || 0, y: pl.y || 0, z: pl.z || 0, r: pl.r || 1000, estructuras: colocadas.length, naves: (cs[key] && cs[key].naves) || [] }; else delete cs[key]; guardar('colonias', cs); }
   function cargarBase() {
     var lst = leer('base_' + key, []) || [], i = 0;
     ui.est.textContent = lst.length ? 'Reconstruyendo la base…' : '';
     (function sig() {
-      if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); return; }
+      if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); try { sincronizarHangares(); } catch (eh) { } return; }
       var e = lst[i++], item = itemDe(e.i); if (!item) return sig();
       asegurar(item, function (ok) {
         if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = jug.pruebas ? 0 : (e.fin || 0); o.dur = e.dur || 0; if (o.fin && o.fin > Date.now() && o.dur) prepararObra(o); o.vida = e.v; o.bod = e.b; o.tm = e.tm; iniMant(o); if (o.mant) { o.vida = o.vida == null ? 100 : o.vida; tickMant(o, Math.min(Date.now(), o.tm + MAX_OFFLINE)); o.tm = Date.now(); } o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
@@ -601,7 +630,7 @@
     entrar: function (d) {
       if (!construido) construir(); else E.aplicarLayout(ui.izq.parentNode);
       if (manosPie) manosPie.u.group.visible = false; saltoY = 0; saltoV = 0; pyF = 0; fallV = 0; cm.x = 1e9; ascKey = ''; pendAsc = null; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
-      pl = d.pl; ret = d.retorno; key = pl.key; colocadas = []; ghost = null; itemSel = null; modoBorrar = false; cargando = ''; punteros = {}; mov = 0;
+      pl = d.pl; ret = d.retorno; key = pl.key; enHangar = {}; colocadas = []; ghost = null; itemSel = null; modoBorrar = false; cargando = ''; punteros = {}; mov = 0;
       var pj = PAISAJE[pl.tipo] || PAISAJE.rocoso; suelo.material.map = texSuelo(pj[0]); suelo.material.needsUpdate = true; sc.background = new THREE.Color(pj[1]); sc.fog = new THREE.Fog(pj[1], 1800, 9500);
       // la nave posada en el centro
       nave = null; var n = naveDe(jug.nave), m = obtenerModelo(jug.nave), md = medidas[jug.nave];
@@ -653,7 +682,7 @@
       var now = Date.now(), prox = null, pr;
       tMant -= dt; if (tMant <= 0) { tMant = 2; for (i = 0; i < colocadas.length; i++) tickMant(colocadas[i], now); if (mantO) pintarMant(); tGuardar += 2; if (tGuardar >= 30) { tGuardar = 0; guardarBase(); } }
       for (i = 0; i < colocadas.length; i++) { var c = colocadas[i]; if (c.fin) { if (now >= c.fin) { c.fin = 0; terminarObra(c); c.g.scale.y = 1; c.g.updateMatrixWorld(true); c._cj = null; cm.x = 1e9; guardarBase(); toast('TERMINADA: ' + c.item.nombre.toUpperCase(), 2); } else { pr = 1 - (c.fin - now) / c.dur; if (c._ob) avanceObra(c, pr); else c.g.scale.y = 0.04 + 0.96 * pr; if (!prox || c.fin < prox.fin) prox = c; } } }
-      avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }
+      avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; hgT++; if (hgT % 6 === 0) { try { sincronizarHangares(); } catch (eh2) { } } if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }
       if (ghost) { rejilla.position.set(Math.round(ghost.g.position.x / 20) * 20, 0.5, Math.round(ghost.g.position.z / 20) * 20); }
       if (modoPie) actualizarPie(dt, t); else camara(); if (tToast > 0) { tToast -= dt; if (tToast <= 0) ui.toast.style.opacity = 0; }
       E.renderer.render(sc, cam);
