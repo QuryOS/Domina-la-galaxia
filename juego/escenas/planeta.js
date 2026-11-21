@@ -447,6 +447,7 @@
     ui.bCol = el('button', 'jn-btn jn-grande', ui.barra, 'COLOCAR'); ui.bCol.onclick = colocar;
     ui.bRot = el('button', 'jn-btn', ui.barra, 'GIRAR'); ui.bRot.onclick = function () { var b0 = ghost && ghost.item.base; rotG += b0 === 't' ? PI / 3 : b0 === 'c' ? PI / 2 : PI / 4; };
     ui.bCan = el('button', 'jn-btn', ui.barra, 'CANCELAR'); ui.bCan.onclick = function () { quitarGhost(); if (modoCons) { pintarCatalogo(); ui.panel.classList.add('on'); } actualizarUI(); };
+    ui.bTer = el('button', 'jn-btn', ui.barra, '3.ª PERSONA'); ui.bTer.onclick = function () { terceraP = !terceraP; actualizarUI(); };
     ui.bSalC = el('button', 'jn-btn', ui.barra, 'SALIR DE CONSTRUIR'); ui.bSalC.onclick = salirCons;
     ui.recur = el('div', 'jn-pl-est', L, ''); ui.recur.style.top = 'calc(62px + env(safe-area-inset-top))'; ui.recur.style.fontSize = '14px';
     ui.bBor = el('button', 'jn-btn', ui.barra, 'DEMOLER'); ui.bBor.onclick = function () { if (modoPie) { var ob = estructuraEn(E.ancho / 2, E.alto / 2); if (ob) borrarEn(E.ancho / 2, E.alto / 2); else toast('MIRA UNA ESTRUCTURA CERCA Y PULSA DEMOLER', 2); return; } quitarGhost(); modoBorrar = !modoBorrar; if (modoBorrar) toast('TOCA UNA ESTRUCTURA PARA DEMOLERLA', 2); actualizarUI(); };
@@ -554,6 +555,7 @@
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
     vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bEdif, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bMej, modoCons && !!cercaM && pie && !sen); vis(ui.bSalC, modoCons && !sen); if (cercaM && cercaM.item.mejora) { var cm2 = COSTOS[cercaM.item.mejora]; ui.bMej.textContent = 'MEJORAR A ' + itemDe(cercaM.item.mejora).nombre.split('(')[0].replace('Base de ', '').toUpperCase().trim(); } vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
     vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, modoCons || (!pie && !pon)); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
+    vis(ui.bTer, pie && !sen); ui.bTer.textContent = terceraP ? '1.ª PERSONA' : '3.ª PERSONA';
     vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bVol, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
     (function () { var it = ghost ? ghost.item : itemSel, co = it && !it.defensa ? COSTOS[it.id] : null, ok = true, t = '', k, iv = invL();
       if (modoCons && it) { if (it.defensa) { var n0 = stockDe(it.id); ok = n0 > 0; t = it.nombre.toUpperCase() + ' · TE QUEDAN ' + n0; } else if (co) { for (k in co) { var h = jug.pruebas ? co[k] : (iv[k] || 0); if (h < co[k]) ok = false; t += (t ? '   ' : '') + k.toUpperCase() + ' ' + h + ' / ' + co[k]; } if (jug.pruebas) t = 'MODO PRUEBAS · SIN COSTO'; } }
@@ -564,7 +566,7 @@
   }
   /* ---- el personaje: el soldado espacial del lobby, visto en primera persona (cabeza oculta, se ven sus brazos y su cuerpo) ---- */
   var LB = 0.29, LA = 0.26, hand = { izq: null, der: null }, wk = 0, ag = null;
-  var manosPrem = null, premPide = false;
+  var manosPrem = null, premPide = false, terceraP = false;
   function crearPremiumPie() {   // si tienes equipado el soldado premium, a pie se ve ese cuerpo (con la misma animación)
     var quiere = !!(E.Tienda && E.Tienda.tieneSkin('premium') && leer('soldadoSkin', 'estandar') === 'premium');
     if (!quiere) { if (manosPrem) { sc.remove(manosPrem.u.group); manosPrem = null; } return; }
@@ -573,8 +575,8 @@
       premPide = false; if (!ok || !sc || manosPrem || typeof global.createSoldadoPremium !== 'function') return;
       try {
         var u = global.createSoldadoPremium(THREE), hb = u.esqueleto.huesos, i; u.group.scale.setScalar(1.8 / u.alto);
-        for (i = 0; i < hb.length; i++) if (hb[i].name === 'Head') hb[i].scale.multiplyScalar(0.001);   // sin cabeza: la cámara está dentro
-        u.group.visible = false; sc.add(u.group); var an = global.AnimHombre.nuevo(global.AnimHombre.adaptar(u)); an.sinEmote = true; manosPrem = { u: u, an: an };
+        var hd = null; for (i = 0; i < hb.length; i++) if (hb[i].name === 'Head') hd = hb[i];
+        u.group.visible = false; sc.add(u.group); var an = global.AnimHombre.nuevo(global.AnimHombre.adaptar(u)); an.sinEmote = true; manosPrem = { u: u, an: an, head: hd, headS: hd ? hd.scale.clone() : null, headT: hd ? hd.scale.clone().multiplyScalar(0.001) : null };   // en 1.ª persona sin cabeza: la cámara está dentro
       } catch (e) { if (global.console) console.error('Premium a pie', e); }
     });
   }
@@ -583,7 +585,7 @@
     var u; try { u = global.createSoldadoEspacialV2(THREE, { metersPerUnit: 1, height: 1.8, armor: jug.acento, glow: 0x62d6ff }); } catch (e) { return; }
     var pa = u.parts; pa.head.visible = false; sc.add(u.group); u.group.updateMatrixWorld(true);
     var v = new THREE.Vector3(); pa.head.getWorldPosition(v); var eye = v.y; pa.legL.getWorldPosition(v);
-    manosPie = { u: u, pa: pa, eye: eye, hip: v.y, body: pa.armL.parent };
+    manosPie = { u: u, pa: pa, eye: eye, hip: v.y, body: pa.armL.parent, by0: pa.armL.parent.position.y };
     try {   // llamas del jetpack bajo los dos propulsores de la espalda
       var fm = new THREE.MeshBasicMaterial({ color: 0x8feaff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), fg = new THREE.ConeGeometry(0.07, 0.5, 8), ll = [];
       [-1, 1].forEach(function (sd) { var c = new THREE.Mesh(fg, fm); c.rotation.x = PI; c.position.set(sd * 0.17, 0.98, -0.3); c.visible = false; u.group.add(c); ll.push(c); });
@@ -618,7 +620,8 @@
     if (manosPrem && !sentado) {
       var pg = manosPrem.u.group, up0 = -ppit * 0.55, amp0 = correr ? 0.55 : 0.28, ab0 = Math.abs(sw) * 0.15 + (correr ? 0.6 : 0);
       g.visible = false; pg.visible = true; pg.position.set(px, pyF + saltoY, pz); pg.rotation.set(0, pyaw + PI, 0);
-      manosPrem.an.ajuste = function (P) {   // brazos "en guardia" siguiendo hacia dónde miras
+      if (manosPrem.head) manosPrem.head.scale.copy(terceraP ? manosPrem.headS : manosPrem.headT);
+      manosPrem.an.ajuste = terceraP ? null : function (P) {   // brazos "en guardia" siguiendo hacia dónde miras
         P.lean *= 0.25; P.hipTwist *= 0.25; P.spTwist *= 0.25; P.spRoll = 0; P.headP = 0; P.headY = 0;
         P.aRf = 1.4 - up0 - cw * amp0 * 0.5; P.aRe = 0.25 + ab0; P.aRa = 0.07; P.aRw = 0;
         P.aLf = gk ? -gk[0] - up0 : 1.4 - up0 + cw * amp0 * 0.5; P.aLe = gk ? -gk[1] : 0.25 + ab0; P.aLa = 0.07; P.aLw = 0;
@@ -627,6 +630,11 @@
       return;
     }
     if (manosPrem) manosPrem.u.group.visible = false;
+    if (terceraP) {   // 3.ª persona: el cuerpo entero con la animación normal (reposo / caminar / correr / saltar)
+      g.visible = true; pa.head.visible = true; g.position.set(px, pyF + saltoY, pz); g.rotation.set(0, pyaw + PI, 0); manosPie.tercera = true;
+      if (!manosPie.an && global.AnimHombre) { try { manosPie.an = global.AnimHombre.nuevo(global.AnimHombre.adaptar(manosPie.u)); manosPie.an.sinEmote = true; } catch (ea) { } }
+      if (manosPie.an) { manosPie.an.update(dt, saltoY > 0.02 ? 'jump' : (mag > 0.15 ? (correr ? 'run' : 'walk') : 'idle'), 1); return; }
+    } else if (manosPie.tercera) { manosPie.tercera = false; pa.head.visible = false; manosPie.body.rotation.set(0, 0, 0); manosPie.body.position.y = manosPie.by0; }
     g.visible = true; g.position.set(px, pyF + saltoY, pz); g.rotation.set(0, pyaw + PI, 0);
     var amp = correr ? 0.55 : 0.28, up = -ppit * 0.55;
     pa.armR.rotation.set(-1.4 + up + cw * amp * 0.5, 0, 0.07); pa.forearmR.rotation.set(-0.25 - Math.abs(sw) * 0.15 - (correr ? 0.6 : 0), 0, 0);
@@ -833,7 +841,11 @@
     if (manosPie) { var fl = manosPie.llamas; if (fl) { fl[0].visible = fl[1].visible = jetOn; if (jetOn) { var fs = 0.8 + Math.random() * 0.5; fl[0].scale.set(1, fs, 1); fl[1].scale.set(1, fs, 1); } } }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
     if (golpeT > 0) golpeT -= dt; if (vidaJ < 100) vidaJ = Math.min(100, vidaJ + dt * 2);
-    cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
+    if (terceraP) {   // la cámara se aleja por detrás del soldado, siguiendo hacia dónde miras (sube y baja libremente)
+      var cp = Math.cos(ppit), D3 = 3.4, hx = px, hy = (manosPie ? manosPie.eye : 1.7) - 0.15 + pyF + saltoY, hz = pz;
+      cam.position.set(hx + Math.sin(pyaw) * cp * D3 + Math.cos(pyaw) * 0.45, Math.max(0.35, hy - Math.sin(ppit) * D3), hz + Math.cos(pyaw) * cp * D3 - Math.sin(pyaw) * 0.45);
+    } else cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1);
+    cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
     if (ui.est.textContent.indexOf('Munición') === 0) ui.est.textContent = '';
   }
   escenas.planeta = {
