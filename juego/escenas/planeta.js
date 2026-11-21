@@ -194,7 +194,7 @@
     var lst = leer('base_' + key, []) || [], i = 0;
     ui.est.textContent = lst.length ? 'Reconstruyendo la base…' : '';
     (function sig() {
-      if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); try { sincronizarHangares(); } catch (eh) { } try { crearPerro(); } catch (ep0) { } return; }
+      if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); try { sincronizarHangares(); } catch (eh) { } try { crearPerro(); } catch (ep0) { } try { iniciarGusanos(); } catch (eg0) { } return; }
       var e = lst[i++], item = itemDe(e.i); if (!item) return sig();
       asegurar(item, function (ok) {
         if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = jug.pruebas ? 0 : (e.fin || 0); o.dur = e.dur || 0; if (o.fin && o.fin > Date.now() && o.dur) prepararObra(o); o.vida = e.v; o.bod = e.b; o.tm = e.tm; iniMant(o); if (o.mant) { o.vida = o.vida == null ? 100 : o.vida; tickMant(o, Math.min(Date.now(), o.tm + MAX_OFFLINE)); o.tm = Date.now(); } o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
@@ -275,6 +275,21 @@
     });
     el('div', 'jn-ayuda', P, 'Lo que lleva el perro lo acompaña a donde vayas. Pásalo a tu inventario para construir o vender.');
     var x = el('button', 'jn-btn', P, 'CERRAR'); x.onclick = function () { P.classList.remove('on'); };
+  }
+  /* ---- gusanos: daño a estructuras ---- */
+  function destruirEst(o) {
+    var i = colocadas.indexOf(o); if (i < 0) return; sc.remove(o.g); colocadas.splice(i, 1);
+    if (o.item.base) huerfanasBase(); if (o.item.defensa) huerfanas(); actualizarPilares(); guardarBase(); actualizarUI();
+  }
+  function danioEstructura(o, n) {
+    o.vida = (o.vida == null ? 100 : o.vida) - n;
+    if (o.vida <= 0) { toast('EL GUSANO DESTRUYÓ: ' + o.item.nombre.toUpperCase(), 3); destruirEst(o); }
+    else { toast('EL GUSANO ATACÓ: ' + o.item.nombre.toUpperCase() + ' · ' + Math.round(o.vida) + '%', 2.4); guardarBase(); }
+  }
+  function repararPasivo() { var i, o, ch = false; for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (!o.mant && o.vida != null && o.vida < 100) { o.vida = Math.min(100, o.vida + 0.5); ch = true; } } if (ch && (Date.now() - tGuardar > 30000)) { tGuardar = Date.now(); guardarBase(); } }
+  function iniciarGusanos() {
+    if (!E.Gusanos || !pl) return;
+    E.Gusanos.iniciar({ sc: sc, estructuras: function () { return colocadas; }, jugador: function () { return { x: modoPie ? px : fx, z: modoPie ? pz : fz }; }, minero: !(E.ATERRIZABLES && E.ATERRIZABLES[pl.tipo]), aviso: toast, danio: danioEstructura, reparar: repararPasivo });
   }
   function esBase(o) { return !!o.item.base; }
   function rotPt(th, x, z) { var c = Math.cos(th), sn = Math.sin(th); return [x * c + z * sn, -x * sn + z * c]; }
@@ -733,7 +748,7 @@
     },
     salir: function () {
       var i; try { if (pl) guardarBase(); } catch (e0) { } mantO = null; ui.mant && ui.mant.classList.remove('on'); modoPie = false; sentado = null; for (i = 0; i < colocadas.length; i++) sc.remove(colocadas[i].g); colocadas = []; quitarGhost();
-      if (nave) { sc.remove(nave); nave = null; } if (perro) { sc.remove(perro.group); perro = null; } pl = null;
+      if (nave) { sc.remove(nave); nave = null; } if (perro) { sc.remove(perro.group); perro = null; } try { if (E.Gusanos) E.Gusanos.detener(); } catch (eg2) { } pl = null;
     },
     puntero: function (tipo, e) {
       if (!pl || ui.panel.classList.contains('on')) return;
@@ -761,7 +776,7 @@
         try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;
       }
-      alt = !alt; var i; optimizarEstructuras(t); try { tickPerro(dt); } catch (ep) { }
+      alt = !alt; var i; optimizarEstructuras(t); try { tickPerro(dt); } catch (ep) { } try { if (E.Gusanos) E.Gusanos.actualizar(dt); } catch (eg) { }
       if (ghost && alt) { try { ghost.api.update(t); } catch (e3) { } }
       if (nave) {
         var ty = HOVER, dxn = naveTx - naveX, dzn = naveTz - naveZ, dn = Math.hypot(dxn, dzn);
