@@ -194,7 +194,7 @@
     var lst = leer('base_' + key, []) || [], i = 0;
     ui.est.textContent = lst.length ? 'Reconstruyendo la base…' : '';
     (function sig() {
-      if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); try { sincronizarHangares(); } catch (eh) { } return; }
+      if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); try { sincronizarHangares(); } catch (eh) { } try { crearPerro(); } catch (ep0) { } return; }
       var e = lst[i++], item = itemDe(e.i); if (!item) return sig();
       asegurar(item, function (ok) {
         if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = jug.pruebas ? 0 : (e.fin || 0); o.dur = e.dur || 0; if (o.fin && o.fin > Date.now() && o.dur) prepararObra(o); o.vida = e.v; o.bod = e.b; o.tm = e.tm; iniMant(o); if (o.mant) { o.vida = o.vida == null ? 100 : o.vida; tickMant(o, Math.min(Date.now(), o.tm + MAX_OFFLINE)); o.tm = Date.now(); } o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
@@ -237,6 +237,45 @@
   function stockDe(id) { var s = leer('stock', {}) || {}; return s[id] || 0; }
   function stockMas(id, d) { var s = leer('stock', {}) || {}; s[id] = Math.max(0, (s[id] || 0) + d); guardar('stock', s); }
   /* ---- bases: se encajan por las aristas (como en Rust); muros, portones y edificios se apoyan encima ---- */
+  /* ---- perro robot de farmeo: te sigue y lleva carga extra (se compra en la tienda del lobby) ---- */
+  var perro = null, perroCargando = false, dg = { x: 0, z: 0, y: 0, yaw: 0, ta: 0 }, CAP_PERRO = 300, RES_P = ['piedra', 'hierro', 'cobre', 'titanio', 'oro', 'piezas'];
+  function datosPerro() { var d = leer('perro', null); return d && d.tiene ? d : null; }
+  function cargaTotal(d) { var n = 0, k; for (k in d.carga) n += d.carga[k] || 0; return n; }
+  function crearPerro() {
+    if (perro || perroCargando || !datosPerro()) return; perroCargando = true;
+    cargarScript(E.CONFIG.rutaPersonajes + 'perro_robot.js', function () {
+      perroCargando = false; if (!pl || typeof global.createPerroRobotGo2 !== 'function' || perro) return;
+      try { perro = global.createPerroRobotGo2(THREE, { version: 'farmeo', metersPerUnit: 1, height: 1.2 }); sc.add(perro.group); dg.x = (modoPie ? px : fx) + 6; dg.z = (modoPie ? pz : fz) + 6; dg.y = 0; } catch (e) { perro = null; }
+    }, function () { perroCargando = false; });
+  }
+  function angLerp(a, b, u) { var d = ((b - a + PI * 3) % (PI * 2)) - PI; return a + d * u; }
+  function tickPerro(dt) {
+    if (!perro || !pl) return; var tx = modoPie ? px : fx, tz = modoPie ? pz : fz, dx = tx - dg.x, dz = tz - dg.z, d = Math.hypot(dx, dz), sp = 0, a = Math.atan2(dx, dz), b;
+    if (d > 300) { dg.x = tx + 5; dg.z = tz + 5; dx = tx - dg.x; dz = tz - dg.z; d = Math.hypot(dx, dz); }
+    if (modoPie && d > 7) { sp = Math.min(16, (d - 7) * 1.8 + 3); dg.yaw = angLerp(dg.yaw, a, Math.min(1, dt * 6)); dg.x += Math.sin(dg.yaw) * sp * dt; dg.z += Math.cos(dg.yaw) * sp * dt; }
+    else if (modoPie) dg.yaw = angLerp(dg.yaw, a, Math.min(1, dt * 2));
+    perro.setState(sp > 6 ? 'trot' : sp > 0.5 ? 'walk' : 'idle');
+    dg.ta += dt * (sp > 0.5 ? clamp(sp / Math.max(0.5, perro.speed || 1), 1, 4) : 1); perro.update(dg.ta);
+    b = baseBajo(dg.x, dg.z, 0); dg.y += ((b ? b.top : 0) - dg.y) * Math.min(1, dt * 8);
+    perro.group.position.set(dg.x, dg.y, dg.z); perro.group.rotation.y = dg.yaw;
+  }
+  function moverCarga(k, n) {   // n > 0: del jugador al perro; n < 0: del perro al jugador
+    var d = datosPerro(); if (!d) return; var iv = invL(), tot = cargaTotal(d), q;
+    if (n > 0) { q = Math.min(n, iv[k] || 0, CAP_PERRO - tot); if (q <= 0) { toast(tot >= CAP_PERRO ? 'EL PERRO ESTÁ LLENO' : 'NO TIENES', 1.4); return; } iv[k] = (iv[k] || 0) - q; d.carga[k] = (d.carga[k] || 0) + q; }
+    else { q = Math.min(-n, d.carga[k] || 0); if (q <= 0) return; d.carga[k] -= q; iv[k] = (iv[k] || 0) + q; }
+    guardar('inv', iv); guardar('perro', d); pintarPerro();
+  }
+  function pintarPerro() {
+    var P = ui.perro, d = datosPerro(); if (!P) return; P.innerHTML = ''; if (!d) { P.classList.remove('on'); return; }
+    var iv = invL(), tot = cargaTotal(d); el('h3', '', P, 'PERRO ROBOT'); el('div', 'jn-cred', P, 'Carga: ' + tot + ' / ' + CAP_PERRO);
+    RES_P.forEach(function (k) {
+      var f = el('div', 'jn-venta', P); el('span', 'n', f, E.Iconos.svg(k, 18) + ' ' + k + ' <small>tú ' + (iv[k] || 0) + ' · perro ' + (d.carga[k] || 0) + '</small>');
+      var a = el('button', 'jn-btn', f, '+10'), b = el('button', 'jn-btn', f, 'TODO →'), c = el('button', 'jn-btn', f, '← TODO');
+      a.onclick = function () { moverCarga(k, 10); }; b.onclick = function () { moverCarga(k, 1e9); }; c.onclick = function () { moverCarga(k, -1e9); };
+    });
+    el('div', 'jn-ayuda', P, 'Lo que lleva el perro lo acompaña a donde vayas. Pásalo a tu inventario para construir o vender.');
+    var x = el('button', 'jn-btn', P, 'CERRAR'); x.onclick = function () { P.classList.remove('on'); };
+  }
   function esBase(o) { return !!o.item.base; }
   function rotPt(th, x, z) { var c = Math.cos(th), sn = Math.sin(th); return [x * c + z * sn, -x * sn + z * c]; }
   function aristasDe(o) { var out = [], i, e, p; for (i = 0; i < o.ed.length; i++) { e = o.ed[i]; p = rotPt(o.rot || 0, e.x, e.z); out.push({ x: o.x + p[0], z: o.z + p[1], ang: (o.rot || 0) + e.ang, len: e.len, o: o }); } return out; }
@@ -353,6 +392,7 @@
       if (modoPie && !(naveBaja && naveY < 3 && Math.hypot(px - naveX, pz - naveZ) < pad + 30)) { toast('LLAMA A LA NAVE Y ACÉRCATE PARA SUBIR', 2); return; } despegar();
     };
     ui.bPie = el('button', 'jn-btn', ui.barra, 'BAJAR A PIE'); ui.bPie.onclick = function () { if (modoPie) salirPie(); else entrarPie(); };
+    ui.bPerro = el('button', 'jn-btn', ui.barra, 'PERRO'); ui.bPerro.onclick = function () { if (ui.perro.classList.contains('on')) ui.perro.classList.remove('on'); else { pintarPerro(); ui.perro.classList.add('on'); } };
     ui.bCor = el('button', 'jn-btn', ui.barra, 'CORRER'); ui.bCor.onclick = function () { correr = !correr; ui.bCor.classList.toggle('on', correr); };
     ui.bSen = el('button', 'jn-btn', ui.barra, 'BAJAR DE LA TORRETA'); ui.bSen.onclick = function () { if (sentado) levantarse(); };
     ui.bUsar = el('div', 'jn-pl-usar', L); el('span', '', ui.bUsar, '✋'); el('b', '', ui.bUsar, 'USAR'); ui.bUsar.addEventListener('pointerdown', function (ev) { if (cercaT && !sentado) sentarse(cercaT); else if (cercaB && !cercaG && !sentado) abrirMant(cercaB); else if (cercaG && !sentado) { cercaG.abierto = !cercaG.abierto; toast(cercaG.abierto ? 'PORTÓN ABIERTO' : 'PORTÓN CERRADO', 1); } ev.preventDefault(); });
@@ -370,7 +410,7 @@
     ui.sb = el('div', 'jn-pl-sb', L); ui.sk = el('div', 'jn-pl-sk', L); ui.mira = el('div', 'jn-pl-mira', L, '+'); ui.izq = izq;
     ui.panel = el('div', 'jn-pmenu jn-pl-panel', L, ''); var cab = el('div', 'jn-pl-cab', ui.panel); el('b', '', cab, 'ESTRUCTURAS'); var x = el('button', 'jn-mapa-x', ui.panel, '✕'); x.onclick = function () { ui.panel.classList.remove('on'); };
     ui.lstCat = el('div', 'jn-fl-lista', ui.panel);
-    ui.mant = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, '');
+    ui.mant = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, ''); ui.perro = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, '');
     [['p_cons', ui.bCons], ['p_col', ui.bCol], ['p_rot', ui.bRot], ['p_can', ui.bCan], ['p_demoler', ui.bBor], ['p_nave', ui.bNave], ['p_despegar', ui.bDes], ['p_pie', ui.bPie], ['p_correr', ui.bCor], ['p_usar', ui.bUsar], ['p_saltar', ui.bSal], ['p_golpe', ui.bGol], ['p_volar', ui.bVol], ['p_disparar', ui.bFue], ['p_torreta', ui.tor], ['p_zoom', ui.izq], ['p_recargar', ui.bRec], ['p_sen', ui.bSen]].forEach(function (q) { if (q[1]) q[1].setAttribute('data-ctl', q[0]); });
     E.aplicarLayout(L);
   }
@@ -428,7 +468,7 @@
     if (!ui) return; var pon = !!(ghost || itemSel), pie = modoPie, sen = !!sentado;
     function vis(b, v) { b.style.display = v ? '' : 'none'; }
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
-    vis(ui.bCons, !pon && !modoBorrar && !sen); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
+    vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !pon && !modoBorrar && !sen); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
     vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, !pie && !pon); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
     vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bVol, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
     vis(ui.bRec, sen); vis(ui.bFue, sen); vis(ui.mira, pie); ui.tor.style.display = sen ? 'grid' : 'none'; if (!sen) { ui.mira.style.left = ui.mira.style.top = ''; tIx = tIy = 0; } ui.izq.style.display = pie ? 'none' : '';
@@ -693,7 +733,7 @@
     },
     salir: function () {
       var i; try { if (pl) guardarBase(); } catch (e0) { } mantO = null; ui.mant && ui.mant.classList.remove('on'); modoPie = false; sentado = null; for (i = 0; i < colocadas.length; i++) sc.remove(colocadas[i].g); colocadas = []; quitarGhost();
-      if (nave) { sc.remove(nave); nave = null; } pl = null;
+      if (nave) { sc.remove(nave); nave = null; } if (perro) { sc.remove(perro.group); perro = null; } pl = null;
     },
     puntero: function (tipo, e) {
       if (!pl || ui.panel.classList.contains('on')) return;
@@ -721,7 +761,7 @@
         try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;
       }
-      alt = !alt; var i; optimizarEstructuras(t);
+      alt = !alt; var i; optimizarEstructuras(t); try { tickPerro(dt); } catch (ep) { }
       if (ghost && alt) { try { ghost.api.update(t); } catch (e3) { } }
       if (nave) {
         var ty = HOVER, dxn = naveTx - naveX, dzn = naveTz - naveZ, dn = Math.hypot(dxn, dzn);

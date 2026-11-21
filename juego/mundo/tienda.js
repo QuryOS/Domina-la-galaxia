@@ -16,7 +16,8 @@
     { id: 'piezas_l', n: 'Piezas de nave L', d: '200 piezas', inv: { piezas: 200 } },
     { id: 'dev', n: 'Modo desarrollador', d: 'Todo desbloqueado y construcción gratis', dev: true, oculto: true },
     /* código FIJO (no sale del generador) */
-    { id: 'soldado_premium', n: 'Soldado Premium EC Gamer', d: 'Aspecto exclusivo del soldado (se ve en el lobby)', skin: 'premium', fijo: ['ECGAMER', 'SOLDADOPREMIUNECGAMER', 'SOLDADOPREMIUMECGAMER'] }
+    { id: 'soldado_premium', n: 'Soldado Premium EC Gamer', d: 'Aspecto exclusivo del soldado (se ve en el lobby)', skin: 'premium', fijo: ['ECGAMER', 'SOLDADOPREMIUNECGAMER', 'SOLDADOPREMIUMECGAMER'] },
+    { id: 'perro_farmeo', n: 'Perro robot de farmeo', d: 'Te sigue por el planeta y carga tus minerales', perro: true, modelo: 'perro' }
   ];
   function h(s, seed) { var x = seed >>> 0; for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x >>> 0; }
   function chk(p) { var a = h(p + SAL, 2166136261), b = h(SAL + p, 0x9e3779b1), v = (a ^ b) >>> 0, r = '', i; for (i = 0; i < 4; i++) { r += ALF[v & 31]; v >>>= 5; } return r; }
@@ -26,6 +27,7 @@
     var p = c.slice(0, 8); if (chk(p) !== c.slice(8)) return null;
     var i = ALF.indexOf(c[0]) * 32 + ALF.indexOf(c[1]), pq = T.PAQUETES[i]; if (!pq) return null; return { paq: pq, serial: c.slice(2, 8) };
   };
+  T.tienePerro = function () { var p = leer('perro', null); return !!(p && p.tiene); };
   T.tieneSkin = function (k) { return (leer('skins', []) || []).indexOf(k) >= 0; };
   T.canjear = function (txt) {
     var nz = String(txt || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), fx = T.PAQUETES.filter(function (q) { return q.fijo && q.fijo.indexOf(nz) >= 0; })[0];
@@ -39,6 +41,7 @@
     var pq = r.paq, k, inv, st;
     if (pq.inv) { inv = leer('inv', null) || {}; for (k in pq.inv) inv[k] = (inv[k] || 0) + pq.inv[k]; guardar('inv', inv); }
     if (pq.def) { st = leer('stock', null) || {}; for (k in pq.def) st[k] = (st[k] || 0) + pq.def[k]; guardar('stock', st); }
+    if (pq.perro) { if (T.tienePerro()) return { ok: false, msg: 'Ya tienes el perro robot' }; guardar('perro', { tiene: true, carga: {} }); }
     if (pq.dev) { E.jug.pruebas = true; guardar('pruebas', true); }
     us.push(r.serial); guardar('codigosUsados', us);
     return { ok: true, msg: '¡Canjeado! ' + pq.n + ': ' + pq.d, paq: pq };
@@ -69,6 +72,12 @@
       var api = null; try { api = global.createSoldadoPremium(global.THREE); } catch (e) { return cb(''); }
       api.listo(function () { cb(E.Iconos.miniatura('soldado_premium', function () { return api.group; }, 200)); });
     });
+  };
+  T.miniPerro = function (cb) {
+    E.cargarScript(E.CONFIG.rutaPersonajes + 'perro_robot.js', function () {
+      if (typeof global.createPerroRobotGo2 !== 'function') return cb('');
+      try { var d = global.createPerroRobotGo2(global.THREE, { version: 'farmeo', metersPerUnit: 1, height: 1.2 }); cb(E.Iconos.miniatura('perro_farmeo', function () { return d.group; }, 200)); } catch (e) { cb(''); }
+    }, function () { cb(''); });
   };
   T.whatsapp = function (pq) {
     var id = ''; try { id = E.Amigos && E.Amigos.id ? E.Amigos.id() : ''; } catch (e) { }

@@ -179,6 +179,13 @@
         var T = E.Tienda, gr = el('div', 'jn-tgrid', cont);
         T.PAQUETES.forEach(function (pq) {
           if (pq.oculto) return;
+          if (pq.modelo === 'perro') {   // perro robot: tarjeta grande con imagen
+            var cp = el('div', 'jn-tpaq jn-tskin', gr), imp = el('div', 'jn-tskin-im', cp, '<span class="jn-cuad-cargando">…</span>');
+            el('b', 'jn-tnom', cp, esc(pq.n)); el('small', 'jn-tdesc', cp, esc(pq.d));
+            T.miniPerro(function (u) { if (u && imp.parentNode) imp.innerHTML = '<img class="jn-tskin-img" src="' + u + '">'; else if (imp.parentNode) imp.textContent = '▣'; });
+            if (T.tienePerro()) el('div', 'jn-lb-nota', cp, 'YA LO TIENES · aparece a tu lado en el planeta'); else { var bw3 = el('a', 'jn-btn tw', cp, 'COMPRAR POR WHATSAPP'); bw3.href = T.whatsapp(pq); bw3.target = '_blank'; bw3.rel = 'noopener'; }
+            return;
+          }
           if (pq.skin) {   // aspecto del soldado: tarjeta grande con imagen y botón equipar
             var cs = el('div', 'jn-tpaq jn-tskin', gr), tn = T.tieneSkin(pq.skin), im = el('div', 'jn-tskin-im', cs, '<span class="jn-cuad-cargando">…</span>');
             el('b', 'jn-tnom', cs, esc(pq.n)); el('small', 'jn-tdesc', cs, esc(pq.d));
