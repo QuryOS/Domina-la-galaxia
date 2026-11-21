@@ -352,8 +352,8 @@
     /* ---------- generación del universo por celdas ---------- */
     var SIL = ['ka', 'ro', 've', 'lu', 'mi', 'tor', 'zen', 'ar', 'ix', 'on', 'da', 'sel', 'vor', 'nem', 'ul', 'cor', 'phe', 'tis', 'ba', 'rin', 'qua', 'dre', 'sha', 'lom'], ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
     function nombrePlaneta(r) { var n = 2 + (r() < 0.4 ? 1 : 0), s = '', i; for (i = 0; i < n; i++) s += SIL[(r() * SIL.length) | 0]; return s.charAt(0).toUpperCase() + s.slice(1) + ' ' + ROM[(r() * ROM.length) | 0]; }
-    var PLAN_FIJOS = { '3,0,2': 'arido', '-4,0,3': 'rocoso', '1,0,-6': 'hielo', '-5,0,-4': 'tormenta', '7,1,-2': 'arido', '-2,0,6': 'lava', '6,0,5': 'gaseoso', '-8,-1,-1': 'gaseoso2' };
-    function tipoPlaneta(r) { var u = r(); return u < 0.22 ? 'arido' : u < 0.42 ? 'rocoso' : u < 0.56 ? 'hielo' : u < 0.68 ? 'gaseoso' : u < 0.78 ? 'gaseoso2' : u < 0.86 ? 'lava' : 'tormenta'; }
+    var PLAN_FIJOS = { '3,0,2': 'desierto', '-4,0,3': 'tierra', '1,0,-6': 'hielo', '-5,0,-4': 'caos', '7,1,-2': 'desierto', '-2,0,6': 'lava', '6,0,5': 'gaseoso', '-8,-1,-1': 'gaseoso2' };
+    function tipoPlaneta(r) { var u = r(); return u < 0.22 ? 'desierto' : u < 0.42 ? 'tierra' : u < 0.56 ? 'hielo' : u < 0.68 ? 'gaseoso' : u < 0.78 ? 'gaseoso2' : u < 0.86 ? 'lava' : 'caos'; }
     /* Estaciones: una por cada "supercelda" de 55 km con posición desplazada al azar. A la velocidad de la nave inicial (220 m/s)
        eso son unos 3-5 minutos de vuelo entre estaciones. Es una función pura: sirve para el mundo, el radar ampliado y la baliza. */
     var cacheEst = {}, nCacheEst = 0, cacheAst = {}, nCacheAst = 0, cacheLig = {}, nCacheLig = 0, cacheCan = {}, nCacheCan = 0;   // memoria de cálculos (son funciones puras, no cambian)

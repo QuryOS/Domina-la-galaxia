@@ -122,7 +122,7 @@
         dt = Math.min(dt, 0.1); t += dt; estado = estado || 'idle'; this.estado = estado;
         if (estado === 'walk') ph += dt * 7 * (vel || 1); else if (estado === 'run') ph += dt * 11 * (vel || 1);
         if (estado === 'run') pCaminar(ph, T, true); else if (estado === 'walk') pCaminar(ph, T, false); else if (estado === 'jump') pSalto(T); else pIdle(t, T);
-        if (estado === 'idle' && !em) { sigEm -= dt; if (sigEm <= 0) { sigEm = 9 + Math.random() * 8; this.emote('saludo'); } }
+        if (estado === 'idle' && !em && !this.sinEmote) { sigEm -= dt; if (sigEm <= 0) { sigEm = 9 + Math.random() * 8; this.emote('saludo'); } }
         if (em) {
           emT += dt; var env = sm(emT / 0.5) * (1 - sm((emT - (em.dur - 0.5)) / 0.5)), pr = em.lado;
           if (estado !== 'idle') env = 0;
@@ -133,7 +133,7 @@
         }
         var a = 1 - Math.exp(-dt * (estado === 'idle' ? 6 : 12));
         for (k = 0; k < CLAVES.length; k++) { var c = CLAVES[k]; P[c] += (T[c] - P[c]) * a; }
-        rig.aplicar(P);
+        if (this.ajuste) { var Q = {}; for (k = 0; k < CLAVES.length; k++) Q[CLAVES[k]] = P[CLAVES[k]]; this.ajuste(Q); rig.aplicar(Q); } else rig.aplicar(P);
       }
     };
   };

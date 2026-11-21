@@ -36,8 +36,9 @@
     { id: 'base_dt', base: 't', lado: 12.5, oculto: true, nombre: 'Base de metal duro (triangular)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroT', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
     { id: 'astillero', nombre: 'Astillero planetario', archivo: 'astillero_planetario.js', fn: 'createAstillero', desc: 'Construye naves en el suelo.' }
   ];
-  var PAISAJE = { arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
-  E.ATERRIZABLES = { arido: 1, rocoso: 1, hielo: 1, tormenta: 1 };
+  /* [color del suelo, cielo, estilo de suelo, color del mar (si tiene océano), color del sol] */
+  var PAISAJE = { tierra: ['#4e8f3c', 0x8cc4f2, 'hierba', 0x2f7fc4, 0xfff4e2], caos: ['#8d8a3c', 0xdccb78, 'hierba', 0x4f8f86, 0xffe9a0], desierto: ['#d9b676', 0xeccf9e, 'arena', 0x2aa6b8, 0xffe6bf], arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
+  E.ATERRIZABLES = { tierra: 1, caos: 1, desierto: 1 };   // los demás son planetas mineros: no se aterriza
 
   var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
   var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, jet = 1, volar = false, jetOn = false, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaG = null, cercaB = null, vA = null, qA = null, vB = null, vC = null;
@@ -45,7 +46,7 @@
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
 
   function construir() {
-    sc = new THREE.Scene(); cam = new THREE.PerspectiveCamera(60, 1, 1, 22000);
+    mar = orilla = deco = null; manosPrem = null; sc = new THREE.Scene(); cam = new THREE.PerspectiveCamera(60, 1, 1, 22000);
     luzSol = new THREE.DirectionalLight(0xfff1e0, 2.3); luzSol.position.set(0.6, 0.8, 0.4); sc.add(luzSol, new THREE.HemisphereLight(0xaac4e6, 0x3a2a22, 0.75));
     suelo = new THREE.Mesh(new THREE.CircleGeometry(30000, 72), new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 })); suelo.rotation.x = -PI / 2; sc.add(suelo);
     anillo = new THREE.Mesh(new THREE.RingGeometry(RADIO_BASE - 3, RADIO_BASE, 128), new THREE.MeshBasicMaterial({ color: 0x7fe3ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })); anillo.rotation.x = -PI / 2; anillo.position.y = 0.4; sc.add(anillo);
@@ -59,11 +60,43 @@
     ray = new THREE.Raycaster(); v2p = new THREE.Vector2();
     construido = true;
   }
-  function texSuelo(col) {
-    var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d'), i;
+  var mar = null, orilla = null, deco = null;
+  function rnd01(sd) { var v = Math.sin(sd * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); }
+  function texSuelo(col, estilo) {
+    var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d'), i, t;
     g.fillStyle = col; g.fillRect(0, 0, 256, 256);
+    if (estilo === 'hierba' || estilo === 'arena') {
+      var pal = estilo === 'hierba' ? ['rgba(24,80,28,0.40)', 'rgba(130,196,76,0.38)', 'rgba(72,134,40,0.34)', 'rgba(190,210,100,0.22)'] : ['rgba(255,238,200,0.16)', 'rgba(130,86,34,0.14)', 'rgba(255,224,170,0.12)'];
+      for (i = 0; i < (estilo === 'hierba' ? 7000 : 2600); i++) { g.fillStyle = pal[(Math.random() * pal.length) | 0]; if (estilo === 'hierba') g.fillRect(Math.random() * 256, Math.random() * 256, 1, 2 + Math.random() * 4); else g.fillRect(Math.random() * 256, Math.random() * 256, 6 + Math.random() * 34, 1 + (Math.random() < 0.3 ? 1 : 0)); }
+      t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(730, 730); if ('encoding' in t) t.encoding = THREE.sRGBEncoding; return t;
+    }
     for (i = 0; i < 2600; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)'; var s = 2 + Math.random() * 14; g.fillRect(Math.random() * 256, Math.random() * 256, s, s); }
     var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(730, 730); if ('encoding' in t) t.encoding = THREE.sRGBEncoding; return t;
+  }
+  function ambientar(tipo) {   // suelo, mar y paisaje lejano de cada planeta
+    var pj = PAISAJE[tipo] || PAISAJE.rocoso, agua = pj[3] != null, R = agua ? RADIO_BASE + 260 : 30000, i, j;
+    suelo.geometry.dispose(); suelo.geometry = new THREE.CircleGeometry(R, 96);
+    var tx = texSuelo(pj[0], pj[2]); tx.repeat.set(730 * R / 30000, 730 * R / 30000); suelo.material.map = tx; suelo.material.needsUpdate = true;
+    sc.background = new THREE.Color(pj[1]); sc.fog = agua ? new THREE.Fog(pj[1], 4500, 24000) : new THREE.Fog(pj[1], 1800, 9500); luzSol.color.setHex(pj[4] || 0xfff1e0);
+    if (!mar) {
+      mar = new THREE.Mesh(new THREE.RingGeometry(RADIO_BASE + 258, 30000, 96), new THREE.MeshStandardMaterial({ color: 0x2f7fc4, roughness: 0.2, metalness: 0.25 })); mar.rotation.x = -PI / 2; mar.position.y = -0.4; sc.add(mar);
+      orilla = new THREE.Mesh(new THREE.RingGeometry(RADIO_BASE + 200, RADIO_BASE + 262, 96), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); orilla.rotation.x = -PI / 2; orilla.position.y = -0.2; sc.add(orilla);
+      deco = new THREE.Group(); sc.add(deco);
+    }
+    mar.visible = orilla.visible = agua; if (agua) mar.material.color.setHex(pj[3]);
+    for (i = deco.children.length - 1; i >= 0; i--) { var ch = deco.children[i]; deco.remove(ch); ch.traverse(function (m) { if (m.geometry) m.geometry.dispose(); }); }
+    if (!agua) return;
+    var des = tipo === 'desierto', sd = 7, n = des ? 7 : 6;
+    var cMonte = tipo === 'caos' ? 0x6f6648 : 0x6a6a62, cNieve = tipo === 'caos' ? 0xf3ecc8 : 0xf4f7fb, cIsla = des ? 0xdcbc80 : tipo === 'caos' ? 0x8d8a3c : 0x4e8f3c;
+    var mm = new THREE.MeshStandardMaterial({ color: cMonte, roughness: 1, flatShading: true }), mn = new THREE.MeshStandardMaterial({ color: cNieve, roughness: 0.9, flatShading: true }), mi = new THREE.MeshStandardMaterial({ color: cIsla, roughness: 1 });
+    for (i = 0; i < n; i++) {   // islas con un monte: lejos del área de juego, solo para el paisaje
+      var ang = (i / n) * PI * 2 + rnd01(i + sd) * 0.6, dd = 10200 + rnd01(i * 3 + sd) * 6500, rd = 1300 + rnd01(i * 5 + sd) * 1700, isl = new THREE.Group();
+      var disco = new THREE.Mesh(new THREE.CylinderGeometry(rd * 0.85, rd, 40, 20), mi); disco.position.y = -14; isl.add(disco);
+      if (des) { var dn = new THREE.Mesh(new THREE.ConeGeometry(rd * 0.8, rd * 0.18, 12), mi); dn.position.y = rd * 0.09; isl.add(dn); if (i % 3 === 0) { var mesa = new THREE.Mesh(new THREE.CylinderGeometry(rd * 0.25, rd * 0.35, rd * 0.5, 8), mm); mesa.position.y = rd * 0.25; isl.add(mesa); } }
+      else { var hm = rd * (0.55 + rnd01(i * 7 + sd) * 0.5), mo = new THREE.Mesh(new THREE.ConeGeometry(rd * 0.62, hm, 8), mm); mo.position.y = hm / 2; isl.add(mo); var ns = new THREE.Mesh(new THREE.ConeGeometry(rd * 0.62 * 0.36, hm * 0.36, 8), mn); ns.position.y = hm * 0.82; isl.add(ns);
+        var co = new THREE.Mesh(new THREE.SphereGeometry(rd * 0.5, 12, 6), mi); co.scale.set(1.2, 0.22, 1); co.position.set(rd * 0.3, 8, -rd * 0.2); isl.add(co); }
+      isl.position.set(Math.cos(ang) * dd, 0, Math.sin(ang) * dd); isl.rotation.y = rnd01(i + 40) * 6; deco.add(isl);
+    }
   }
   function toast(t, s) { if (!ui) return; ui.toast.textContent = t; ui.toast.style.opacity = 1; tToast = s || 1.5; }
 
@@ -530,6 +563,20 @@
   }
   /* ---- el personaje: el soldado espacial del lobby, visto en primera persona (cabeza oculta, se ven sus brazos y su cuerpo) ---- */
   var LB = 0.29, LA = 0.26, hand = { izq: null, der: null }, wk = 0, ag = null;
+  var manosPrem = null, premPide = false;
+  function crearPremiumPie() {   // si tienes equipado el soldado premium, a pie se ve ese cuerpo (con la misma animación)
+    var quiere = !!(E.Tienda && E.Tienda.tieneSkin('premium') && leer('soldadoSkin', 'estandar') === 'premium');
+    if (!quiere) { if (manosPrem) { sc.remove(manosPrem.u.group); manosPrem = null; } return; }
+    if (manosPrem || premPide || !global.AnimHombre) return; premPide = true;
+    E.Tienda.cargarPremium(function (ok) {
+      premPide = false; if (!ok || !sc || manosPrem || typeof global.createSoldadoPremium !== 'function') return;
+      try {
+        var u = global.createSoldadoPremium(THREE), hb = u.esqueleto.huesos, i; u.group.scale.setScalar(1.8 / u.alto);
+        for (i = 0; i < hb.length; i++) if (hb[i].name === 'Head') hb[i].scale.multiplyScalar(0.001);   // sin cabeza: la cámara está dentro
+        u.group.visible = false; sc.add(u.group); var an = global.AnimHombre.nuevo(global.AnimHombre.adaptar(u)); an.sinEmote = true; manosPrem = { u: u, an: an };
+      } catch (e) { if (global.console) console.error('Premium a pie', e); }
+    });
+  }
   function crearManosPie() {
     if (manosPie || typeof global.createSoldadoEspacialV2 !== 'function') return;
     var u; try { u = global.createSoldadoEspacialV2(THREE, { metersPerUnit: 1, height: 1.8, armor: jug.acento, glow: 0x62d6ff }); } catch (e) { return; }
@@ -567,6 +614,18 @@
   }
   function animarManos(t, dt, mag) {   // a pie: el soldado camina; los brazos van "en guardia" y se balancean
     if (!manosPie) return; var pa = manosPie.pa, g = manosPie.u.group, ph = t * (correr ? 11 : 7), sw = Math.sin(ph) * mag, cw = Math.cos(ph) * mag, gk = golpeT > 0 ? golpePose(1 - golpeT / 0.45) : null;
+    if (manosPrem && !sentado) {
+      var pg = manosPrem.u.group, up0 = -ppit * 0.55, amp0 = correr ? 0.55 : 0.28, ab0 = Math.abs(sw) * 0.15 + (correr ? 0.6 : 0);
+      g.visible = false; pg.visible = true; pg.position.set(px, pyF + saltoY, pz); pg.rotation.set(0, pyaw + PI, 0);
+      manosPrem.an.ajuste = function (P) {   // brazos "en guardia" siguiendo hacia dónde miras
+        P.lean *= 0.25; P.hipTwist *= 0.25; P.spTwist *= 0.25; P.spRoll = 0; P.headP = 0; P.headY = 0;
+        P.aRf = 1.4 - up0 - cw * amp0 * 0.5; P.aRe = 0.25 + ab0; P.aRa = 0.07; P.aRw = 0;
+        P.aLf = gk ? -gk[0] - up0 : 1.4 - up0 + cw * amp0 * 0.5; P.aLe = gk ? -gk[1] : 0.25 + ab0; P.aLa = 0.07; P.aLw = 0;
+      };
+      manosPrem.an.update(dt, saltoY > 0.02 ? 'jump' : (mag > 0.15 ? (correr ? 'run' : 'walk') : 'idle'), 1);
+      return;
+    }
+    if (manosPrem) manosPrem.u.group.visible = false;
     g.visible = true; g.position.set(px, pyF + saltoY, pz); g.rotation.set(0, pyaw + PI, 0);
     var amp = correr ? 0.55 : 0.28, up = -ppit * 0.55;
     pa.armR.rotation.set(-1.4 + up + cw * amp * 0.5, 0, 0.07); pa.forearmR.rotation.set(-0.25 - Math.abs(sw) * 0.15 - (correr ? 0.6 : 0), 0, 0);
@@ -577,6 +636,7 @@
   }
   function sentadoPose(t, dt, ax, ay, api) {   // sentado: el soldado en el asiento, manos en las dos palancas; la mano derecha gira la manivela al subir/bajar
     var pa = manosPie.pa, g = manosPie.u.group; api.agarres(ag);
+    if (manosPrem) manosPrem.u.group.visible = false;
     g.visible = true; g.rotation.set(0, ag.ang, 0); g.position.set(ag.sitio.x, ag.sitio.y - manosPie.hip + 0.03, ag.sitio.z); g.updateMatrixWorld(true);
     pa.legL.rotation.set(-1.45, 0, -0.05); pa.legR.rotation.set(-1.45, 0, 0.05); pa.shinL.rotation.set(1.4, 0, 0); pa.shinR.rotation.set(1.4, 0, 0); g.updateMatrixWorld(true);
     wk += ((Math.abs(ay) > 0.12 ? 1 : 0) - wk) * Math.min(1, dt * 7);
@@ -586,10 +646,10 @@
   }
   function entrarPie() {
     quitarGhost(); modoBorrar = false; modoCons = false; modoPie = true; px = fx; pz = fz; if (Math.hypot(px, pz) > RADIO_BASE) { px = 0; pz = 160; } pyaw = yaw + PI; ppit = 0; sentado = null;
-    saltoY = 0; saltoV = 0; golpeT = 0; pyF = 0; fallV = 0; cm.x = 1e9; crearManosPie(); if (manosPie) manosPie.u.group.visible = true; cam.fov = 75; cam.near = 0.05; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
+    saltoY = 0; saltoV = 0; golpeT = 0; pyF = 0; fallV = 0; cm.x = 1e9; crearManosPie(); crearPremiumPie(); if (manosPie) manosPie.u.group.visible = true; cam.fov = 75; cam.near = 0.05; cam.updateProjectionMatrix(); actualizarUI(); toast('A PIE · IZQUIERDA MUEVE · DERECHA MIRA', 2.4);
   }
   function salirPie() {
-    if (sentado) levantarse(); if (manosPie) manosPie.u.group.visible = false; modoPie = false; fx = px; fz = pz; yaw = pyaw + PI; cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); stk = null; lookId = null; ui.sb.style.display = ui.sk.style.display = 'none'; actualizarUI();
+    if (sentado) levantarse(); if (manosPie) manosPie.u.group.visible = false; if (manosPrem) manosPrem.u.group.visible = false; modoPie = false; fx = px; fz = pz; yaw = pyaw + PI; cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); stk = null; lookId = null; ui.sb.style.display = ui.sk.style.display = 'none'; actualizarUI();
   }
   function sentarse(o) { sentado = o; wk = 0; try { o.api.vistaArtillero && o.api.vistaArtillero(true); } catch (e) { } stk = null; ui.sb.style.display = ui.sk.style.display = 'none'; toast('ARTILLERO · IZQUIERDA APUNTA', 2); actualizarUI(); }
   function levantarse() { if (!sentado) return; sentado.api.disparar(false); sentado.api.apuntar(0, 0); try { sentado.api.vistaArtillero && sentado.api.vistaArtillero(false); } catch (e) { } px = sentado.x + 3.5; pz = sentado.z + 3.5; sentado = null; actualizarUI(); }
@@ -780,9 +840,9 @@
     _test: function () { return { pie: function () { return { modoPie: modoPie, px: px, pz: pz, sentado: !!sentado }; }, entrarPie: entrarPie, salirPie: salirPie, sentarse: sentarse, levantarse: levantarse, punteroPie: punteroPie, buscarLibre: buscarLibre, colocadas: function () { return colocadas; }, elegir: elegir, colocar: colocar, itemDe: itemDe, CATALOGO: CATALOGO, ghost: function () { return ghost; }, mover: function (x, z) { fx = x; fz = z; }, borrarEn: borrarEn, despegar: despegar }; },
     entrar: function (d) {
       if (!construido) construir(); else E.aplicarLayout(ui.izq.parentNode);
-      if (manosPie) manosPie.u.group.visible = false; saltoY = 0; saltoV = 0; pyF = 0; fallV = 0; cm.x = 1e9; ascKey = ''; pendAsc = null; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
+      if (manosPie) manosPie.u.group.visible = false; if (manosPrem) manosPrem.u.group.visible = false; saltoY = 0; saltoV = 0; pyF = 0; fallV = 0; cm.x = 1e9; ascKey = ''; pendAsc = null; modoPie = false; sentado = null; correr = false; stk = null; lookId = null; cercaT = null; if (cam) { cam.fov = 60; cam.near = 1; cam.updateProjectionMatrix(); }
       pl = d.pl; ret = d.retorno; key = pl.key; enHangar = {}; colocadas = []; ghost = null; itemSel = null; modoBorrar = false; modoCons = false; cargando = ''; punteros = {}; mov = 0;
-      var pj = PAISAJE[pl.tipo] || PAISAJE.rocoso; suelo.material.map = texSuelo(pj[0]); suelo.material.needsUpdate = true; sc.background = new THREE.Color(pj[1]); sc.fog = new THREE.Fog(pj[1], 1800, 9500);
+      ambientar(pl.tipo);
       // la nave posada en el centro
       nave = null; var n = naveDe(jug.nave), m = obtenerModelo(jug.nave), md = medidas[jug.nave];
       if (m && md) { var w = new THREE.Group(); w.scale.setScalar(n.m); w.add(m.group); nave = new THREE.Group(); nave.add(w); w.position.set(-md.centro.x * 1, -(md.centro.y - md.alto / 2), -md.centro.z * 1); sc.add(nave); naveBaja = false; naveY = HOVER; naveX = naveZ = naveTx = naveTz = 0; nave.position.y = HOVER; pad = Math.max(60, md.radio * 1.15 + 15); }

@@ -19,12 +19,13 @@
     var bones = BONES.map(function (b) { var o = new THREE.Bone(); o.name = b.n; o.position.set(b.pos[0], b.pos[1], b.pos[2]); o.quaternion.set(b.q[0], b.q[1], b.q[2], b.q[3]); o.scale.set(b.s[0], b.s[1], b.s[2]); return o; });
     BONES.forEach(function (b, i) { if (b.p >= 0) bones[b.p].add(bones[i]); else inner.add(bones[i]); });
     var meshes = [];
+    var soff = 0; META.forEach(function (m) { soff += m.a + m.b + m.c + m.d; });   // los pesos de piel van después de toda la geometría
     META.forEach(function (m) {
       var pos = new Int16Array(buf, off, m.v * 3), p = new Float32Array(m.v * 3), i; off += m.a;
       var nor = new Int8Array(buf, off, m.v * 3), n = new Float32Array(m.v * 3); off += m.b;
       var uv = new Float32Array(buf, off, m.v * 2); off += m.c;
       var idx = new Uint16Array(buf, off, m.i); off += m.d;
-      var jn = new Uint8Array(buf, off, m.v * 4); off += m.e; var wg = new Uint8Array(buf, off, m.v * 4); off += m.f;
+      var jn = new Uint8Array(buf, soff, m.v * 4); soff += m.e; var wg = new Uint8Array(buf, soff, m.v * 4); soff += m.f;
       var si = new Uint16Array(m.v * 4), sw = new Float32Array(m.v * 4);
       for (i = 0; i < p.length; i++) { p[i] = pos[i] / 16000; n[i] = nor[i] / 127; }
       for (i = 0; i < si.length; i++) { si[i] = jn[i]; sw[i] = wg[i] / 255; }

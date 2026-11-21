@@ -23,8 +23,8 @@
   }
   function fbm(x, y, z, s, oct) { var sum = 0, amp = 0.5, fr = 1, tot = 0, o; for (o = 0; o < oct; o++) { sum += amp * noise3(x * fr, y * fr, z * fr, s + o * 17); tot += amp; fr *= 2; amp *= 0.5; } return sum / tot; }
 
-  var TIPOS_PLANETA = ['arido', 'rocoso', 'hielo', 'gaseoso', 'gaseoso2', 'lava', 'tormenta'];
-  var COLOR_ATM = { arido: [1.0, 0.62, 0.32], rocoso: [0.6, 0.7, 0.9], hielo: [0.55, 0.8, 1.0], gaseoso: [1.0, 0.75, 0.5], gaseoso2: [0.45, 0.75, 1.0], lava: [1.0, 0.35, 0.15], tormenta: [0.9, 0.55, 0.3] };
+  var TIPOS_PLANETA = ['arido', 'rocoso', 'hielo', 'gaseoso', 'gaseoso2', 'lava', 'tormenta', 'tierra', 'caos', 'desierto'];
+  var COLOR_ATM = { arido: [1.0, 0.62, 0.32], rocoso: [0.6, 0.7, 0.9], hielo: [0.55, 0.8, 1.0], gaseoso: [1.0, 0.75, 0.5], gaseoso2: [0.45, 0.75, 1.0], lava: [1.0, 0.35, 0.15], tormenta: [0.9, 0.55, 0.3], tierra: [0.42, 0.68, 1.0], caos: [0.95, 0.86, 0.42], desierto: [0.96, 0.78, 0.48] };
   function mezcla(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
   function crearTexturaPlaneta(tipo, tam, semilla) {
     var w = tam, h = tam >> 1, c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -33,7 +33,25 @@
       var lat = (0.5 - (y + 0.5) / h) * PI, cl = Math.cos(lat), sl = Math.sin(lat);
       for (x = 0; x < w; x++) {
         var lon = (x + 0.5) / w * TAU, nx = Math.cos(lon) * cl, nz = Math.sin(lon) * cl, ny = sl, col;
-        if (tipo === 'arido') {
+        if (tipo === 'tierra' || tipo === 'caos' || tipo === 'desierto') {   // mundos con océano
+          var cx = nx, cy = ny, cz = nz, ca = tipo === 'caos', de = tipo === 'desierto';
+          if (ca) { cx += (fbm(nx * 2, ny * 2, nz * 2, semilla + 21, 3) - 0.5) * 0.9; cy += (fbm(nx * 2 + 7, ny * 2, nz * 2, semilla + 22, 3) - 0.5) * 0.9; cz += (fbm(nx * 2, ny * 2 + 7, nz * 2, semilla + 23, 3) - 0.5) * 0.9; }
+          var el = fbm(nx * 2.2, ny * 2.2, nz * 2.2, semilla, 6), det = fbm(nx * 9, ny * 9, nz * 9, semilla + 4, 4), mar = de ? 0.4 : ca ? 0.47 : 0.5, pol = Math.abs(ny) + (fbm(nx * 4, ny * 4, nz * 4, semilla + 8, 3) - 0.5) * 0.28;
+          if (el < mar) {   // océano: más oscuro donde es profundo
+            var pf = clamp((mar - el) / 0.22, 0, 1);
+            col = ca ? mezcla([86, 138, 128], [28, 66, 80], pf) : de ? mezcla([70, 190, 196], [22, 96, 150], pf) : mezcla([60, 138, 205], [14, 44, 120], pf);
+          } else {
+            var hh = (el - mar) / (1 - mar);
+            if (de) { col = mezcla([226, 190, 120], [190, 142, 78], clamp(det * 1.2, 0, 1)); col = mezcla(col, [240, 214, 160], clamp((fbm(nx * 14, ny * 3, nz * 14, semilla + 6, 3) - 0.5) * 2.4, 0, 0.5)); }
+            else if (ca) { col = mezcla([150, 140, 60], [108, 98, 44], clamp(det * 1.3, 0, 1)); col = mezcla(col, [96, 84, 70], clamp((hh - 0.45) * 2.4, 0, 0.8)); }
+            else { col = mezcla([62, 132, 54], [34, 88, 40], clamp(det * 1.3, 0, 1)); col = mezcla(col, [120, 100, 72], clamp((hh - 0.4) * 2.6, 0, 0.85)); }
+            if (hh < 0.03) col = mezcla(col, de ? [248, 228, 178] : [226, 214, 160], 0.8);   // playa
+            if (!de && (hh > 0.7 || pol > 0.86)) col = mezcla(col, [240, 244, 250], clamp(Math.max((hh - 0.7) * 4, (pol - 0.86) * 9), 0, 0.95));
+          }
+          if (!de && pol > (ca ? 0.8 : 0.9)) col = mezcla(col, [244, 248, 255], clamp((pol - (ca ? 0.8 : 0.9)) * 12, 0, 0.97));   // casquetes polares
+          var cl = fbm(cx * 3.2, cy * 3.2, cz * 3.2, semilla + 31, 5); cl = clamp((cl - (de ? 0.62 : ca ? 0.5 : 0.56)) * (ca ? 4 : 3.4), 0, ca ? 0.7 : 0.62);   // nubes
+          col = mezcla(col, ca ? [236, 214, 120] : [250, 252, 255], cl);
+        } else if (tipo === 'arido') {
           var n1 = fbm(nx * 2.2, ny * 2.2, nz * 2.2, semilla, 5), n2 = fbm(nx * 6 + 3, ny * 14, nz * 6, semilla + 5, 3);
           col = mezcla([150, 92, 48], [228, 176, 104], n1); col = mezcla(col, [110, 62, 34], clamp((n2 - 0.5) * 2.2, 0, 0.6));
         } else if (tipo === 'rocoso') {
