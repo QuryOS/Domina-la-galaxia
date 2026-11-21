@@ -626,6 +626,13 @@
   }
   function cajasDe(o) {
     if (o._cj) return o._cj; var lst = []; o.g.updateMatrixWorld(true);
+    if (o.item.base && o.api && o.api.shape) {   // las bases chocan con UN bloque exacto (su forma), no con cientos de piedritas
+      var Sd = 3, TP = o.api.topY || 0.8, geo, bx;
+      if (o.api.shape === 'triangle') { var Rr = Sd / Math.sqrt(3), sh = new THREE.Shape(); sh.moveTo(0, -Rr); sh.lineTo(Sd / 2, Rr / 2); sh.lineTo(-Sd / 2, Rr / 2); geo = new THREE.ExtrudeGeometry(sh, { depth: TP, bevelEnabled: false }); geo.rotateX(-Math.PI / 2); }
+      else { geo = new THREE.BoxGeometry(Sd, TP, Sd); geo.translate(0, TP / 2, 0); }
+      var px0 = new THREE.Mesh(geo, new THREE.MeshBasicMaterial()); px0.visible = false; px0.name = 'colision_base'; o.api.group.add(px0); o.g.updateMatrixWorld(true);
+      bx = new THREE.Box3().setFromObject(px0); o._cj = [{ m: px0, b: bx }]; return o._cj;
+    }
     o.g.traverse(function (m) {
       if (!m.isMesh || !m.geometry || !m.visible || !solida(m)) return;
       var b = new THREE.Box3().setFromObject(m); if (!isFinite(b.min.x) || !isFinite(b.max.x)) return;
@@ -813,7 +820,7 @@
         if (ghost.item.defensa) { var ap1 = modoPie ? apuntar(5 * K, 2 * K) : { x: fx, z: fz }; ok = posDefensa(ap1.x, ap1.z); }
         else if (ghost.item.base) { var ap2 = modoPie ? apuntar(25, 4) : { x: fx, z: fz }; ok = posBase(ap2.x, ap2.z); }
         else { if (modoPie) { var ap3 = apuntar(30, 6); gx = Math.round(ap3.x / 2) * 2; gz = Math.round(ap3.z / 2) * 2; } var sbj = BASE_SOPORTE ? baseBajo(gx, gz, 0) : null; ghost.g.position.set(gx, sbj ? sbj.top : 0, gz); ghost.g.rotation.y = rotG; ok = valida(gx, gz, ghost.r, null, rotG, ghost.hw, ghost.hd, sbj); }
-        try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
+        try { if (ghost.api.setGhost && ghost._okp !== ok) { ghost._okp = ok; ghost.api.setGhost(true, ok); } } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;
       }
       alt = !alt; var i; optimizarEstructuras(t); try { tickPerro(dt); } catch (ep) { } try { if (E.Gusanos) E.Gusanos.actualizar(dt); } catch (eg) { }
