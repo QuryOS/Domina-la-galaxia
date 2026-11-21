@@ -53,13 +53,16 @@
     baja:  { dpr: 1,   cielo: 1024, planeta: 256, polvo: 220, radioPlanetas: 2 }
   };
   var CONSEJOS = [
-    'Mantén el TURBO para cruzar distancias largas: se recarga solo cuando lo sueltas.',
+    'El TURBO gasta combustible del depósito (1 km de turbo = 1 km de combustible). Se recarga al atracar en una estación.',
     'Las balizas de la pantalla te señalan los planetas más cercanos.',
     'Las naves grandes giran despacio: empieza a girar con tiempo.',
     'Los asteroides son sólidos. Los choques te frenan.',
     'Cada partida usa el mismo universo: los planetas siempre están en el mismo lugar.'
   ];
 
+  /* Depósitos de combustible: el combustible depende del depósito, no de la nave. Capacidad = km que puedes volar con el turbo. */
+  var TANQUES = { peq: { nombre: 'Depósito pequeño', km: 250 }, med: { nombre: 'Depósito mediano', km: 520 }, gra: { nombre: 'Depósito grande', km: 2000 } };
+  E.TANQUES = TANQUES;
   E.CONFIG = CONFIG;
   E.NAVES = NAVES;
   E.NAVES_INICIALES = NAVES_INICIALES;

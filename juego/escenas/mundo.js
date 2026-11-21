@@ -35,7 +35,7 @@
     var pivote = null, inclinar = null, escalarN = null, modelo = null, nSel = null, med = null;
     var P = { x: 0, y: 0, z: 0 }, Q, V, qCam, qa, v1, v2, v3, fwd, vObj, AX, AY, AZ, dummy, mInv;
     var celdas = {}, listaEst = [], estLejanas = [], esp = null, botFu = false, botGr = false, atracado = false, estCerca = null, estVista = '', listaPl = [], listaRo = [], camposVis = [], ucx = 1e9, ucy = 1e9, ucz = 1e9;
-    var mapaAbierto = false, meta = null, mapaZ = 1, mapaLista = [], mapaPuntos = [], camYaw = 0, camPitch = 0, camPtr = null, camX0 = 0, camY0 = 0, camYaw0 = 0, camPitch0 = 0, qo = null, rYaw = 0, rPitch = 0, rRoll = 0, acelerador = 0.3, turboE = 1, turboBloq = false, turboOn = false, vel = 0, shake = 0, pausado = false, modo = 'solo', tMundo = 0, tHud = 0, fps = 60, tRed = 0, tToast = 0, planCercano = null;
+    var mapaAbierto = false, meta = null, mapaZ = 1, mapaLista = [], mapaPuntos = [], camYaw = 0, camPitch = 0, camPtr = null, camX0 = 0, camY0 = 0, camYaw0 = 0, camPitch0 = 0, qo = null, rYaw = 0, rPitch = 0, rRoll = 0, acelerador = 0.3, turboOn = false, vel = 0, shake = 0, pausado = false, modo = 'solo', tMundo = 0, tHud = 0, fps = 60, tRed = 0, tToast = 0, planCercano = null;
     var teclas = {}, stick = { id: null, x0: 0, y0: 0, ax: 0, ay: 0 }, botT = false, botF = false, palId = null;
     var hud = {}, radarG, radarS = 132, beaconG, remotos = {}, construido = false, DPRH = 1;
 
@@ -76,7 +76,7 @@
       var L = DOMcapas.hud; L.innerHTML = '';
       beaconG = el('canvas', '', L); beaconG.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none';
       var hi = el('div', 'jn-hi', L); hud.nom = el('div', 'n', hi); hud.vel = el('div', 'v', hi, '0 <small>m/s</small>');
-      hud.mv = el('div', 'jn-mini', hi, '<i></i>'); hud.mt = el('div', 'jn-mini t', hi, '<i></i>'); hud.estado = el('div', '', hi, ''); hud.inv = el('div', '', hi, ''); hud.inv.style.cssText = 'margin-top:6px;font-size:12px;line-height:1.5;max-width:230px'; hud.estado.style.cssText = 'margin-top:6px;opacity:.8';
+      hud.mv = el('div', 'jn-mini', hi, '<i></i>'); hud.mt = el('div', 'jn-mini t', hi, '<i></i>'); hud.comb = el('div', '', hi, ''); hud.comb.style.cssText = 'font-size:11px;letter-spacing:1px;opacity:.9;margin-top:2px'; hud.estado = el('div', '', hi, ''); hud.inv = el('div', '', hi, ''); hud.inv.style.cssText = 'margin-top:6px;font-size:12px;line-height:1.5;max-width:230px'; hud.estado.style.cssText = 'margin-top:6px;opacity:.8';
       hud.hd = el('div', 'jn-hd', L);
       hud.pausa = el('div', 'jn-ico jn-pausa', L, '❚❚'); hud.pausa.onclick = function () { pausar(true); };
       hud.mapa = el('div', 'jn-pmenu jn-mapa', L, '');
@@ -227,9 +227,15 @@
         f.style.borderColor = esMeta ? '#ffe27a' : T.c; f.onclick = function () { meta = esMeta ? null : v.o; pintarMapa(); };
       });
     }
+    var combKm = 250, capKm = 250, tSinComb = 0, tGuardaC = 0;
+    function cargarComb() {   // el depósito equipado manda; el nivel se conserva entre sesiones
+      var T = E.TANQUES[E.leer('tanque', 'peq')] || E.TANQUES.peq; capKm = T.km; var c = E.leer('combustible', null);
+      combKm = (typeof c === 'number' && isFinite(c)) ? Math.min(capKm, Math.max(0, c)) : capKm;
+    }
     function atracar() {
       if (mapaAbierto || atracado || !estCerca) return;
       var tb = bodAInventario(jug.nave); if (tb) toast('+' + tb + ' A TU INVENTARIO', 1.6);   // lo de tu bodega pasa al inventario al atracar
+      if (combKm < capKm - 0.5) { combKm = capKm; E.guardar('combustible', combKm); toast('COMBUSTIBLE RECARGADO · ' + capKm + ' km', 1.8); }
       atracado = true; pausado = true; V.set(0, 0, 0); acelerador = 0; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false); camPtr = null;
       hud.bAtr.style.display = 'none'; estVista = ''; if (estCerca.tipo === 'astillero') pintarAstillero(); else pintarMercado(); hud.merc.classList.add('on'); toast('ATRACADO', 1);
     }
@@ -571,7 +577,7 @@
       apD.add(apS); apD.normalize();
       apQ.copy(Q).invert(); apL.copy(apD).applyQuaternion(apQ);   // dirección deseada en ejes de la nave (la nariz es -Z)
       var yawErr = Math.atan2(apL.x, -apL.z), pitErr = Math.atan2(apL.y, -apL.z), err = Math.sqrt(yawErr * yawErr + pitErr * pitErr);
-      apE.yaw = clamp(yawErr * 3, -1, 1); apE.pit = clamp(pitErr * 3, -1, 1); apE.roll = 0; apE.acel = 0; apE.freno = false; apE.turbo = ap.huir || ((ap.minar || ap.seg) && !ap.espera && dist - stop > 2500 && turboE > 0.35 && apS.lengthSq() < 0.3);
+      apE.yaw = clamp(yawErr * 3, -1, 1); apE.pit = clamp(pitErr * 3, -1, 1); apE.roll = 0; apE.acel = 0; apE.freno = false; apE.turbo = ap.huir || ((ap.minar || ap.seg) && !ap.espera && dist - stop > 2500 && combKm > capKm * 0.08 && apS.lengthSq() < 0.3);
       var cruce = ap.huir ? 1 : clamp((dist - stop) / (ap.minar ? 1500 : 3500), ap.minar ? 0.25 : 0.12, 1); cruce *= 1 - Math.min(0.75, err / 1.6);
       if (apS.lengthSq() > 0.3) cruce = Math.min(cruce, ap.minar ? 0.75 : 0.5);
       if (hold && (llego || ap.espera)) {
@@ -857,9 +863,9 @@
       Q.normalize();
       acelerador = clamp(acelerador + e.acel * 0.7 * dt, 0, 1);
       if (e.freno) acelerador = Math.max(0, acelerador - 1.6 * dt);
-      var quiere = e.turbo && !turboBloq && turboE > 0.02 && acelerador > 0.05;
+      var quiere = e.turbo && combKm > 0.01 && acelerador > 0.05;
       turboOn = quiere;
-      if (quiere) { turboE = Math.max(0, turboE - 0.22 * dt); if (turboE <= 0.02) { turboBloq = true; toast('TURBO AGOTADO', 1); } } else { turboE = Math.min(1, turboE + 0.12 * dt); if (turboBloq && turboE > 0.3) turboBloq = false; }
+      if (quiere) { combKm = Math.max(0, combKm - vel * dt / 1000); if (combKm <= 0.01) { combKm = 0; toast('SIN COMBUSTIBLE · TURBO APAGADO', 1.6); } } else if (e.turbo && combKm <= 0.01 && acelerador > 0.05) { if ((tSinComb -= dt) <= 0) { tSinComb = 3; toast('SIN COMBUSTIBLE', 1.2); } }
       fwd.set(0, 0, -1).applyQuaternion(Q);
       var vo = nSel.vmax * acelerador * (turboOn ? 2.6 : 1);
       vObj.copy(fwd).multiplyScalar(vo);
@@ -1003,7 +1009,7 @@
     }
     function actualizarTextos(dt) {
       hud.vel.innerHTML = Math.round(vel) + ' <small>m/s' + (turboOn ? ' · TURBO' : '') + '</small>';
-      hud.mv.firstChild.style.width = Math.round(clamp(vel / (nSel.vmax * 2.6), 0, 1) * 100) + '%'; hud.mt.firstChild.style.width = Math.round(turboE * 100) + '%';
+      hud.mv.firstChild.style.width = Math.round(clamp(vel / (nSel.vmax * 2.6), 0, 1) * 100) + '%'; hud.mt.firstChild.style.width = Math.round(clamp(combKm / capKm, 0, 1) * 100) + '%'; hud.comb.textContent = 'COMBUSTIBLE ' + Math.round(combKm) + ' / ' + capKm + ' km' + (combKm < capKm * 0.15 ? ' · BAJO' : ''); hud.comb.style.color = combKm < capKm * 0.15 ? '#ff7b6b' : ''; if ((tGuardaC -= dt) <= 0) { tGuardaC = 4; E.guardar('combustible', combKm); }
       hud.palI.style.height = Math.round(acelerador * 100) + '%';
       var C = 1000; hud.hd.innerHTML = 'X ' + (P.x / C).toFixed(1) + ' · Y ' + (P.y / C).toFixed(1) + ' · Z ' + (P.z / C).toFixed(1) + ' km<br>' + Math.round(fps) + ' FPS' + (Red.activo ? ' · en línea (' + Object.keys(remotos).length + ')' : '');
       hud.inv.innerHTML = '<b style="color:#ffe27a">◎ ' + esp.creditos() + ' Toristina</b><br>' + esp.textoInv() + (capDe(jug.nave) ? '<br><span style="color:#9fe8ff">Bodega ' + bodDe(jug.nave).n + '/' + capDe(jug.nave) + '</span>' : '');
@@ -1052,7 +1058,7 @@
         radarG = hud.radar.getContext('2d'); var dpr = Math.min(global.devicePixelRatio || 1, 2); hud.radar.width = radarS * dpr; hud.radar.height = radarS * dpr; radarG.setTransform(dpr, 0, 0, dpr, 0, 0);
         crearPolvo(); redimensionar4(E.ancho, E.alto);
         if (d && d.retorno) { P.x = d.retorno.p[0]; P.y = d.retorno.p[1]; P.z = d.retorno.p[2]; Q.set(d.retorno.q[0], d.retorno.q[1], d.retorno.q[2], d.retorno.q[3]); } else posicionInicial(); plAter = null; hud.bAter.style.display = 'none'; actualizarCeldas(true); esp.entrar(med.radio);
-        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; turboE = 1; turboBloq = false; shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = atracado = false; mapaAbierto = false; hud.merc.classList.remove('on'); hud.mapa.classList.remove('on'); botFu = botGr = false; camYaw = camPitch = 0; camPtr = null; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
+        V.set(0, 0, 0); qCam.copy(Q); rYaw = rPitch = rRoll = 0; acelerador = 0.3; cargarComb(); shake = 0; tMundo = 0; tHud = 0; tRed = 0; teclas = {}; botT = botF = atracado = false; mapaAbierto = false; hud.merc.classList.remove('on'); hud.mapa.classList.remove('on'); botFu = botGr = false; camYaw = camPitch = 0; camPtr = null; stick.id = null; stick.ax = stick.ay = 0; palancaVisual(false);
         if (modo === 'red') {
           toast('CONECTANDO…', 3);
           Red.onEstado = recibirEstado; Red.onSalio = quitarRemoto;
