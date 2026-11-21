@@ -549,6 +549,15 @@
       if (!o) { apParar('PILOTO AUTOMÁTICO CANCELADO'); return; }
       ap.on = true; ap.huir = true; ap.meta = o; hud.bAuto.classList.add('on'); toast('¡ATACADO! HUYENDO A ' + o.nombre.toUpperCase(), 2.4);
     }
+    var cfD = null, cfQ = null;
+    /* Láser de posicionamiento: si el minero no logra ubicarse, se lo coloca delante de la roca (por el lado en el que ya estaba), mirándola. Nunca cambia de roca. */
+    function colocarFrente(pos, q, o, so, fwd) {
+      if (!cfD) { cfD = new THREE.Vector3(); cfQ = new THREE.Quaternion(); }
+      cfD.set(pos.x - o.x, pos.y - o.y, pos.z - o.z); if (cfD.lengthSq() < 1e-6) cfD.set(0, 0, 1); cfD.normalize();
+      var dd = o.r + so + 8; pos.x = o.x + cfD.x * dd; pos.y = o.y + cfD.y * dd; pos.z = o.z + cfD.z * dd;
+      cfD.negate(); q.copy(cfQ.setFromUnitVectors(fwd, cfD));
+    }
+    var AX_NARIZ = new THREE.Vector3(0, 0, -1);
     function apPaso(dt) {   // calcula "palanca virtual" (apE) y acelerador para ir a ap.meta
       apLaser = false;
       if (ap.minar) {
@@ -589,7 +598,7 @@
       }
       if (ap.minar && !ap.espera && !ap.alCarg) {
         if (ap.mt !== m) { ap.mt = m; ap.mejor = 1e9; ap.ocio = 0; }
-        if (apLaser || dist < ap.mejor - 25) { if (dist < ap.mejor) ap.mejor = dist; ap.ocio = 0; } else { ap.ocio = (ap.ocio || 0) + dt; if (ap.ocio > (llego ? 14 : 30)) { ap.ocio = 0; if (m.ro) m.ro.mal = true; ap.meta = null; toast('BUSCANDO OTRA ROCA', 1.2); } }
+        if (apLaser || dist < ap.mejor - 25) { if (dist < ap.mejor) ap.mejor = dist; ap.ocio = 0; } else { ap.ocio = (ap.ocio || 0) + dt; if (ap.ocio > (llego ? 6 : 10)) { ap.ocio = 0; ap.mejor = 1e9; colocarFrente(P, Q, m, standoff(jug.nave), AX_NARIZ); V.set(0, 0, 0); vel = 0; toast('LÁSER DE POSICIONAMIENTO', 1.4); } }
       }
       acelerador += (cruce - acelerador) * Math.min(1, dt * 1.6);
     }
@@ -728,7 +737,7 @@
         if (!s.tgt || (s.tgt.ro && s.tgt.ro.dead)) { s.tgt = elegirRoca(s.x, s.y, s.z, RADIO_MINA, s.id, s.q); if (!s.tgt) { s.modo = 'parada'; toast('SIN ROCAS CERCA · ' + n.nombre.toUpperCase(), 2); return; } s.tgt.ro.res = s.id; }
         if (s.mt !== s.tgt) { s.mt = s.tgt; s.mejor = 1e9; s.ocio = 0; }
         var dc = Math.sqrt((s.tgt.x - s.x) * (s.tgt.x - s.x) + (s.tgt.y - s.y) * (s.tgt.y - s.y) + (s.tgt.z - s.z) * (s.tgt.z - s.z));
-        if (s.minando || dc < s.mejor - 25) { if (dc < s.mejor) s.mejor = dc; s.ocio = 0; } else { s.ocio = (s.ocio || 0) + dt; if (s.ocio > 12) { s.ocio = 0; if (s.tgt.ro) s.tgt.ro.mal = true; s.tgt = null; return; } }
+        if (s.minando || dc < s.mejor - 25) { if (dc < s.mejor) s.mejor = dc; s.ocio = 0; } else { s.ocio = (s.ocio || 0) + dt; if (s.ocio > 6) { s.ocio = 0; s.mejor = 1e9; colocarFrente(s, s.q, s.tgt, standoff(s.id), iaUp || AX_NARIZ); s.vel = 0; toast('LÁSER DE POSICIONAMIENTO · ' + n.nombre.toUpperCase(), 1.4); return; } }
         o = s.tgt; var so = standoff(s.id), d0 = Math.sqrt((o.x - s.x) * (o.x - s.x) + (o.y - s.y) * (o.y - s.y) + (o.z - s.z) * (o.z - s.z)) - o.r - so; iaMarg = d0 < 2000 ? 40 : 180; iaCerca = d0 < 500;   // ya pegado a la roca: vuela directo, sin esquivar (así no oscila de lado a lado)
         d = iaMover(s, o.x, o.y, o.z, o.r + so, dt, d0 > 3000 ? 2.4 : 0.8, false);
         if (d <= 25 && s.err < 0.2) { s.minando = true; danarRoca(o, dt, s.id); s.sup = d + so; if (!s.lz) s.lz = new THREE.Vector3(); s.lz.set(0, -0.3, -Math.min(60, s.sup / n.m)); }
