@@ -28,12 +28,12 @@
     { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 10 },
     { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 10 },
     { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 10 },
-    { id: 'base_pc', req: 'createStoneFoundationSquare', base: 'c', lado: 12.5, mejora: 'base_mc', nombre: 'Base de piedra (cuadrada)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraC', desc: 'Cimiento de 12,5 m. Se encaja con otras bases y se mejora a metal y metal duro. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_pt', req: 'createStoneFoundationTriangle', base: 't', lado: 12.5, mejora: 'base_mt', nombre: 'Base de piedra (triangular)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraT', desc: 'Cimiento triangular de 12,5 m por lado. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_mc', req: 'createMetalFoundationSquare', base: 'c', lado: 12.5, mejora: 'base_dc', oculto: true, nombre: 'Base de metal (cuadrada)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalC', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_mt', req: 'createMetalFoundationTriangle', base: 't', lado: 12.5, mejora: 'base_dt', oculto: true, nombre: 'Base de metal (triangular)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalT', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_dc', req: 'createArmoredFoundationSquare', base: 'c', lado: 12.5, oculto: true, nombre: 'Base de metal duro (cuadrada)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroC', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_dt', req: 'createArmoredFoundationTriangle', base: 't', lado: 12.5, oculto: true, nombre: 'Base de metal duro (triangular)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroT', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_pc', req: 'createStoneFoundationSquare', base: 'c', lado: 10, mejora: 'base_mc', nombre: 'Base de piedra (cuadrada)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraC', desc: 'Cimiento de 10 m. Se encaja con otras bases y se mejora a metal y metal duro. Solo a pie.', esc: 10 / 3, escY: 1.9 },
+    { id: 'base_pt', req: 'createStoneFoundationTriangle', base: 't', lado: 10, mejora: 'base_mt', nombre: 'Base de piedra (triangular)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraT', desc: 'Cimiento triangular de 10 m por lado. Solo a pie.', esc: 10 / 3, escY: 1.9 },
+    { id: 'base_mc', req: 'createMetalFoundationSquare', base: 'c', lado: 10, mejora: 'base_dc', oculto: true, nombre: 'Base de metal (cuadrada)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalC', desc: 'Mejora de la base de piedra.', esc: 10 / 3, escY: 1.9 },
+    { id: 'base_mt', req: 'createMetalFoundationTriangle', base: 't', lado: 10, mejora: 'base_dt', oculto: true, nombre: 'Base de metal (triangular)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalT', desc: 'Mejora de la base de piedra.', esc: 10 / 3, escY: 1.9 },
+    { id: 'base_dc', req: 'createArmoredFoundationSquare', base: 'c', lado: 10, oculto: true, nombre: 'Base de metal duro (cuadrada)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroC', desc: 'Mejora final.', esc: 10 / 3, escY: 1.9 },
+    { id: 'base_dt', req: 'createArmoredFoundationTriangle', base: 't', lado: 10, oculto: true, nombre: 'Base de metal duro (triangular)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroT', desc: 'Mejora final.', esc: 10 / 3, escY: 1.9 },
     { id: 'astillero', nombre: 'Astillero planetario', archivo: 'astillero_planetario.js', fn: 'createAstillero', desc: 'Construye naves en el suelo.' }
   ];
   /* [color del suelo, cielo, estilo de suelo, color del mar (si tiene océano), color del sol] */
@@ -128,7 +128,7 @@
     var ed = null, inr = 0, topB = 0;
     if (item.base && api.edges) {   // aristas de la base ya a escala del juego, para encajar bases y muros
       ed = api.edges.map(function (q) { return { x: q.x * esc4, z: q.z * esc4, ang: q.angle, len: q.length * esc4 }; });
-      var LD = item.lado || 12.5; inr = item.base === 'c' ? LD / 2 : LD / Math.sqrt(3) / 2; topB = (api.topY || 0.8) * item.escY; r = item.base === 'c' ? LD * 0.7071 : LD / Math.sqrt(3); hw = hd = item.base === 'c' ? LD / 2 : LD * 0.42;
+      var LD = item.lado || 10; inr = item.base === 'c' ? LD / 2 : LD / Math.sqrt(3) / 2; topB = (api.topY || 0.8) * item.escY; r = item.base === 'c' ? LD * 0.7071 : LD / Math.sqrt(3); hw = hd = item.base === 'c' ? LD / 2 : LD * 0.42;
     }
     if (!item.defensa && !item.base) {   // apoya el edificio por su BASE (las mallas anchas de abajo), ignorando fosos, cables o antenas que se salen
       try {
@@ -508,7 +508,7 @@
       if (!ok) { toast('NO SE PUDO DESCARGAR'); return; } var n = instanciar(it2); if (!n) { toast('ERROR AL CREAR'); return; }
       gastar(co); n.x = o.x; n.z = o.z; n.rot = o.rot; n.vida = o.vida; n.tm = Date.now(); n.dur = jug.pruebas ? 0 : 10000; n.fin = n.dur ? Date.now() + n.dur : 0;
       n.g.position.set(o.x, o.g.position.y || 0, o.z); n.g.rotation.y = o.rot; n.g.userData.idx = true; if (n.fin) prepararObra(n);
-      var ix = colocadas.indexOf(o); sc.remove(o.g); sc.add(n.g); colocadas[ix] = n; cercaM = null; iniMant(n); actualizarPilares(); guardarBase(); toast('BASE MEJORADA', 1.6); actualizarUI();
+      var ix = colocadas.indexOf(o); cm.x = 1e9; sc.remove(o.g); sc.add(n.g); colocadas[ix] = n; cercaM = null; iniMant(n); actualizarPilares(); guardarBase(); toast('BASE MEJORADA', 1.6); actualizarUI();
     });
   }
   var catModo = 'c';   // 'c' = CONSTRUIR (bases y defensas) · 'e' = EDIFICACIONES
@@ -688,8 +688,8 @@
   function cajasDe(o) {
     if (o._cj) return o._cj; var lst = []; o.g.updateMatrixWorld(true);
     if (o.item.base && o.api && o.api.shape) {   // las bases chocan con UN bloque exacto (su forma), no con cientos de piedritas
-      var Sd = 3, TP = o.api.topY || 0.8, geo, bx;
-      if (o.api.shape === 'triangle') { var Rr = Sd / Math.sqrt(3), sh = new THREE.Shape(); sh.moveTo(0, -Rr); sh.lineTo(Sd / 2, Rr / 2); sh.lineTo(-Sd / 2, Rr / 2); geo = new THREE.ExtrudeGeometry(sh, { depth: TP, bevelEnabled: false }); geo.rotateX(-Math.PI / 2); }
+      var Sd = 3.03, TP = o.api.topY || 0.8, geo, bx;   // un pelín más grande: así las bases vecinas se solapan y no queda rendija por la que caer
+      if (o.api.shape === 'triangle') { var Rr = 3.04 / Math.sqrt(3), sh = new THREE.Shape(); sh.moveTo(0, -Rr); sh.lineTo(1.52, Rr / 2); sh.lineTo(-1.52, Rr / 2); geo = new THREE.ExtrudeGeometry(sh, { depth: TP, bevelEnabled: false }); geo.rotateX(-Math.PI / 2); }
       else { geo = new THREE.BoxGeometry(Sd, TP, Sd); geo.translate(0, TP / 2, 0); }
       var px0 = new THREE.Mesh(geo, new THREE.MeshBasicMaterial()); px0.visible = false; px0.name = 'colision_base'; o.api.group.add(px0); o.g.updateMatrixWorld(true);
       bx = new THREE.Box3().setFromObject(px0); o._cj = [{ m: px0, b: bx }]; return o._cj;
@@ -705,7 +705,7 @@
     if (Math.hypot(x - cm.x, z - cm.z) < 3 && cm.n === colocadas.length) return cm.list;
     var lst = [], i, j, o, cj, c, now = Date.now();
     for (i = 0; i < colocadas.length; i++) {
-      o = colocadas[i]; if (o.item.defensa || o.item.arma || (o.fin && o.fin > now) || Math.hypot(x - o.x, z - o.z) > o.r + 40) continue;
+      o = colocadas[i]; if (o.item.defensa || o.item.arma || (o.fin && o.fin > now && !o.item.base) || Math.hypot(x - o.x, z - o.z) > o.r + 40) continue;
       cj = cajasDe(o); for (j = 0; j < cj.length; j++) { c = cj[j].b; if (c.max.x < x - 16 || c.min.x > x + 16 || c.max.z < z - 16 || c.min.z > z + 16) continue; lst.push(cj[j].m); }
     }
     cm.x = x; cm.z = z; cm.list = lst; cm.n = colocadas.length; return lst;
