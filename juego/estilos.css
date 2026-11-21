@@ -249,3 +249,5 @@
 .jn-ast-ent{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 8px}.jn-ast-ent .jn-btn{flex:1;min-width:120px;font-size:12px;padding:8px 6px;background:#1c8f4a;border-color:#6fe3a0}.jn-ast-n .q{text-align:right;font-size:11px;line-height:1.3}.jn-acc .jn-btn.on{background:#2a5fd0;border-color:#8fb8ff}
 
 .jn-tskin{grid-column:1/-1;align-items:center}.jn-tskin-im{width:min(60vw,220px);height:min(60vw,220px);display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(5,10,22,.7)}.jn-tskin-img{width:100%;height:100%;object-fit:contain}.jn-tdesc{opacity:.75;font:11px system-ui,sans-serif;text-align:center}.jn-tskin .jn-btn{width:100%}
+
+.jn-btn.rojo{background:rgba(200,50,50,.65)!important;border-color:#ff6b6b!important}

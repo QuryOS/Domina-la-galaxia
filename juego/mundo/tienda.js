@@ -17,7 +17,7 @@
     { id: 'dev', n: 'Modo desarrollador', d: 'Todo desbloqueado y construcción gratis', dev: true, oculto: true },
     /* código FIJO (no sale del generador) */
     { id: 'soldado_premium', n: 'Soldado Premium EC Gamer', d: 'Aspecto exclusivo del soldado (se ve en el lobby)', skin: 'premium', fijo: ['ECGAMER', 'SOLDADOPREMIUNECGAMER', 'SOLDADOPREMIUMECGAMER'] },
-    { id: 'perro_farmeo', n: 'Perro robot de farmeo', d: 'Te sigue por el planeta y carga tus minerales', perro: true, modelo: 'perro' }
+    { id: 'perro_farmeo', oculto: true, n: 'Perro robot de farmeo', d: 'Te sigue por el planeta y carga tus minerales', perro: true, modelo: 'perro' }
   ];
   function h(s, seed) { var x = seed >>> 0; for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x >>> 0; }
   function chk(p) { var a = h(p + SAL, 2166136261), b = h(SAL + p, 0x9e3779b1), v = (a ^ b) >>> 0, r = '', i; for (i = 0; i < 4; i++) { r += ALF[v & 31]; v >>>= 5; } return r; }

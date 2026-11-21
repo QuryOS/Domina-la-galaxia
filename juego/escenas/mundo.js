@@ -261,6 +261,14 @@
           b.onclick = function () { if (esp.comprar(q.id)) toast('+1 ' + q.n.toUpperCase(), 1); pintarMercado(); };
         });
       }
+      if (!(estCerca && estCerca.tipo === 'cantera')) {   // perro robot de farmeo: se compra aquí, en la estación
+        var COSTO_PERRO = { hierro: 40, cobre: 20, piezas: 30 }, tienePerro = !!(E.leer('perro', null) || {}).tiene;
+        el('div', 'jn-lb-sub', der, 'COMPAÑERO');
+        var cpd = E.Iconos.cuadro(el('div', 'jn-grid', der), { html: '▣', titulo: 'Perro robot de farmeo', sub: tienePerro ? 'YA LO TIENES' : Object.keys(COSTO_PERRO).map(function (k) { return COSTO_PERRO[k] + ' ' + esp.nombreTipo(k).toLowerCase(); }).join(' + ') });
+        var okp = !tienePerro && Object.keys(COSTO_PERRO).every(function (k) { return (esp.inv[k] || 0) >= COSTO_PERRO[k]; });
+        var bpd = el('button', 'jn-btn', cpd, tienePerro ? 'COMPRADO' : okp ? 'COMPRAR' : 'FALTAN MATERIALES'); bpd.disabled = !okp;
+        bpd.onclick = function () { var k; for (k in COSTO_PERRO) esp.inv[k] -= COSTO_PERRO[k]; E.guardar('inv', esp.inv); E.guardar('perro', { tiene: true, carga: {} }); toast('PERRO ROBOT COMPRADO · APARECE A TU LADO EN EL PLANETA', 2.4); pintarMercado(); };
+      }
       var bs = el('button', 'jn-btn', izq, 'SALIR AL ESPACIO'); bs.onclick = function () { desatracar(); };
     }
     function miniaturaDe(q, cb) {   // imagen real del modelo 3D (se descarga el modelo una vez y se dibuja en una miniatura)
