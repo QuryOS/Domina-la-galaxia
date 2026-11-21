@@ -82,11 +82,19 @@
       if (modeloAct && modeloAct.setAccent) { try { modeloAct.setAccent(jug.acento); } catch (e2) { } }
       for (var i in cache) { try { if (cache[i].setAccent) cache[i].setAccent(jug.acento); } catch (e3) { } }
     }
-    function quitarEscena() { if (escalar) { girar.remove(escalar); escalar = null; } if (escSoldado) { girar.remove(escSoldado); } }
+    var escPrem = null;
+    function quitarEscena() { if (escalar) { girar.remove(escalar); escalar = null; } if (escSoldado) { girar.remove(escSoldado); } if (escPrem) { girar.remove(escPrem); } }
 
     /* ---- qué se ve en el centro: el soldado (inicio, tienda, ajustes) o la nave (naves, arsenal, motores) ---- */
     function mostrarSoldado() {
       quitarEscena(); modeloAct = null;
+      if (E.Tienda && E.Tienda.tieneSkin('premium') && leer('soldadoSkin', 'estandar') === 'premium') {   // aspecto premium (estático)
+        if (!escPrem && typeof global.createSoldadoPremium === 'function') {
+          try { var pr = global.createSoldadoPremium(THREE), H = 7.6; escPrem = new THREE.Group(); escPrem.scale.setScalar(H / pr.alto); pr.group.position.y = -pr.alto / 2; escPrem.add(pr.group); escPrem.userData.alto = H; } catch (ep) { escPrem = null; }
+        }
+        if (escPrem) { girar.add(escPrem); plataforma.position.y = -escPrem.userData.alto / 2 - 0.25; return true; }
+        else if (E.Tienda && typeof global.createSoldadoPremium !== 'function') E.Tienda.cargarPremium(function (ok) { if (ok && tab !== 'naves') { escenario(); } });
+      }
       if (!soldado && typeof global.createSoldadoEspacialV2 === 'function') {
         try { soldado = global.createSoldadoEspacialV2(THREE, { armor: jug.acento, glow: 0x62d6ff }); } catch (e) { soldado = null; if (global.console) console.error('Soldado', e); }
         if (soldado) {
@@ -171,6 +179,14 @@
         var T = E.Tienda, gr = el('div', 'jn-tgrid', cont);
         T.PAQUETES.forEach(function (pq) {
           if (pq.oculto) return;
+          if (pq.skin) {   // aspecto del soldado: tarjeta grande con imagen y botón equipar
+            var cs = el('div', 'jn-tpaq jn-tskin', gr), tn = T.tieneSkin(pq.skin), im = el('div', 'jn-tskin-im', cs, '<span class="jn-cuad-cargando">…</span>');
+            el('b', 'jn-tnom', cs, esc(pq.n)); el('small', 'jn-tdesc', cs, esc(pq.d));
+            T.miniPremium(function (u) { if (u && im.parentNode) im.innerHTML = '<img class="jn-tskin-img" src="' + u + '">'; else if (im.parentNode) im.textContent = '▣'; });
+            if (tn) { var eq = leer('soldadoSkin', 'estandar') === pq.skin, be = el('button', 'jn-btn', cs, eq ? 'QUITAR (USAR ESTÁNDAR)' : 'EQUIPAR'); be.onclick = function () { guardar('soldadoSkin', eq ? 'estandar' : pq.skin); pintarPanel(); escenario(); }; }
+            else { var bw2 = el('a', 'jn-btn tw', cs, 'COMPRAR POR WHATSAPP'); bw2.href = T.whatsapp(pq); bw2.target = '_blank'; bw2.rel = 'noopener'; }
+            return;
+          }
           var cd = el('div', 'jn-tpaq', gr), ct = el('div', 'jn-tcont', cd);
           el('b', 'jn-tnom', cd, esc(pq.n)); cd.insertBefore(cd.lastChild, ct);
           T.contenido(pq).forEach(function (it) {

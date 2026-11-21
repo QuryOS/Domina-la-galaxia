@@ -14,7 +14,9 @@
     { id: 'minerales_l', n: 'Minerales L', d: '1500 piedra · 500 hierro · 250 cobre · 60 titanio · 12 oro', inv: { piedra: 1500, hierro: 500, cobre: 250, titanio: 60, oro: 12 } },
     { id: 'piezas_s', n: 'Piezas de nave S', d: '40 piezas', inv: { piezas: 40 } },
     { id: 'piezas_l', n: 'Piezas de nave L', d: '200 piezas', inv: { piezas: 200 } },
-    { id: 'dev', n: 'Modo desarrollador', d: 'Todo desbloqueado y construcción gratis', dev: true, oculto: true }
+    { id: 'dev', n: 'Modo desarrollador', d: 'Todo desbloqueado y construcción gratis', dev: true, oculto: true },
+    /* código FIJO (no sale del generador) */
+    { id: 'soldado_premium', n: 'Soldado Premium EC Gamer', d: 'Aspecto exclusivo del soldado (se ve en el lobby)', skin: 'premium', fijo: ['SOLDADOPREMIUNECGAMER', 'SOLDADOPREMIUMECGAMER'] }
   ];
   function h(s, seed) { var x = seed >>> 0; for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x >>> 0; }
   function chk(p) { var a = h(p + SAL, 2166136261), b = h(SAL + p, 0x9e3779b1), v = (a ^ b) >>> 0, r = '', i; for (i = 0; i < 4; i++) { r += ALF[v & 31]; v >>>= 5; } return r; }
@@ -24,7 +26,14 @@
     var p = c.slice(0, 8); if (chk(p) !== c.slice(8)) return null;
     var i = ALF.indexOf(c[0]) * 32 + ALF.indexOf(c[1]), pq = T.PAQUETES[i]; if (!pq) return null; return { paq: pq, serial: c.slice(2, 8) };
   };
+  T.tieneSkin = function (k) { return (leer('skins', []) || []).indexOf(k) >= 0; };
   T.canjear = function (txt) {
+    var nz = String(txt || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), fx = T.PAQUETES.filter(function (q) { return q.fijo && q.fijo.indexOf(nz) >= 0; })[0];
+    if (fx) {
+      if (T.tieneSkin(fx.skin)) return { ok: false, msg: 'Ya tienes el ' + fx.n };
+      var sk = leer('skins', []) || []; sk.push(fx.skin); guardar('skins', sk); guardar('soldadoSkin', fx.skin);
+      return { ok: true, msg: '¡Desbloqueado! ' + fx.n + ' (ya está equipado)', paq: fx };
+    }
     var r = T.leerCodigo(txt); if (!r) return { ok: false, msg: 'Código no válido' };
     var us = leer('codigosUsados', []) || []; if (us.indexOf(r.serial) >= 0) return { ok: false, msg: 'Ese código ya se usó' };
     var pq = r.paq, k, inv, st;
@@ -49,6 +58,17 @@
       if (/muro_piedra|porton_piedra|torreta_futurista/.test(a) && typeof global[{ 'muro_piedra.js': 'createStoneWall', 'porton_piedra.js': 'createGate', 'torreta_futurista.js': 'createTurret' }[a]] === 'function') return sig();
       E.cargarScript(E.CONFIG.rutaEdificios + 'base/' + a, sig, function () { cb(''); });
     })();
+  };
+  T.cargarPremium = function (cb) {   /* carga el modelo premium una sola vez */
+    if (typeof global.createSoldadoPremium === 'function') return cb(true);
+    E.cargarScript(E.CONFIG.rutaPersonajes + 'soldado_premium.js', function () { cb(typeof global.createSoldadoPremium === 'function'); }, function () { cb(false); });
+  };
+  T.miniPremium = function (cb) {
+    T.cargarPremium(function (ok) {
+      if (!ok) return cb('');
+      var api = null; try { api = global.createSoldadoPremium(global.THREE); } catch (e) { return cb(''); }
+      api.listo(function () { cb(E.Iconos.miniatura('soldado_premium', function () { return api.group; }, 200)); });
+    });
   };
   T.whatsapp = function (pq) {
     var id = ''; try { id = E.Amigos && E.Amigos.id ? E.Amigos.id() : ''; } catch (e) { }
