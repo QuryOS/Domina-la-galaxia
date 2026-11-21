@@ -17,6 +17,8 @@
       }
     };
   }
+  global.createBasePiedraC = function (THREE) { return envolver(global.createStoneFoundationSquare(THREE)); };
+  global.createBasePiedraT = function (THREE) { return envolver(global.createStoneFoundationTriangle(THREE)); };
   global.createBaseMetalC = function (THREE) { return envolver(global.createMetalFoundationSquare(THREE)); };
   global.createBaseMetalT = function (THREE) { return envolver(global.createMetalFoundationTriangle(THREE)); };
   global.createBaseDuroC = function (THREE) { return envolver(global.createArmoredFoundationSquare(THREE)); };

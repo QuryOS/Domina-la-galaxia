@@ -7,7 +7,7 @@
   var naveDe = E.naveDe, medidas = E.medidas, obtenerModelo = E.obtenerModelo, cargarScript = E.cargarScript, mostrarCapas = E.mostrarCapas, irA = function (n, d) { return E.irA(n, d); };
 
   var RADIO_BASE = 8000, MAX_EST = 30, HOVER = 90;
-  var DUR = { torreta: 25, planta: 60, extr_min: 40, extr_pet: 40, refineria: 90, complejo: 120, com1: 20, com2: 40, com3: 70, inv1: 25, inv2: 60, pista1: 90, pista2: 150, ciudad: 240, taller1: 70, taller2: 110, astillero: 180, muro: 6, porton: 10, torretaf: 8, base_mc: 5, base_mt: 4, base_dc: 8, base_dt: 6 };   // segundos
+  var DUR = { torreta: 25, planta: 60, extr_min: 40, extr_pet: 40, refineria: 90, complejo: 120, com1: 20, com2: 40, com3: 70, inv1: 25, inv2: 60, pista1: 90, pista2: 150, ciudad: 240, taller1: 70, taller2: 110, astillero: 180, muro: 6, porton: 10, torretaf: 8, base_pc: 4, base_pt: 3, base_mc: 5, base_mt: 4, base_dc: 8, base_dt: 6 };   // segundos
   var CATALOGO = [
     { id: 'planta', nombre: 'Planta de energía de fusión', archivo: 'planta_energia.js', fn: 'createPlantaEnergia', desc: 'Reactor, turbinas y baterías.' },
     { id: 'extr_min', nombre: 'Extractora de minerales', archivo: 'extractora_minerales.js', fn: 'createExtractoraMinerales', desc: 'Saca mineral del suelo.' },
@@ -28,10 +28,12 @@
     { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 10 },
     { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 10 },
     { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 10 },
-    { id: 'base_mc', base: 'c', nombre: 'Base de metal (cuadrada)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalC', desc: 'Cimiento de 50 m. Se encaja con otras bases; encima van muros y edificios.', esc: 50 / 3, escY: 1.9 },
-    { id: 'base_mt', base: 't', nombre: 'Base de metal (triangular)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalT', desc: 'Cimiento triangular de 50 m por lado.', esc: 50 / 3, escY: 1.9 },
-    { id: 'base_dc', base: 'c', nombre: 'Base de metal duro (cuadrada)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroC', desc: 'Cimiento blindado de 50 m.', esc: 50 / 3, escY: 1.9 },
-    { id: 'base_dt', base: 't', nombre: 'Base de metal duro (triangular)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroT', desc: 'Cimiento blindado triangular.', esc: 50 / 3, escY: 1.9 },
+    { id: 'base_pc', base: 'c', lado: 12.5, mejora: 'base_mc', nombre: 'Base de piedra (cuadrada)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraC', desc: 'Cimiento de 12,5 m. Se encaja con otras bases y se mejora a metal y metal duro. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_pt', base: 't', lado: 12.5, mejora: 'base_mt', nombre: 'Base de piedra (triangular)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraT', desc: 'Cimiento triangular de 12,5 m por lado. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_mc', base: 'c', lado: 12.5, mejora: 'base_dc', oculto: true, nombre: 'Base de metal (cuadrada)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalC', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_mt', base: 't', lado: 12.5, mejora: 'base_dt', oculto: true, nombre: 'Base de metal (triangular)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalT', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_dc', base: 'c', lado: 12.5, oculto: true, nombre: 'Base de metal duro (cuadrada)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroC', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_dt', base: 't', lado: 12.5, oculto: true, nombre: 'Base de metal duro (triangular)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroT', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
     { id: 'astillero', nombre: 'Astillero planetario', archivo: 'astillero_planetario.js', fn: 'createAstillero', desc: 'Construye naves en el suelo.' }
   ];
   var PAISAJE = { arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
@@ -92,7 +94,7 @@
     var ed = null, inr = 0, topB = 0;
     if (item.base && api.edges) {   // aristas de la base ya a escala del juego, para encajar bases y muros
       ed = api.edges.map(function (q) { return { x: q.x * esc4, z: q.z * esc4, ang: q.angle, len: q.length * esc4 }; });
-      inr = item.base === 'c' ? 25 : 50 / Math.sqrt(3) / 2; topB = (api.topY || 0.8) * item.escY; r = item.base === 'c' ? 35.4 : 28.9; hw = hd = item.base === 'c' ? 25 : 21;
+      var LD = item.lado || 12.5; inr = item.base === 'c' ? LD / 2 : LD / Math.sqrt(3) / 2; topB = (api.topY || 0.8) * item.escY; r = item.base === 'c' ? LD * 0.7071 : LD / Math.sqrt(3); hw = hd = item.base === 'c' ? LD / 2 : LD * 0.42;
     }
     if (!item.defensa && !item.base) {   // apoya el edificio por su BASE (las mallas anchas de abajo), ignorando fosos, cables o antenas que se salen
       try {
@@ -203,6 +205,7 @@
     })();
   }
   function elegir(item) {
+    if (item.base && !modoPie) { toast('LAS BASES SOLO SE COLOCAN A PIE · PULSA BAJAR A PIE', 2.6); return; }
     if (item.defensa) { if (stockDe(item.id) <= 0) { toast('NO TIENES · CÓMPRALO EN UNA ESTACIÓN', 2.2); return; } if (colocadas.length - nEst() >= MAX_DEF) { toast('LÍMITE DE DEFENSAS'); return; } }
     else { if (item.base ? nBases() >= 150 : nEst() >= MAX_EST) { toast(item.base ? 'LÍMITE DE BASES' : 'LÍMITE DE ' + MAX_EST + ' ESTRUCTURAS'); return; } if (!alcanza(COSTOS[item.id])) { toast('TE FALTAN MATERIALES', 2); return; } }
     quitarGhost(); modoBorrar = false; itemSel = item; ui.panel.classList.remove('on');
@@ -215,7 +218,7 @@
   }
   /* ---- costos de construcción y mantenimiento ---- */
   var N1 = { piedra: 60, hierro: 20, cobre: 10 }, N2 = { piedra: 150, hierro: 60, cobre: 30, titanio: 10, piezas: 10 }, N3 = { piedra: 400, hierro: 150, cobre: 80, titanio: 40, oro: 10, piezas: 30 };
-  var COSTOS = { base_mc: { piedra: 10, hierro: 25 }, base_mt: { piedra: 5, hierro: 13 }, base_dc: { piedra: 20, hierro: 40, titanio: 5 }, base_dt: { piedra: 10, hierro: 20, titanio: 3 }, com1: N1, inv1: N1, pista1: N1, taller1: N1, torreta: { hierro: 20, cobre: 10 }, com2: N2, inv2: N2, pista2: N2, taller2: N2, extr_min: N2, extr_pet: N2, planta: N2, refineria: N2, com3: N3, complejo: N3, ciudad: N3, astillero: N3 };
+  var COSTOS = { base_pc: { piedra: 8 }, base_pt: { piedra: 4 }, base_mc: { hierro: 20, piedra: 4 }, base_mt: { hierro: 10, piedra: 2 }, base_dc: { hierro: 30, titanio: 4 }, base_dt: { hierro: 15, titanio: 2 }, com1: N1, inv1: N1, pista1: N1, taller1: N1, torreta: { hierro: 20, cobre: 10 }, com2: N2, inv2: N2, pista2: N2, taller2: N2, extr_min: N2, extr_pet: N2, planta: N2, refineria: N2, com3: N3, complejo: N3, ciudad: N3, astillero: N3 };
   var DIA = 86400, REGEN = 100 / DIA, DECAY = 100 / (3 * DIA), MAX_OFFLINE = 48 * 3600 * 1000, DIAS_BODEGA = 14;
   function invL() { return leer('inv', {}) || {}; }
   function alcanza(c) { if (!c || jug.pruebas) return true; var iv = invL(), k; for (k in c) if ((iv[k] || 0) < c[k]) return false; return true; }
@@ -287,10 +290,20 @@
     else { toast('EL GUSANO ATACÓ: ' + o.item.nombre.toUpperCase() + ' · ' + Math.round(o.vida) + '%', 2.4); guardarBase(); }
   }
   function repararPasivo() { var i, o, ch = false; for (i = 0; i < colocadas.length; i++) { o = colocadas[i]; if (!o.mant && o.vida != null && o.vida < 100) { o.vida = Math.min(100, o.vida + 0.5); ch = true; } } if (ch && (Date.now() - tGuardar > 30000)) { tGuardar = Date.now(); guardarBase(); } }
+  var vidaJ = 100;
+  function danioJugador(n) {
+    vidaJ -= n; toast(vidaJ > 0 ? 'EL GUSANO TE GOLPEÓ · VIDA ' + Math.max(0, Math.round(vidaJ)) : 'TE DEVORÓ EL GUSANO · REAPARECES', 2.4);
+    if (vidaJ <= 0) { vidaJ = 100; px = 0; pz = 0; pyF = 0; saltoY = 0; fallV = 0; }
+  }
   function iniciarGusanos() {
     if (!E.Gusanos || !pl) return;
-    E.Gusanos.iniciar({ sc: sc, estructuras: function () { return colocadas; }, jugador: function () { return { x: modoPie ? px : fx, z: modoPie ? pz : fz }; }, minero: !(E.ATERRIZABLES && E.ATERRIZABLES[pl.tipo]), aviso: toast, danio: danioEstructura, reparar: repararPasivo });
+    E.Gusanos.iniciar({ sc: sc, estructuras: function () { return colocadas; }, jugador: function () { return { x: modoPie ? px : fx, z: modoPie ? pz : fz }; }, minero: !(E.ATERRIZABLES && E.ATERRIZABLES[pl.tipo]), pie: function () { return modoPie && !sentado; }, danioJugador: danioJugador, aviso: toast, danio: danioEstructura, reparar: repararPasivo });
   }
+  function apuntar(maxD, minD) {   // punto del suelo al que mira la cámara (mirar hacia abajo lo acerca, hacia el horizonte lo aleja)
+    var d = maxD; if (ppit < -0.04) d = clamp((1.7 + pyF) / Math.tan(-ppit), minD, maxD);
+    return { x: px - Math.sin(pyaw) * d, z: pz - Math.cos(pyaw) * d };
+  }
+  var BASE_SOPORTE = false;   // muros y edificios sobre bases (apagado: las bases miden 12,5 m y esas piezas son mucho más grandes)
   function esBase(o) { return !!o.item.base; }
   function rotPt(th, x, z) { var c = Math.cos(th), sn = Math.sin(th); return [x * c + z * sn, -x * sn + z * c]; }
   function aristasDe(o) { var out = [], i, e, p; for (i = 0; i < o.ed.length; i++) { e = o.ed[i]; p = rotPt(o.rot || 0, e.x, e.z); out.push({ x: o.x + p[0], z: o.z + p[1], ang: (o.rot || 0) + e.ang, len: e.len, o: o }); } return out; }
@@ -301,7 +314,7 @@
   }
   function baseBajo(x, z, tol) { for (var i = 0; i < colocadas.length; i++) if (esBase(colocadas[i]) && !(colocadas[i].fin && colocadas[i].fin > Date.now()) && Math.hypot(colocadas[i].x - x, colocadas[i].z - z) < 40 && dentroBase(colocadas[i], x, z, tol == null ? 0 : tol)) return colocadas[i]; return null; }
   function validaBase(x, z, th) {
-    if (Math.hypot(x, z) + 40 > RADIO_BASE || (naveBaja && Math.hypot(x - naveTx, z - naveTz) < pad + 40)) return false;
+    if (Math.hypot(x, z) + ghost.r > RADIO_BASE || (naveBaja && Math.hypot(x - naveTx, z - naveTz) < pad + ghost.r)) return false;
     var i, o; for (i = 0; i < colocadas.length; i++) { o = colocadas[i];
       if (esBase(o)) { if (Math.hypot(o.x - x, o.z - z) < 0.8 * (o.inr + ghost.inr)) return false; continue; }
       if (o.g.position.y > 0.1 || Math.hypot(o.x - x, o.z - z) > o.r + ghost.r + 2) continue;
@@ -313,8 +326,8 @@
     for (i = 0; i < colocadas.length; i++) { b = colocadas[i]; if (!esBase(b)) continue; ar = aristasDe(b);
       for (j = 0; j < ar.length; j++) { e = ar[j]; th = e.ang + Math.PI - e0.ang; p = rotPt(th, e0.x, e0.z); nx = e.x - p[0]; nz = e.z - p[1]; occ = false;
         for (k = 0; k < colocadas.length; k++) if (esBase(colocadas[k]) && Math.hypot(colocadas[k].x - nx, colocadas[k].z - nz) < 0.8 * (colocadas[k].inr + ghost.inr)) { occ = true; break; }
-        if (occ) continue; d = Math.hypot(nx - cx, nz - cz); if (d < 10 * K && d < bd) { bd = d; best = { x: nx, z: nz, th: th }; } } }
-    var x, z, rot; if (best) { x = best.x; z = best.z; rot = best.th; } else { x = Math.round(cx / 5) * 5; z = Math.round(cz / 5) * 5; rot = rotG; }
+        if (occ) continue; d = Math.hypot(nx - cx, nz - cz); if (d < 30 && d < bd) { bd = d; best = { x: nx, z: nz, th: th }; } } }
+    var x, z, rot; if (best) { x = best.x; z = best.z; rot = best.th; } else { x = Math.round(cx / 2) * 2; z = Math.round(cz / 2) * 2; rot = rotG; }
     g.position.set(x, 0, z); g.rotation.y = rot; ghost.okDef = validaBase(x, z, rot); return ghost.okDef;
   }
   function huerfanasBase() {   // lo que estaba sobre una base demolida se retira (muros al stock, edificios devuelven la mitad)
@@ -354,7 +367,7 @@
       for (j = 0; j < ar2.length; j++) { ee = ar2[j]; oc2 = false; for (q = 0; q < colocadas.length; q++) if (esMuro(colocadas[q]) && colocadas[q].g.position.y > 0.1 && Math.hypot(colocadas[q].x - ee.x, colocadas[q].z - ee.z) < 0.3 * K) { oc2 = true; break; }
         d = Math.hypot(ee.x - cx, ee.z - cz); if (!oc2 && d < 10 * K && d < bdB) { bdB = d; bB = ee; } } }
     for (i = 0; i < ex.length; i++) { e = ex[i]; if (e.o.g.position.y > 0.1) continue; f = true; for (j = 0; j < ex.length; j++) if (ex[j].o !== e.o && Math.hypot(ex[j].x - e.x, ex[j].z - e.z) < 0.35 * K) { f = false; break; } d = Math.hypot(e.x - cx, e.z - cz); if (f && d < 10 * K && d < bd) { bd = d; best = e; } }
-    if (bB && bdB <= bd) { g.position.set(bB.x, bB.o.top, bB.z); g.rotation.y = bB.ang; ghost.okDef = true; return true; }
+    if (BASE_SOPORTE && bB && bdB <= bd) { g.position.set(bB.x, bB.o.top, bB.z); g.rotation.y = bB.ang; ghost.okDef = true; return true; }
     var x, z, rot;
     if (best) {
       rot = (best.o.rot || 0) + rotG; var ax = Math.cos(rot) * 2.5 * K, az = -Math.sin(rot) * 2.5 * K, x1 = best.x + ax, z1 = best.z + az, x2 = best.x - ax, z2 = best.z - az, d1 = Math.hypot(x1 - best.o.x, z1 - best.o.z), d2 = Math.hypot(x2 - best.o.x, z2 - best.o.z), u1;
@@ -365,7 +378,7 @@
   function quitarGhost() { if (ghost) { sc.remove(ghost.g); ghost = null; } itemSel = null; }
   function colocar() {
     if (!ghost) return; var x = ghost.g.position.x, z = ghost.g.position.z, df = ghost.item.defensa;
-    if ((df || ghost.item.base) ? !ghost.okDef : !valida(x, z, ghost.r, null, ghost.g.rotation.y, ghost.hw, ghost.hd, baseBajo(x, z, 0))) { toast(df === 'torretaf' ? 'PONLA SOBRE UNA COLUMNA' : 'NO CABE AQUÍ'); return; }
+    if ((df || ghost.item.base) ? !ghost.okDef : !valida(x, z, ghost.r, null, ghost.g.rotation.y, ghost.hw, ghost.hd, BASE_SOPORTE ? baseBajo(x, z, 0) : null)) { toast(df === 'torretaf' ? 'PONLA SOBRE UNA COLUMNA' : 'NO CABE AQUÍ'); return; }
     if (df) { if (stockDe(ghost.item.id) <= 0) { toast('NO TE QUEDAN'); return; } stockMas(ghost.item.id, -1); }
     else { if (!alcanza(COSTOS[ghost.item.id])) { toast('TE FALTAN MATERIALES', 2); return; } gastar(COSTOS[ghost.item.id]); }
     var o = ghost; ghost = null; itemSel = null; o.x = x; o.z = z; o.rot = o.g.rotation.y; try { if (o.api.setGhost) o.api.setGhost(false); } catch (e) { }
@@ -392,7 +405,9 @@
     function hold(t, f) { var b = el('div', 'jn-ico', izq, t); b.addEventListener('pointerdown', function (ev) { f(1); b.setPointerCapture && b.setPointerCapture(ev.pointerId); ev.preventDefault(); }); ['pointerup', 'pointercancel'].forEach(function (n) { b.addEventListener(n, function () { f(0); }); }); return b; }
     hold('⟲', function (v) { bR = v ? -1 : 0; }); hold('⟳', function (v) { bR = v ? 1 : 0; }); hold('＋', function (v) { bZ = v ? -1 : 0; }); hold('－', function (v) { bZ = v ? 1 : 0; });
     ui.barra = el('div', 'jn-pl-barra', L);
-    ui.bCons = el('button', 'jn-btn', ui.barra, 'CONSTRUIR'); ui.bCons.onclick = function () { quitarGhost(); modoBorrar = false; pintarCatalogo(); ui.panel.classList.add('on'); actualizarUI(); };
+    ui.bCons = el('button', 'jn-btn', ui.barra, 'CONSTRUIR'); ui.bCons.onclick = function () { quitarGhost(); modoBorrar = false; catModo = 'c'; pintarCatalogo(); ui.panel.classList.add('on'); actualizarUI(); };
+    ui.bEdif = el('button', 'jn-btn', ui.barra, 'EDIFICACIONES'); ui.bEdif.onclick = function () { quitarGhost(); modoBorrar = false; catModo = 'e'; pintarCatalogo(); ui.panel.classList.add('on'); actualizarUI(); };
+    ui.bMej = el('button', 'jn-btn', ui.barra, 'MEJORAR BASE'); ui.bMej.onclick = function () { mejorarBase(cercaM); };
     ui.bCol = el('button', 'jn-btn jn-grande', ui.barra, 'COLOCAR'); ui.bCol.onclick = colocar;
     ui.bRot = el('button', 'jn-btn', ui.barra, 'GIRAR'); ui.bRot.onclick = function () { rotG += PI / 4; };
     ui.bCan = el('button', 'jn-btn', ui.barra, 'CANCELAR'); ui.bCan.onclick = function () { quitarGhost(); actualizarUI(); };
@@ -445,12 +460,26 @@
     var d = el('div', 'jn-chips', padre), iv = invL(), k;
     for (k in c) { var ok = jug.pruebas || (iv[k] || 0) >= c[k]; el('span', ok ? '' : 'falta', d, E.Iconos.svg(k, 14) + c[k]); }
   }
+  var cercaM = null;
+  function mejorarBase(o) {
+    if (!o || !o.item.mejora) return; var it2 = itemDe(o.item.mejora), co = COSTOS[it2.id];
+    if (!alcanza(co)) { toast('TE FALTAN MATERIALES PARA MEJORAR', 2.2); return; }
+    asegurar(it2, function (ok) {
+      if (!ok) { toast('NO SE PUDO DESCARGAR'); return; } var n = instanciar(it2); if (!n) { toast('ERROR AL CREAR'); return; }
+      gastar(co); n.x = o.x; n.z = o.z; n.rot = o.rot; n.vida = o.vida; n.tm = Date.now(); n.dur = jug.pruebas ? 0 : 10000; n.fin = n.dur ? Date.now() + n.dur : 0;
+      n.g.position.set(o.x, o.g.position.y || 0, o.z); n.g.rotation.y = o.rot; n.g.userData.idx = true; if (n.fin) prepararObra(n);
+      var ix = colocadas.indexOf(o); sc.remove(o.g); sc.add(n.g); colocadas[ix] = n; cercaM = null; iniMant(n); actualizarPilares(); guardarBase(); toast('BASE MEJORADA', 1.6); actualizarUI();
+    });
+  }
+  var catModo = 'c';   // 'c' = CONSTRUIR (bases y defensas) · 'e' = EDIFICACIONES
   function pintarCatalogo() {
     var L = ui.lstCat, sy = L.scrollTop; L.innerHTML = '';
     var cr = el('div', 'jn-cred', L, 'TU INVENTARIO · ' + ['piedra', 'hierro', 'cobre', 'titanio', 'oro', 'piezas'].map(function (k) { return E.Iconos.svg(k, 16) + (invL()[k] || 0); }).join('  ')); cr.style.fontSize = '13px';
     if (jug.pruebas) el('div', 'jn-lb-nota', L, 'Modo pruebas: construir no cuesta materiales.');
     var g = el('div', 'jn-grid jn-grid-cat', L);
+    el('div', 'jn-lb-nota', L, catModo === 'c' ? 'Bases (empiezan de piedra y se mejoran a metal y metal duro) y defensas. Las bases solo se colocan a pie.' : 'Edificios y edificaciones.');
     CATALOGO.forEach(function (it) {
+      if (it.oculto || (!!(it.base || it.defensa)) !== (catModo === 'c')) return;
       var c = E.Iconos.cuadro(g, { html: '<span class="jn-cuad-cargando">…</span>', titulo: it.nombre, sub: it.desc }), im = c.querySelector('.jn-cuad-im');
       miniDe(it, function (url) { if (url && im && im.parentNode) { var i = new Image(); i.src = url; i.className = 'jn-cuad-img'; im.insertBefore(i, im.firstChild); var w = im.querySelector('.jn-cuad-cargando'); if (w) w.remove(); } });
       var b;
@@ -483,7 +512,7 @@
     if (!ui) return; var pon = !!(ghost || itemSel), pie = modoPie, sen = !!sentado;
     function vis(b, v) { b.style.display = v ? '' : 'none'; }
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
-    vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !pon && !modoBorrar && !sen); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
+    vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !pon && !modoBorrar && !sen); vis(ui.bEdif, !pon && !modoBorrar && !sen); vis(ui.bMej, !!cercaM && pie && !pon && !sen); if (cercaM && cercaM.item.mejora) { var cm2 = COSTOS[cercaM.item.mejora]; ui.bMej.textContent = 'MEJORAR A ' + itemDe(cercaM.item.mejora).nombre.split('(')[0].replace('Base de ', '').toUpperCase().trim(); } vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
     vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, !pie && !pon); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
     vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bVol, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
     vis(ui.bRec, sen); vis(ui.bFue, sen); vis(ui.mira, pie); ui.tor.style.display = sen ? 'grid' : 'none'; if (!sen) { ui.mira.style.left = ui.mira.style.top = ''; tIx = tIy = 0; } ui.izq.style.display = pie ? 'none' : '';
@@ -706,9 +735,10 @@
     var mvx = 0, mvz = 0; if (mag > 0.05) { mvx = (-sn * (-ay) + cs * ax) * v / mag * dt; mvz = (-cs * (-ay) - sn * ax) * v / mag * dt; }
     moverConColision(mvx, mvz, dt);
     var d0 = Math.hypot(px, pz); if (d0 > RADIO_BASE + 200) { px *= (RADIO_BASE + 200) / d0; pz *= (RADIO_BASE + 200) / d0; }
-    cercaT = null; cercaG = null; cercaB = null;
+    cercaT = null; cercaG = null; cercaB = null; var cmN = null;
     for (i = 0; i < colocadas.length; i++) {
       o = colocadas[i]; var dx = px - o.x, dz = pz - o.z, dd = Math.hypot(dx, dz) || 0.01;
+      if (o.item.base && o.item.mejora && !o.fin && dd < o.r + 2 && (!cmN || dd < cmN._dm)) { o._dm = dd; cmN = o; }
       if (o.mant && !o.fin && dd < o.r + 10 && !(cercaB && cercaB._d < dd)) { o._d = dd; cercaB = o; }
       if (o.item.defensa) { if (esMuro(o) && !o.fin && dd < 9 * K && saltoY < 3) { if (o.item.defensa === 'porton' && dd < 5.5 * K) cercaG = o; choqueDefensa(o, dx, dz); } continue; }
       if (o.item.arma && !o.fin && dd < 6.5) cercaT = o;
@@ -717,6 +747,7 @@
     }
     if (naveBaja && naveY < 8) { var dn = Math.hypot(px - naveX, pz - naveZ), ln = pad * 0.55; if (dn < ln) { px = naveX + (px - naveX) / (dn || 1) * ln; pz = naveZ + (pz - naveZ) / (dn || 1) * ln; } }
     panelEdificio();
+    if (cmN !== cercaM) { cercaM = cmN; actualizarUI(); }
     if (!!(cercaT || cercaG || cercaB) !== !!ui._ct) { ui._ct = !!(cercaT || cercaG || cercaB); actualizarUI(); }
     jetOn = volar && jet > 0.01 && !sentado;
     if (jetOn) { saltoV = Math.min(saltoV + 34 * dt, 7.5); jet = Math.max(0, jet - 0.22 * dt); }
@@ -724,7 +755,7 @@
     ui.bVol.style.background = 'linear-gradient(to top,rgba(0,200,255,.75) ' + Math.round(jet * 100) + '%,rgba(20,30,50,.6) ' + Math.round(jet * 100) + '%)';
     if (manosPie) { var fl = manosPie.llamas; if (fl) { fl[0].visible = fl[1].visible = jetOn; if (jetOn) { var fs = 0.8 + Math.random() * 0.5; fl[0].scale.set(1, fs, 1); fl[1].scale.set(1, fs, 1); } } }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
-    if (golpeT > 0) golpeT -= dt;
+    if (golpeT > 0) golpeT -= dt; if (vidaJ < 100) vidaJ = Math.min(100, vidaJ + dt * 2);
     cam.position.set(px - Math.sin(pyaw) * 0.1, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY + Math.sin(t * (correr ? 11 : 7)) * 0.03 * mag, pz - Math.cos(pyaw) * 0.1); cam.rotation.set(ppit, pyaw, 0, 'YXZ'); animarManos(t, dt, mag);
     if (ui.est.textContent.indexOf('Munición') === 0) ui.est.textContent = '';
   }
@@ -770,9 +801,9 @@
       yaw += bR * dt * 1.2; dist = clamp(dist * (1 + bZ * dt * 1.4), 25, 4000);
       if (ghost) {
         var gx = Math.round(fx / 2) * 2, gz = Math.round(fz / 2) * 2, ok;
-        if (ghost.item.defensa) ok = posDefensa(modoPie ? px - Math.sin(pyaw) * 5 * K : fx, modoPie ? pz - Math.cos(pyaw) * 5 * K : fz);
-        else if (ghost.item.base) ok = posBase(modoPie ? px - Math.sin(pyaw) * 5 * K : fx, modoPie ? pz - Math.cos(pyaw) * 5 * K : fz);
-        else { if (modoPie) { gx = Math.round((px - Math.sin(pyaw) * 14) / 2) * 2; gz = Math.round((pz - Math.cos(pyaw) * 14) / 2) * 2; } var sbj = baseBajo(gx, gz, 0); ghost.g.position.set(gx, sbj ? sbj.top : 0, gz); ghost.g.rotation.y = rotG; ok = valida(gx, gz, ghost.r, null, rotG, ghost.hw, ghost.hd, sbj); }
+        if (ghost.item.defensa) { var ap1 = modoPie ? apuntar(5 * K, 2 * K) : { x: fx, z: fz }; ok = posDefensa(ap1.x, ap1.z); }
+        else if (ghost.item.base) { var ap2 = modoPie ? apuntar(25, 4) : { x: fx, z: fz }; ok = posBase(ap2.x, ap2.z); }
+        else { if (modoPie) { var ap3 = apuntar(30, 6); gx = Math.round(ap3.x / 2) * 2; gz = Math.round(ap3.z / 2) * 2; } var sbj = BASE_SOPORTE ? baseBajo(gx, gz, 0) : null; ghost.g.position.set(gx, sbj ? sbj.top : 0, gz); ghost.g.rotation.y = rotG; ok = valida(gx, gz, ghost.r, null, rotG, ghost.hw, ghost.hd, sbj); }
         try { if (ghost.api.setGhost) ghost.api.setGhost(true, ok); } catch (e) { }
         ui.bCol.disabled = !ok; ui.bCol.style.opacity = ok ? 1 : 0.4;
       }
