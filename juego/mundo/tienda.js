@@ -16,7 +16,7 @@
     { id: 'piezas_l', n: 'Piezas de nave L', d: '200 piezas', inv: { piezas: 200 } },
     { id: 'dev', n: 'Modo desarrollador', d: 'Todo desbloqueado y construcción gratis', dev: true, oculto: true },
     /* código FIJO (no sale del generador) */
-    { id: 'soldado_premium', n: 'Soldado Premium EC Gamer', d: 'Aspecto exclusivo del soldado (se ve en el lobby)', skin: 'premium', fijo: ['SOLDADOPREMIUNECGAMER', 'SOLDADOPREMIUMECGAMER'] }
+    { id: 'soldado_premium', n: 'Soldado Premium EC Gamer', d: 'Aspecto exclusivo del soldado (se ve en el lobby)', skin: 'premium', fijo: ['ECGAMER', 'SOLDADOPREMIUNECGAMER', 'SOLDADOPREMIUMECGAMER'] }
   ];
   function h(s, seed) { var x = seed >>> 0; for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x >>> 0; }
   function chk(p) { var a = h(p + SAL, 2166136261), b = h(SAL + p, 0x9e3779b1), v = (a ^ b) >>> 0, r = '', i; for (i = 0; i < 4; i++) { r += ALF[v & 31]; v >>>= 5; } return r; }

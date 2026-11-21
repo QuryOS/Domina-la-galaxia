@@ -196,7 +196,7 @@
           var bw = el('a', 'jn-btn tw', cd, 'COMPRAR POR WHATSAPP'); bw.href = T.whatsapp(pq); bw.target = '_blank'; bw.rel = 'noopener';
         });
         el('div', 'jn-lb-sub', cont, 'CANJEAR CÓDIGO');
-        var fc = el('div', 'jn-fila', cont), ic = el('input', 'jn-in', fc); ic.placeholder = 'XXXX-XXXX-XXXX'; ic.maxLength = 14; ic.autocapitalize = 'characters';
+        var fc = el('div', 'jn-fila', cont), ic = el('input', 'jn-in', fc); ic.placeholder = 'XXXX-XXXX-XXXX'; ic.maxLength = 40; ic.autocapitalize = 'characters';
         var bc = el('button', 'jn-btn', fc, 'CANJEAR'), rc = el('div', 'jn-lb-nota', cont, '');
         bc.onclick = function () { var r = T.canjear(ic.value); rc.textContent = r.msg; rc.style.color = r.ok ? '#8fe3a0' : '#ff9a9a'; if (r.ok) { ic.value = ''; } };
       } else if (tab === 'amigos') pintarAmigos(cont);
