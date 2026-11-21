@@ -82,7 +82,8 @@
       if (modeloAct && modeloAct.setAccent) { try { modeloAct.setAccent(jug.acento); } catch (e2) { } }
       for (var i in cache) { try { if (cache[i].setAccent) cache[i].setAccent(jug.acento); } catch (e3) { } }
     }
-    var escPrem = null;
+    var escPrem = null, animS = null, animP = null;
+    function nuevaAnim(u) { try { return global.AnimHombre ? global.AnimHombre.nuevo(global.AnimHombre.adaptar(u)) : null; } catch (ea) { if (global.console) console.error('Anim', ea); return null; } }
     function quitarEscena() { if (escalar) { girar.remove(escalar); escalar = null; } if (escSoldado) { girar.remove(escSoldado); } if (escPrem) { girar.remove(escPrem); } }
 
     /* ---- qué se ve en el centro: el soldado (inicio, tienda, ajustes) o la nave (naves, arsenal, motores) ---- */
@@ -90,7 +91,7 @@
       quitarEscena(); modeloAct = null;
       if (E.Tienda && E.Tienda.tieneSkin('premium') && leer('soldadoSkin', 'estandar') === 'premium') {   // aspecto premium (estático)
         if (!escPrem && typeof global.createSoldadoPremium === 'function') {
-          try { var pr = global.createSoldadoPremium(THREE), H = 7.6; escPrem = new THREE.Group(); escPrem.scale.setScalar(H / pr.alto); pr.group.position.y = -pr.alto / 2; escPrem.add(pr.group); escPrem.userData.alto = H; } catch (ep) { escPrem = null; }
+          try { var pr = global.createSoldadoPremium(THREE), H = 7.6; escPrem = new THREE.Group(); escPrem.scale.setScalar(H / pr.alto); pr.group.position.y = -pr.alto / 2; escPrem.add(pr.group); escPrem.userData.alto = H; animP = nuevaAnim(pr); } catch (ep) { escPrem = null; }
         }
         if (escPrem) { girar.add(escPrem); plataforma.position.y = -escPrem.userData.alto / 2 - 0.25; return true; }
         else if (E.Tienda && typeof global.createSoldadoPremium !== 'function') E.Tienda.cargarPremium(function (ok) { if (ok && tab !== 'naves') { escenario(); } });
@@ -102,6 +103,7 @@
           var b = new THREE.Box3().setFromObject(w), s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), k = 8.6 / (s.y || 1);
           escSoldado = new THREE.Group(); escSoldado.scale.setScalar(k); w.position.copy(c).multiplyScalar(-1); escSoldado.add(w); escSoldado.userData.alto = s.y * k;
           try { soldado.setAccent(jug.acento); } catch (e2) { }
+          animS = nuevaAnim(soldado);
         }
       }
       if (soldado && escSoldado) { girar.add(escSoldado); plataforma.position.y = -escSoldado.userData.alto / 2 - 0.25; return true; }
@@ -399,6 +401,7 @@
         if (!sc) return;
         if (!arr) { vel += (0.25 - vel) * Math.min(1, dt * 1.5); girar.rotation.y += vel * dt; }
         cielo.rotation.y += dt * 0.008;
+        var an = escPrem && escPrem.parent ? animP : (escSoldado && escSoldado.parent ? animS : null); if (an) an.update(dt, 'idle');
         if (modeloAct) actualizarModelo(modeloAct, t, 0.35 + 0.1 * Math.sin(t * 1.3));
         E.renderer.render(sc, cam);
       }

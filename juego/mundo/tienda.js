@@ -70,7 +70,7 @@
     T.cargarPremium(function (ok) {
       if (!ok) return cb('');
       var api = null; try { api = global.createSoldadoPremium(global.THREE); } catch (e) { return cb(''); }
-      api.listo(function () { cb(E.Iconos.miniatura('soldado_premium', function () { return api.group; }, 200)); });
+      api.listo(function () { try { if (global.AnimHombre) { var an0 = global.AnimHombre.nuevo(global.AnimHombre.adaptar(api)); for (var q = 0; q < 30; q++) an0.update(0.05, 'idle'); } } catch (ea) { } cb(E.Iconos.miniatura('soldado_premium', function () { return api.group; }, 200)); });
     });
   };
   T.miniPerro = function (cb) {
