@@ -75,9 +75,9 @@
     function construirHUD() {
       var L = DOMcapas.hud; L.innerHTML = '';
       beaconG = el('canvas', '', L); beaconG.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none';
-      var hi = el('div', 'jn-hi', L); hud.nom = el('div', 'n', hi); hud.vel = el('div', 'v', hi, '0 <small>m/s</small>');
+      var hi = el('div', 'jn-hi', L); hi.setAttribute('data-ctl', 'info'); hud.nom = el('div', 'n', hi); hud.vel = el('div', 'v', hi, '0 <small>m/s</small>');
       hud.mv = el('div', 'jn-mini', hi, '<i></i>'); hud.mt = el('div', 'jn-mini t', hi, '<i></i>'); hud.comb = el('div', '', hi, ''); hud.comb.style.cssText = 'font-size:11px;letter-spacing:1px;opacity:.9;margin-top:2px'; hud.estado = el('div', '', hi, ''); hud.inv = el('div', '', hi, ''); hud.inv.style.cssText = 'margin-top:6px;font-size:12px;line-height:1.5;max-width:230px'; hud.estado.style.cssText = 'margin-top:6px;opacity:.8';
-      hud.hd = el('div', 'jn-hd', L);
+      hud.hd = el('div', 'jn-hd', L); hud.hd.setAttribute('data-ctl', 'coords');
       hud.pausa = el('div', 'jn-ico jn-pausa', L, '❚❚'); hud.pausa.onclick = function () { pausar(true); };
       hud.mapa = el('div', 'jn-pmenu jn-mapa', L, '');
       var rc = el('canvas', 'jn-radar', L); rc.style.width = radarS + 'px'; rc.style.height = radarS + 'px'; hud.radar = rc; rc.style.pointerEvents = 'auto'; rc.style.cursor = 'pointer'; rc.onclick = function () { abrirMapa(); };
