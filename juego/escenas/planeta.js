@@ -95,6 +95,26 @@
     var raiz = new THREE.Group(); raiz.add(w); sc.add(raiz);
     return { item: item, api: api, g: raiz, r: r, hw: hw, hd: hd };
   }
+  /* ---- obra por partes: la estructura aparece pieza a pieza (cimientos y piezas grandes primero, detalles al final). Solo edificios y torreta antigua. ---- */
+  function prepararObra(o) {
+    if (o.item.defensa || !o.g) return; var lst = [], bb = new THREE.Box3(), sz = new THREE.Vector3(), i, mx = 1e-6, y0 = Infinity, y1 = -Infinity, fl = 0;
+    o.g.scale.y = 1; o.g.updateMatrixWorld(true);
+    o.g.traverse(function (m) {
+      if (!(m.isMesh || m.isPoints || m.isLine) || !m.visible) return; bb.setFromObject(m); if (!isFinite(bb.min.x) || !isFinite(bb.max.x)) return;
+      bb.getSize(sz); var v = sz.x * sz.y * sz.z + 1e-6; if (v > mx) mx = v; if (bb.min.y < y0) y0 = bb.min.y; if (bb.max.y > y1) y1 = bb.max.y; fl = Math.max(fl, sz.x, sz.z);
+      lst.push({ m: m, v: v, y: bb.min.y, d: Math.max(sz.x, sz.y, sz.z) });
+    });
+    var H = Math.max(1e-3, y1 - y0);
+    lst.forEach(function (q, k) { q.k = (q.d < fl * 0.04 ? 1e6 : 0) + Math.min(5, Math.floor((q.y - y0) / H * 6)) * 1e3 - Math.min(999, q.v / mx * 999) + ((k * 7919) % 13) * 0.01; });
+    lst.sort(function (a, b) { return a.k - b.k; });
+    for (i = 0; i < lst.length; i++) lst[i].m.visible = false;
+    o._ob = { lst: lst, n: 0 };
+  }
+  function avanceObra(o, pr) {
+    var ob = o._ob; if (!ob) return; var t = Math.min(ob.lst.length, Math.max(1, Math.ceil(clamp(pr, 0, 1) * ob.lst.length)));
+    while (ob.n < t) ob.lst[ob.n++].m.visible = true;
+  }
+  function terminarObra(o) { var ob = o._ob; if (!ob) return; for (var i = 0; i < ob.lst.length; i++) ob.lst[i].m.visible = true; o._ob = null; }
   function chocaRect(ax, az, aa, ahw, ahd, bx, bz, ba, bhw, bhd) {   // dos rectángulos orientados (SAT)
     var A = [[Math.cos(aa), -Math.sin(aa)], [Math.sin(aa), Math.cos(aa)]], B = [[Math.cos(ba), -Math.sin(ba)], [Math.sin(ba), Math.cos(ba)]], dx = bx - ax, dz = bz - az, i, k, ej, pa, pb, d, L;
     var ejes = [A[0], A[1], B[0], B[1]];
@@ -138,7 +158,7 @@
       if (!pl || i >= lst.length) { actualizarPilares(); actualizarUI(); return; }
       var e = lst[i++], item = itemDe(e.i); if (!item) return sig();
       asegurar(item, function (ok) {
-        if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = leer('rapido', false) ? 0 : (e.fin || 0); o.dur = e.dur || 0; o.vida = e.v; o.bod = e.b; o.tm = e.tm; iniMant(o); if (o.mant) { o.vida = o.vida == null ? 100 : o.vida; tickMant(o, Math.min(Date.now(), o.tm + MAX_OFFLINE)); o.tm = Date.now(); } o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
+        if (ok && pl) { var o = instanciar(item); if (o) { o.x = e.x; o.z = e.z; o.rot = e.r || 0; o.fin = jug.pruebas ? 0 : (e.fin || 0); o.dur = e.dur || 0; if (o.fin && o.fin > Date.now() && o.dur) prepararObra(o); o.vida = e.v; o.bod = e.b; o.tm = e.tm; iniMant(o); if (o.mant) { o.vida = o.vida == null ? 100 : o.vida; tickMant(o, Math.min(Date.now(), o.tm + MAX_OFFLINE)); o.tm = Date.now(); } o.g.position.set(o.x, e.y || 0, o.z); o.g.rotation.y = o.rot; o.g.userData.idx = true; colocadas.push(o); } }
         setTimeout(sig, 0);
       });
     })();
@@ -217,7 +237,7 @@
     if (df) { if (stockDe(ghost.item.id) <= 0) { toast('NO TE QUEDAN'); return; } stockMas(ghost.item.id, -1); }
     else { if (!alcanza(COSTOS[ghost.item.id])) { toast('TE FALTAN MATERIALES', 2); return; } gastar(COSTOS[ghost.item.id]); }
     var o = ghost; ghost = null; itemSel = null; o.x = x; o.z = z; o.rot = o.g.rotation.y; try { if (o.api.setGhost) o.api.setGhost(false); } catch (e) { }
-    o.dur = jug.pruebas ? 0 : (DUR[o.item.id] || 30) * 1000; o.fin = o.dur ? Date.now() + o.dur : 0; if (o.dur) o.g.scale.y = 0.04;
+    o.dur = jug.pruebas ? 0 : (DUR[o.item.id] || 30) * 1000; o.fin = o.dur ? Date.now() + o.dur : 0; if (o.dur) prepararObra(o);
     iniMant(o); colocadas.push(o); actualizarPilares(); guardarBase(); toast(o.dur ? 'CONSTRUYENDO · ' + Math.round(o.dur / 1000) + ' s' : 'CONSTRUIDO', 1.4); actualizarUI();
   }
   function estructuraEn(px, py) {
@@ -518,7 +538,7 @@
       o = colocadas[i]; if (o === sentado) continue;
       dx = o.x - cx; dz = o.z - cz; dd = Math.sqrt(dx * dx + dz * dz) || 1;
       k = dd > o.r * 2 + 1500 ? 8 : (dd > o.r * 1.2 && (dx * camFx + dz * camFz) < -0.25 * dd) ? 4 : 2;   // lejos o a tu espalda: se actualiza menos
-      if ((frN + i) % k === 0) { try { o.api.update(t); } catch (e2) { } }
+      if ((frN + i) % k === 0 && !o._ob) { try { o.api.update(t); } catch (e2) { } }
       if (frN % 6 === (i % 6) && !o.item.arma && !(o.fin && o.fin > ahora)) {   // LOD de piezas pequeñas
         L = lodDe(o);
         for (j = 0; j < L.length; j++) {
@@ -632,7 +652,7 @@
       for (i = 0; i < colocadas.length; i++) { var gt = colocadas[i]; if (gt.item.defensa === 'porton' && !gt.fin) { var tg = gt.abierto ? 1 : 0, ov0 = gt.ov || 0; if (ov0 !== tg) { gt.ov = ov0 + clamp(tg - ov0, -dt * 0.9, dt * 0.9); try { gt.api.setOpen(gt.ov); } catch (eg) { } } } }
       var now = Date.now(), prox = null, pr;
       tMant -= dt; if (tMant <= 0) { tMant = 2; for (i = 0; i < colocadas.length; i++) tickMant(colocadas[i], now); if (mantO) pintarMant(); tGuardar += 2; if (tGuardar >= 30) { tGuardar = 0; guardarBase(); } }
-      for (i = 0; i < colocadas.length; i++) { var c = colocadas[i]; if (c.fin) { if (now >= c.fin) { c.fin = 0; c.g.scale.y = 1; c.g.updateMatrixWorld(true); c._cj = null; cm.x = 1e9; guardarBase(); toast('TERMINADA: ' + c.item.nombre.toUpperCase(), 2); } else { pr = 1 - (c.fin - now) / c.dur; c.g.scale.y = 0.04 + 0.96 * pr; if (!prox || c.fin < prox.fin) prox = c; } } }
+      for (i = 0; i < colocadas.length; i++) { var c = colocadas[i]; if (c.fin) { if (now >= c.fin) { c.fin = 0; terminarObra(c); c.g.scale.y = 1; c.g.updateMatrixWorld(true); c._cj = null; cm.x = 1e9; guardarBase(); toast('TERMINADA: ' + c.item.nombre.toUpperCase(), 2); } else { pr = 1 - (c.fin - now) / c.dur; if (c._ob) avanceObra(c, pr); else c.g.scale.y = 0.04 + 0.96 * pr; if (!prox || c.fin < prox.fin) prox = c; } } }
       avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }
       if (ghost) { rejilla.position.set(Math.round(ghost.g.position.x / 20) * 20, 0.5, Math.round(ghost.g.position.z / 20) * 20); }
       if (modoPie) actualizarPie(dt, t); else camara(); if (tToast > 0) { tToast -= dt; if (tToast <= 0) ui.toast.style.opacity = 0; }
