@@ -28,12 +28,12 @@
     { id: 'muro', defensa: 'muro', nombre: 'Muro de piedra', archivo: ['muro_piedra.js', 'defensas.js'], fn: 'createDefMuro', desc: 'Columna + pared + columna. Se encaja solo con los demás muros.', esc: 10 },
     { id: 'porton', defensa: 'porton', nombre: 'Portón de piedra y metal', archivo: ['porton_piedra.js', 'defensas.js'], fn: 'createDefPorton', desc: 'Igual que un muro, con dos hojas que se abren con USAR.', esc: 10 },
     { id: 'torretaf', defensa: 'torretaf', nombre: 'Torreta futurista', archivo: ['torreta_futurista.js', 'defensas.js'], fn: 'createDefTorretaF', desc: 'Se coloca sobre la columna de un muro o portón.', esc: 10 },
-    { id: 'base_pc', base: 'c', lado: 12.5, mejora: 'base_mc', nombre: 'Base de piedra (cuadrada)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraC', desc: 'Cimiento de 12,5 m. Se encaja con otras bases y se mejora a metal y metal duro. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_pt', base: 't', lado: 12.5, mejora: 'base_mt', nombre: 'Base de piedra (triangular)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraT', desc: 'Cimiento triangular de 12,5 m por lado. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_mc', base: 'c', lado: 12.5, mejora: 'base_dc', oculto: true, nombre: 'Base de metal (cuadrada)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalC', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_mt', base: 't', lado: 12.5, mejora: 'base_dt', oculto: true, nombre: 'Base de metal (triangular)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalT', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_dc', base: 'c', lado: 12.5, oculto: true, nombre: 'Base de metal duro (cuadrada)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroC', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
-    { id: 'base_dt', base: 't', lado: 12.5, oculto: true, nombre: 'Base de metal duro (triangular)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroT', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_pc', req: 'createStoneFoundationSquare', base: 'c', lado: 12.5, mejora: 'base_mc', nombre: 'Base de piedra (cuadrada)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraC', desc: 'Cimiento de 12,5 m. Se encaja con otras bases y se mejora a metal y metal duro. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_pt', req: 'createStoneFoundationTriangle', base: 't', lado: 12.5, mejora: 'base_mt', nombre: 'Base de piedra (triangular)', archivo: ['base_piedra.js', 'bases.js'], fn: 'createBasePiedraT', desc: 'Cimiento triangular de 12,5 m por lado. Solo a pie.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_mc', req: 'createMetalFoundationSquare', base: 'c', lado: 12.5, mejora: 'base_dc', oculto: true, nombre: 'Base de metal (cuadrada)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalC', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_mt', req: 'createMetalFoundationTriangle', base: 't', lado: 12.5, mejora: 'base_dt', oculto: true, nombre: 'Base de metal (triangular)', archivo: ['base_metal.js', 'bases.js'], fn: 'createBaseMetalT', desc: 'Mejora de la base de piedra.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_dc', req: 'createArmoredFoundationSquare', base: 'c', lado: 12.5, oculto: true, nombre: 'Base de metal duro (cuadrada)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroC', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
+    { id: 'base_dt', req: 'createArmoredFoundationTriangle', base: 't', lado: 12.5, oculto: true, nombre: 'Base de metal duro (triangular)', archivo: ['base_metal_duro.js', 'bases.js'], fn: 'createBaseDuroT', desc: 'Mejora final.', esc: 12.5 / 3, escY: 1.9 },
     { id: 'astillero', nombre: 'Astillero planetario', archivo: 'astillero_planetario.js', fn: 'createAstillero', desc: 'Construye naves en el suelo.' }
   ];
   /* [color del suelo, cielo, estilo de suelo, color del mar (si tiene océano), color del sol] */
@@ -103,11 +103,12 @@
   /* ---- estructuras ---- */
   function itemDe(id) { for (var i = 0; i < CATALOGO.length; i++) if (CATALOGO[i].id === id) return CATALOGO[i]; return null; }
   function asegurar(item, ok) {
-    if (typeof global[item.fn] === 'function') return ok(true);
+    function listo() { return typeof global[item.fn] === 'function' && (!item.req || typeof global[item.req] === 'function'); }
+    if (listo()) return ok(true);
     cargando = item.nombre; if (ui) ui.est.textContent = 'Descargando ' + item.nombre + '…';
     var arch = [].concat(item.archivo), k = 0;
     (function sig() {
-      if (k >= arch.length) { cargando = ''; ok(typeof global[item.fn] === 'function'); return; }
+      if (k >= arch.length) { cargando = ''; ok(listo()); return; }
       var a = arch[k++]; cargarScript(CONFIG.rutaEdificios + 'base/' + a, sig, function () { cargando = ''; ok(false); });
     })();
   }

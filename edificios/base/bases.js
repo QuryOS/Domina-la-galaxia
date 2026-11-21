@@ -31,17 +31,16 @@
   }
   function envolver(THREE, root) {
     try { fusionar(THREE, root); } catch (ef) { if (global.console) console.error('fusionar base', ef); }
-    var mats = [], orig = [];
-    root.traverse(function (m) { if (m.isMesh && m.material) { (Array.isArray(m.material) ? m.material : [m.material]).forEach(function (q) { if (mats.indexOf(q) < 0) { mats.push(q); orig.push({ c: q.emissive ? q.emissive.getHex() : 0, i: q.emissiveIntensity }); } }); } });
+    var S = 3, TOP = root.userData.topY || 0.8, gg;   // el "fantasma" es un solo bloque simple: dibujar la base entera transparente (miles de caras superpuestas) es lo que mataba los FPS
+    if (root.userData.shape === 'triangle') { var Rr = S / Math.sqrt(3), sh = new THREE.Shape(); sh.moveTo(0, -Rr); sh.lineTo(S / 2, Rr / 2); sh.lineTo(-S / 2, Rr / 2); gg = new THREE.ExtrudeGeometry(sh, { depth: TOP, bevelEnabled: false }); gg.rotateX(-Math.PI / 2); }
+    else { gg = new THREE.BoxGeometry(S, TOP, S); gg.translate(0, TOP / 2, 0); }
+    var gm = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0x25ff7a, transparent: true, opacity: 0.5, depthWrite: false })); gm.visible = false; gm.name = 'base_fantasma'; root.add(gm);
     return {
       group: root, edges: root.userData.edges, shape: root.userData.shape, topY: root.userData.topY,
       update: function () { }, setAccent: function () { },
       setGhost: function (on, valid) {
-        mats.forEach(function (q, k) {
-          if (q.transparent !== !!on) q.needsUpdate = true;   // solo recompila el shader cuando cambia de sólido a fantasma
-          q.transparent = !!on; q.opacity = on ? 0.45 : 1; q.depthWrite = !on;
-          if (q.emissive) { if (on) { q.emissive.setHex(valid === false ? 0xff2a2a : 0x25ff7a); q.emissiveIntensity = 0.5; } else { q.emissive.setHex(orig[k].c); q.emissiveIntensity = orig[k].i; } }
-        });
+        root.children.forEach(function (c) { if (c !== gm && c.isMesh && c.name !== 'colision_base') c.visible = !on; });
+        gm.visible = !!on; if (on) gm.material.color.setHex(valid === false ? 0xff2a2a : 0x25ff7a);
       }
     };
   }
