@@ -480,7 +480,7 @@
     ui.panel = el('div', 'jn-pmenu jn-pl-panel', L, ''); var cab = el('div', 'jn-pl-cab', ui.panel); el('b', '', cab, 'ESTRUCTURAS'); var x = el('button', 'jn-mapa-x', ui.panel, '✕'); x.onclick = function () { ui.panel.classList.remove('on'); };
     ui.lstCat = el('div', 'jn-fl-lista', ui.panel);
     ui.mant = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, ''); ui.perro = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, '');
-    [['p_cons', ui.bCons], ['p_col', ui.bCol], ['p_rot', ui.bRot], ['p_can', ui.bCan], ['p_demoler', ui.bBor], ['p_nave', ui.bNave], ['p_despegar', ui.bDes], ['p_pie', ui.bPie], ['p_correr', ui.bCor], ['p_usar', ui.bUsar], ['p_saltar', ui.bSal], ['p_golpe', ui.bGol], ['p_volar', ui.bVol], ['p_disparar', ui.bFue], ['p_torreta', ui.tor], ['p_zoom', ui.izq], ['p_recargar', ui.bRec], ['p_sen', ui.bSen], ['p_edif', ui.bEdif], ['p_mej', ui.bMej], ['p_salc', ui.bSalC], ['p_ter', ui.bTer]].forEach(function (q) { if (q[1]) q[1].setAttribute('data-ctl', q[0]); });
+    [['p_cons', ui.bCons], ['p_col', ui.bCol], ['p_rot', ui.bRot], ['p_can', ui.bCan], ['p_demoler', ui.bBor], ['p_nave', ui.bNave], ['p_despegar', ui.bDes], ['p_pie', ui.bPie], ['p_correr', ui.bCor], ['p_usar', ui.bUsar], ['p_saltar', ui.bSal], ['p_golpe', ui.bGol], ['p_volar', ui.bVol], ['p_disparar', ui.bFue], ['p_torreta', ui.tor], ['p_zoom', ui.izq], ['p_recargar', ui.bRec], ['p_sen', ui.bSen], ['p_edif', ui.bEdif], ['p_perro', ui.bPerro], ['p_mej', ui.bMej], ['p_salc', ui.bSalC], ['p_ter', ui.bTer]].forEach(function (q) { if (q[1]) q[1].setAttribute('data-ctl', q[0]); });
     E.aplicarLayout(L);
   }
   var colaMini = [], miniOn = false;

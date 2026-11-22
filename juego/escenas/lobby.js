@@ -215,7 +215,7 @@
     /* ---- editor de controles: arrastra cada control; toca uno para elegirlo y cambiar su tamaño ---- */
     var NOMBRES_CTL = { fuego: 'FUEGO', agarrar: 'AGARRAR', turbo: 'TURBO', freno: 'FRENO', auto: 'PILOTO AUTOMÁTICO', acel: 'ACELERADOR', radar: 'MINIMAPA (radar)', info: 'INFO DE NAVEGACIÓN (combustible, km…)', coords: 'COORDENADAS Y FPS', flota: 'FLOTA', mochila: 'MOCHILA', atracar: 'ATRACAR', aterrizar: 'ATERRIZAR',
       p_saltar: 'SALTAR', p_golpe: 'GOLPEAR', p_volar: 'VOLAR (jetpack)', p_usar: 'USAR', p_correr: 'CORRER', p_pie: 'BAJAR A PIE / VISTA BASE', p_nave: 'LLAMAR NAVE', p_despegar: 'DESPEGAR',
-      p_cons: 'CONSTRUIR', p_demoler: 'DEMOLER', p_col: 'COLOCAR', p_rot: 'GIRAR', p_can: 'CANCELAR', p_zoom: 'ZOOM Y GIRO DE CÁMARA', p_torreta: 'FLECHAS DE LA TORRETA', p_disparar: 'DISPARAR TORRETA', p_recargar: 'RECARGAR', p_sen: 'BAJAR DE LA TORRETA', p_edif: 'EDIFICACIONES', p_mej: 'MEJORAR BASE', p_salc: 'SALIR DE CONSTRUIR', p_ter: '3.ª PERSONA' };
+      p_cons: 'CONSTRUIR', p_demoler: 'DEMOLER', p_col: 'COLOCAR', p_rot: 'GIRAR', p_can: 'CANCELAR', p_zoom: 'ZOOM Y GIRO DE CÁMARA', p_torreta: 'FLECHAS DE LA TORRETA', p_disparar: 'DISPARAR TORRETA', p_recargar: 'RECARGAR', p_sen: 'BAJAR DE LA TORRETA', p_edif: 'EDIFICACIONES', p_perro: 'PERRO ROBOT', p_mej: 'MEJORAR BASE', p_salc: 'SALIR DE CONSTRUIR', p_ter: '3.ª PERSONA' };
     function abrirEditor() {
       var L = DOMcapas.lobby, ed = el('div', 'jn-ed', L), sel = null, drag = null, els = {}, pant = 'nave';
       var zona = el('div', 'jn-edz', ed), tabs = el('div', 'jn-ed-tabs', ed);
@@ -254,7 +254,7 @@
           hacer(el('button', 'jn-btn jn-grande jn-pl-saltar', w, 'SALTAR'), 'p_saltar'); hacer(el('button', 'jn-btn jn-grande jn-pl-volar', w, 'VOLAR'), 'p_volar'); hacer(el('button', 'jn-btn jn-grande jn-pl-golpe', w, 'GOLPEAR'), 'p_golpe');
           var u = el('div', 'jn-pl-usar', w); el('span', '', u, '✋'); el('b', '', u, 'USAR'); hacer(u, 'p_usar');
           var br = el('div', 'jn-pl-barra', w); br.style.pointerEvents = 'none';
-          hacer(el('button', 'jn-btn', br, 'CORRER'), 'p_correr'); hacer(el('button', 'jn-btn', br, 'VISTA BASE'), 'p_pie'); hacer(el('button', 'jn-btn', br, 'LLAMAR NAVE'), 'p_nave'); hacer(el('button', 'jn-btn', br, 'DESPEGAR'), 'p_despegar'); hacer(el('button', 'jn-btn', br, '3.ª PERSONA'), 'p_ter');
+          hacer(el('button', 'jn-btn', br, 'CORRER'), 'p_correr'); hacer(el('button', 'jn-btn', br, 'VISTA BASE'), 'p_pie'); hacer(el('button', 'jn-btn', br, 'LLAMAR NAVE'), 'p_nave'); hacer(el('button', 'jn-btn', br, 'PERRO'), 'p_perro'); hacer(el('button', 'jn-btn', br, 'DESPEGAR'), 'p_despegar'); hacer(el('button', 'jn-btn', br, '3.ª PERSONA'), 'p_ter');
         }],
         base: ['VISTA DE LA BASE', function (z) {
           var w = el('div', 'jn-planeta', z); w.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none';
