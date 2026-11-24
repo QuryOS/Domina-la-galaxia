@@ -217,21 +217,69 @@ function muestra(x, z, tipo) {
   /* agua con olas de verdad: el oleaje se calcula en la GPU sobre un parche que sigue al jugador (mismas ondas en CPU para flotar sobre ellas) */
   var OLAS = [[0.80, 0.60, 0.045, 0.66, 0.30], [-0.55, 0.84, 0.08, 0.89, 0.18], [0.30, -0.95, 0.14, 1.17, 0.10], [-0.90, -0.40, 0.21, 1.43, 0.05]];
   function olaH(x, z, t) { var h = 0, i, o; for (i = 0; i < 4; i++) { o = OLAS[i]; h += o[4] * Math.sin((o[0] * x + o[1] * z) * o[2] + t * o[3]); } return h; }
-  var aguaU = { uT: { value: 0 }, uPl: { value: null } }, marFar = null, hieloP = null, hieloQ = null;
+  var aguaU = { uT: { value: 0 }, uPl: { value: null }, uSky: { value: null }, uDepth: { value: null }, uDInfo: { value: null } }, marFar = null, hieloP = null, hieloQ = null;
+  /* mapa de profundidad del agua (256×256 alrededor del jugador): lo usa el agua para el color por fondo y la espuma de orilla */
+  var DEP = { N: 256, SZ: 3200, data: null, stage: null, tex: null, sx: 0, sz: 0, row: 256, cx: 1e9, cz: 1e9, ncx: 0, ncz: 0 };
+  function actualizarProfundidad(cx, cz, todo) {
+    if (!DEP.tex) return; var N = DEP.N, cell = DEP.SZ / N, r, i, x, z, h, v, lim, k;
+    if (DEP.row >= N) {
+      if (Math.hypot(cx - DEP.cx, cz - DEP.cz) < 250 && DEP.cx !== 1e9) return;
+      DEP.ncx = cx; DEP.ncz = cz; DEP.sx = Math.round((cx - DEP.SZ / 2) / cell) * cell; DEP.sz = Math.round((cz - DEP.SZ / 2) / cell) * cell; DEP.row = 0;
+    }
+    lim = todo ? N : Math.min(N, DEP.row + 16);
+    for (r = DEP.row; r < lim; r++) for (i = 0; i < N; i++) {
+      x = DEP.sx + (i + 0.5) * cell; z = DEP.sz + (r + 0.5) * cell; h = hT(x, z); v = (AGUA_Y - h + 4) / 32; DEP.stage[r * N + i] = (v < 0 ? 0 : v > 1 ? 255 : v * 255) | 0;
+    }
+    DEP.row = lim;
+    if (DEP.row >= N) { DEP.data.set(DEP.stage); DEP.tex.needsUpdate = true; aguaU.uDInfo.value.set(DEP.sx, DEP.sz, DEP.SZ); DEP.cx = DEP.ncx; DEP.cz = DEP.ncz; }
+  }
   function crearAgua() {
     var SZ = 3200, NG = 160, i, j, pos = [], idx = [], nm = NG + 1, k, glsl = '';
-    aguaU.uPl.value = new THREE.Vector2();
+    aguaU.uPl.value = new THREE.Vector2(); aguaU.uSky.value = new THREE.Color(0x8cc4f2); aguaU.uDInfo.value = new THREE.Vector3(0, 0, DEP.SZ);
+    DEP.data = new Uint8Array(DEP.N * DEP.N).fill(255); DEP.stage = new Uint8Array(DEP.N * DEP.N); DEP.tex = new THREE.DataTexture(DEP.data, DEP.N, DEP.N, THREE.LuminanceFormat, THREE.UnsignedByteType);
+    DEP.tex.minFilter = DEP.tex.magFilter = THREE.LinearFilter; DEP.tex.generateMipmaps = false; DEP.tex.needsUpdate = true; aguaU.uDepth.value = DEP.tex; DEP.row = DEP.N; DEP.cx = 1e9;
     for (j = 0; j < nm; j++) for (i = 0; i < nm; i++) pos.push((i / NG - 0.5) * SZ, 0, (j / NG - 0.5) * SZ);
     for (j = 0; j < NG; j++) for (i = 0; i < NG; i++) { k = j * nm + i; idx.push(k, k + nm, k + 1, k + 1, k + nm, k + nm + 1); }
     var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3)); g.setIndex(idx); g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), SZ);
     for (i = 0; i < 4; i++) { var o = OLAS[i]; glsl += ' d = vec2(' + o[0].toFixed(3) + ',' + o[1].toFixed(3) + '); ph = dot(d, p) * ' + o[2].toFixed(3) + ' + uT * ' + o[3].toFixed(3) + '; h += ' + o[4].toFixed(3) + ' * sin(ph); g += ' + (o[4] * o[2]).toFixed(5) + ' * cos(ph) * d;\n'; }
-    var mt = new THREE.MeshStandardMaterial({ color: 0x2f7fc4, roughness: 0.16, metalness: 0.15, transparent: true, opacity: 0.82 });
+    var mt = new THREE.MeshStandardMaterial({ color: 0x2f7fc4, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.9 });
     mt.onBeforeCompile = function (sh) {
-      sh.uniforms.uT = aguaU.uT; sh.uniforms.uPl = aguaU.uPl;
-      sh.vertexShader = sh.vertexShader.split('#include <common>').join('#include <common>\nuniform float uT;\nuniform vec2 uPl;\nvarying float vCrest;\nvoid olas(vec2 p, out float h, out vec2 g) { h = 0.0; g = vec2(0.0); vec2 d; float ph;\n' + glsl + '}')
-        .split('#include <beginnormal_vertex>').join('vec4 wp0 = modelMatrix * vec4(position, 1.0); float fadeW = 1.0 - smoothstep(900.0, 1500.0, length(wp0.xz - uPl)); float wH; vec2 wG; olas(wp0.xz, wH, wG); wH *= fadeW; wG *= fadeW; vCrest = wH;\nvec3 objectNormal = normalize(vec3(-wG.x, 1.0, -wG.y));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3( tangent.xyz );\n#endif')
+      sh.uniforms.uT = aguaU.uT; sh.uniforms.uPl = aguaU.uPl; sh.uniforms.uSky = aguaU.uSky; sh.uniforms.uDepth = aguaU.uDepth; sh.uniforms.uDInfo = aguaU.uDInfo;
+      sh.vertexShader = sh.vertexShader.split('#include <common>').join('#include <common>\nuniform float uT;\nuniform vec2 uPl;\nvarying float vCrest;\nvarying vec2 vWP;\nvoid olas(vec2 p, out float h, out vec2 g) { h = 0.0; g = vec2(0.0); vec2 d; float ph;\n' + glsl + '}')
+        .split('#include <beginnormal_vertex>').join('vec4 wp0 = modelMatrix * vec4(position, 1.0); float fadeW = 1.0 - smoothstep(900.0, 1500.0, length(wp0.xz - uPl)); float wH; vec2 wG; olas(wp0.xz, wH, wG); wH *= fadeW; wG *= fadeW; vCrest = wH; vWP = wp0.xz;\nvec3 objectNormal = normalize(vec3(-wG.x, 1.0, -wG.y));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3( tangent.xyz );\n#endif')
         .split('#include <begin_vertex>').join('vec3 transformed = vec3( position ); transformed.y += wH;');
-      sh.fragmentShader = sh.fragmentShader.split('#include <common>').join('#include <common>\nvarying float vCrest;').split('#include <color_fragment>').join('#include <color_fragment>\ndiffuseColor.rgb += vec3(0.14, 0.18, 0.2) * smoothstep(0.18, 0.5, vCrest);');
+      var FR = [
+        'uniform float uT;', 'uniform vec3 uSky;', 'uniform vec3 uDInfo;', 'uniform sampler2D uDepth;', 'varying float vCrest;', 'varying vec2 vWP;',
+        'float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+        'float vno(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y); }',
+        'float profAgua() { vec2 uv = (vWP - uDInfo.xy) / uDInfo.z; if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 30.0; return texture2D(uDepth, uv).r * 32.0 - 4.0; }'
+      ].join('\n');
+      var COL = [
+        '#include <color_fragment>',
+        'float dA = profAgua();',
+        'vec3 wc = mix(vec3(0.30, 0.80, 0.76), diffuse * 0.62, smoothstep(0.3, 12.0, dA));',
+        'wc = mix(wc, diffuse * vec3(0.20, 0.34, 0.50), smoothstep(14.0, 55.0, dA));',
+        'diffuseColor.rgb = wc; diffuseColor.a = mix(0.42, 0.92, smoothstep(0.1, 5.0, dA));',
+        'float th = 0.55 + 0.35 * sin(uT * 0.8 + vno(vWP * 0.05) * 6.0);',
+        'float broken = smoothstep(0.30, 0.65, vno(vWP * 0.8 + vec2(uT * 0.15, -uT * 0.1)) * 0.6 + vno(vWP * 2.3 - vec2(uT * 0.2)) * 0.5);',
+        'float fo = (1.0 - smoothstep(th - 0.4, th, dA)) * broken;',
+        'float fo2 = (1.0 - smoothstep(th + 1.0, th + 1.6, dA)) * smoothstep(th + 0.2, th + 0.7, dA) * broken * 0.55 * (0.5 + 0.5 * sin(dA * 5.0 - uT * 1.6));',
+        'float foam = clamp(fo + fo2, 0.0, 1.0) * step(-0.5, dA);',
+        'diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.96, 0.98, 1.0), foam); diffuseColor.a = max(diffuseColor.a, foam);',
+        'diffuseColor.rgb += vec3(0.14, 0.18, 0.2) * smoothstep(0.18, 0.5, vCrest);'
+      ].join('\n');
+      var NRM = [
+        '#include <normal_fragment_maps>',
+        'float dF = 1.0 - smoothstep(120.0, 600.0, length(vViewPosition));',
+        'vec2 q = vWP;',
+        'vec2 gd = vec2(cos(q.x * 0.9 + uT * 1.3) + cos(q.y * 1.7 - uT * 1.1 + q.x * 0.4) + cos((q.x + q.y) * 2.6 + uT * 2.1), cos(q.y * 1.1 - uT * 1.2) + cos(q.x * 2.1 + uT * 1.0 - q.y * 0.3) + cos((q.x - q.y) * 2.9 - uT * 1.8));',
+        'normal = normalize(normal + vec3(gd.x, gd.y, 0.0) * 0.03 * dF);'
+      ].join('\n');
+      var EMI = [
+        '#include <emissivemap_fragment>',
+        '{ vec3 vd = normalize(vViewPosition); float fr = pow(1.0 - clamp(dot(vd, normal), 0.0, 1.0), 3.0); totalEmissiveRadiance += uSky * (0.07 + 0.5 * fr); }'
+      ].join('\n');
+      sh.fragmentShader = sh.fragmentShader.split('#include <common>').join('#include <common>\n' + FR).split('#include <color_fragment>').join(COL).split('#include <normal_fragment_maps>').join(NRM).split('#include <emissivemap_fragment>').join(EMI);
     };
     mar = new THREE.Mesh(g, mt); mar.position.y = AGUA_Y; mar.frustumCulled = false; sc.add(mar);
     var HI = SZ / 2 - 100, HO = 40000, fp = [-HO, 0, -HO, HO, 0, -HO, HO, 0, HO, -HO, 0, HO, -HI, 0, -HI, HI, 0, -HI, HI, 0, HI, -HI, 0, HI];
@@ -241,7 +289,7 @@ function muestra(x, z, tipo) {
     hieloP = new THREE.Mesh(hg, hm); hieloP.rotation.x = -PI / 2; hieloP.frustumCulled = false; sc.add(hieloP); hieloQ = new THREE.Mesh(hg, hm); hieloQ.rotation.x = -PI / 2; hieloQ.frustumCulled = false; sc.add(hieloQ);
   }
   function actualizarAgua(dt, cx, cz) {
-    aguaT += dt; aguaU.uT.value = aguaT; if (!mar) return; aguaU.uPl.value.set(cx, cz);
+    aguaT += dt; aguaU.uT.value = aguaT; if (!mar) return; aguaU.uPl.value.set(cx, cz); actualizarProfundidad(cx, cz, false);
     var gx = Math.round(cx / 20) * 20, gz = Math.round(cz / 20) * 20; mar.position.set(gx, AGUA_Y, gz); marFar.position.set(gx, AGUA_Y - 0.3, gz);
     if (hieloP) { hieloP.position.set(cx, AGUA_Y + 1.3, MUN.ZMAX + 20000 + 150); hieloQ.position.set(cx, AGUA_Y + 1.3, -MUN.ZMAX - 20000 - 150); }
   }
@@ -300,7 +348,7 @@ function muestra(x, z, tipo) {
     if (PERFIL[tipo]) {   // planetas aterrizables: planeta redondo (tiles de terreno que dan la vuelta al mundo)
       suelo.visible = false; TIPO = tipo; var pp = PALETA[tipo] || PALETA.tierra; TCC = { tmp: new THREE.Color() }; ['c1', 'c2', 'seco', 'tierra', 'roca', 'arena', 'nieve', 'bosque', 'hielo', 'tundra'].forEach(function (n) { TCC[n] = new THREE.Color(pp[n]); }); TCC.fondo = new THREE.Color('#12384c');
       if (TMAT) { if (TMAT.map) TMAT.map.dispose(); TMAT.dispose(); } TMAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, map: texDetalle(), side: THREE.DoubleSide });
-      if (!TERG) { TERG = new THREE.Group(); sc.add(TERG); } TERG.visible = true; TER = { tipo: tipo }; actualizarTerreno(0, 160);
+      if (!TERG) { TERG = new THREE.Group(); sc.add(TERG); } TERG.visible = true; TER = { tipo: tipo }; actualizarTerreno(0, 160); DEP.row = DEP.N; DEP.cx = 1e9; if (DEP.tex) actualizarProfundidad(0, 160, true);
     } else {
       if (TERG) TERG.visible = false; suelo.visible = true; suelo.geometry.dispose(); suelo.rotation.x = -PI / 2; suelo.geometry = new THREE.CircleGeometry(R, 96); suelo.material.vertexColors = false; suelo.material.color.setHex(0xffffff);
       var tx = texSuelo(pj[0], pj[2]); tx.repeat.set(730 * R / 30000, 730 * R / 30000); suelo.material.map = tx; suelo.material.needsUpdate = true;
@@ -311,7 +359,7 @@ function muestra(x, z, tipo) {
       orilla = new THREE.Mesh(new THREE.RingGeometry(RADIO_BASE + 200, RADIO_BASE + 262, 96), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); orilla.rotation.x = -PI / 2; orilla.position.y = -0.2; sc.add(orilla);
       deco = new THREE.Group(); sc.add(deco);
     }
-    mar.visible = marFar.visible = agua; hieloP.visible = hieloQ.visible = !!PERFIL[tipo] && tipo !== 'desierto'; orilla.visible = false; if (agua) mar.material.color.setHex(pj[3]);
+    mar.visible = marFar.visible = agua; hieloP.visible = hieloQ.visible = !!PERFIL[tipo] && tipo !== 'desierto'; orilla.visible = false; if (agua) { mar.material.color.setHex(pj[3]); aguaU.uSky.value.setHex(pj[1]); }
     for (i = deco.children.length - 1; i >= 0; i--) { var ch = deco.children[i]; deco.remove(ch); ch.traverse(function (m) { if (m.geometry) m.geometry.dispose(); }); }
     if (hierba) { sc.remove(hierba); hierba.geometry.dispose(); hierba = null; } hierbaKey = '';
     if (!bosques) { bosques = new THREE.Group(); sc.add(bosques); } while (bosques.children.length) bosques.remove(bosques.children[0]);
