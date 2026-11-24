@@ -400,7 +400,7 @@
       },
       actualizar: function (dt, t) {
         if (!sc) return;
-        if (!arr) { vel += (0.25 - vel) * Math.min(1, dt * 1.5); girar.rotation.y += vel * dt; }
+        if (!arr) { vel += (0 - vel) * Math.min(1, dt * 3); girar.rotation.y += vel * dt; }
         cielo.rotation.y += dt * 0.008;
         var an = escPrem && escPrem.parent ? animP : (escSoldado && escSoldado.parent ? animS : null); if (an) an.update(dt, 'idle');
         if (modeloAct) actualizarModelo(modeloAct, t, 0.35 + 0.1 * Math.sin(t * 1.3));
