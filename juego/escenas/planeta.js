@@ -40,14 +40,14 @@
   var PAISAJE = { tierra: ['#4e8f3c', 0x8cc4f2, 'hierba', 0x2f7fc4, 0xfff4e2], caos: ['#8d8a3c', 0xdccb78, 'hierba', 0x4f8f86, 0xffe9a0], desierto: ['#d9b676', 0xeccf9e, 'arena', 0x2aa6b8, 0xffe6bf], arido: ['#b0764a', 0xd9a074], rocoso: ['#6f7b63', 0x8fb0cf], hielo: ['#cfe0ee', 0x9ec3e6], tormenta: ['#5a5470', 0x7c6f98] };
   E.ATERRIZABLES = { tierra: 1, caos: 1, desierto: 1 };   // los demás son planetas mineros: no se aterriza
 
-  var sc, cam, suelo, anillo, rejilla, luzSol, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
+  var sc, cam, suelo, anillo, rejilla, luzSol, luzHemi, luzLuna, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
   var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, jet = 1, volar = false, jetOn = false, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaN = false, cercaG = null, cercaB = null, vA = null, qA = null, vB = null, vC = null;
   var pl = null, ret = null, key = '', nave = null, pad = 60, colocadas = [], ghost = null, itemSel = null, rotG = 0, modoBorrar = false, cargando = '', alt = false;
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
 
   function construir() {
     mar = orilla = deco = null; manosPrem = null; sc = new THREE.Scene(); cam = new THREE.PerspectiveCamera(60, 1, 1, 22000);
-    luzSol = new THREE.DirectionalLight(0xfff1e0, 2.3); luzSol.position.set(0.6, 0.8, 0.4); sc.add(luzSol, new THREE.HemisphereLight(0xaac4e6, 0x3a2a22, 0.75));
+    luzSol = new THREE.DirectionalLight(0xfff1e0, 2.3); luzSol.position.set(0.6, 0.8, 0.4); luzHemi = new THREE.HemisphereLight(0xaac4e6, 0x3a2a22, 0.75); luzLuna = new THREE.DirectionalLight(0x8fa8ff, 0); luzLuna.position.set(-0.6, 0.8, -0.4); sc.add(luzSol, luzHemi, luzLuna); crearCielo();
     suelo = new THREE.Mesh(new THREE.CircleGeometry(30000, 72), new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 })); suelo.rotation.x = -PI / 2; sc.add(suelo);
     anillo = new THREE.Mesh(new THREE.RingGeometry(RADIO_PLANO - 2.5, RADIO_PLANO, 160), new THREE.MeshBasicMaterial({ color: 0x7fe3ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })); anillo.rotation.x = -PI / 2; anillo.position.y = 0.4; sc.add(anillo);
     rejilla = new THREE.GridHelper(600, 30, 0x7fe3ff, 0x7fe3ff); rejilla.material.transparent = true; rejilla.material.opacity = 0.16; rejilla.position.y = 0.5; rejilla.visible = false; sc.add(rejilla);
@@ -103,7 +103,8 @@ function muestra(x, z, tipo) {
   else {
     if (flat > 0) {
       hl = (fb3(sx / 2400, sy / 2400, sz / 2400, 3, sd) + 0.55) * P.A1 + fb3(sx / 520, sy / 520, sz / 520, 2, sd + 9) * P.A2;
-      var rg = 1 - Math.abs(fb3(sx / 3000, sy / 3000, sz / 3000, 3, sd + 3)); hl += Math.max(0, rg - 0.88) * (P.A3 / 0.12) * sstep(0.15, 0.4, f);
+      var rg = 1 - Math.abs(fb3(sx / 3000, sy / 3000, sz / 3000, 3, sd + 3)), u = Math.max(0, rg - 0.88) / 0.12;   // montañas en mesetas: terrazas planas y cima ancha
+      u = 0.42 * sstep(0.04, 0.2, u) + 0.30 * sstep(0.32, 0.46, u) + 0.28 * sstep(0.58, 0.72, u); hl += P.A3 * u * sstep(0.15, 0.4, f); hl -= fb3(sx / 520, sy / 520, sz / 520, 2, sd + 9) * P.A2 * 0.85 * sstep(0.7, 0.95, u) * flat * sstep(0.15, 0.4, f);
       if (P.dun) hl += (Math.sin((sx * 0.8 + sz * 0.6) / 170 + fb3(sx / 900, sy / 900, sz / 900, 2, sd + 5) * 5) * 0.5 + 0.5) * P.dun;
       hl *= flat;
     }
@@ -342,6 +343,55 @@ function muestra(x, z, tipo) {
     for (i = 0; i < 40; i++) { g.fillStyle = 'rgba(0,0,0,0.04)'; g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 8 + Math.random() * 26, 0, 7); g.fill(); }
     var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; if ('encoding' in t) t.encoding = THREE.sRGBEncoding; return t;
   }
+  /* ===== CICLO DÍA / NOCHE =====
+     Una vuelta completa dura CICLO_MS (30 min de día + 30 min de noche) y sigue el reloj real, así es igual en cada sesión.
+     Sol y luna son astros reales: la luna se ilumina con la dirección del sol (creciente, llena, menguante), y cada 8 días de juego repite sus fases. */
+  var CICLO_MS = 60 * 60 * 1000, FASES_LUNA = 8;
+  var CIE = { g: null, sol: null, luna: null, e1: null, e2: null, bg: null, fog: null, dia: null, noche: null, cre: null, solC: null, tmp: null, s: null, m: null, ax: null, q: null, pj1: 0, uL: null };
+  function crearCielo() {
+    var R = 15000, i, N, p, c, a, z, r, sn, dpr = 1.5, g = new THREE.Group(), cv = document.createElement('canvas'), cx, gr, mk;
+    try { if (E.renderer && E.renderer.getPixelRatio) dpr = Math.min(3, E.renderer.getPixelRatio()); } catch (e0) { }
+    cv.width = cv.height = 128; cx = cv.getContext('2d'); gr = cx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.1, 'rgba(255,252,240,1)'); gr.addColorStop(0.18, 'rgba(255,236,190,0.6)'); gr.addColorStop(0.5, 'rgba(255,200,120,0.12)'); gr.addColorStop(1, 'rgba(255,200,120,0)');
+    cx.fillStyle = gr; cx.fillRect(0, 0, 128, 128);
+    CIE.sol = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })); CIE.sol.frustumCulled = false; g.add(CIE.sol);
+    CIE.uL = { value: new THREE.Vector3(0, 1, 0) }; CIE.uA = { value: 1 };
+    CIE.luna = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { uL: CIE.uL, uA: CIE.uA },
+      vertexShader: 'varying vec3 vN; varying vec3 vP; void main() { vN = normalize(mat3(modelMatrix) * normal); vP = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: ['uniform vec3 uL; uniform float uA; varying vec3 vN; varying vec3 vP;',
+        'float hh(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }',
+        'float nn(vec3 p) { vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);',
+        ' return mix(mix(mix(hh(i), hh(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hh(i + vec3(0.0, 1.0, 0.0)), hh(i + vec3(1.0, 1.0, 0.0)), f.x), f.y), mix(mix(hh(i + vec3(0.0, 0.0, 1.0)), hh(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hh(i + vec3(0.0, 1.0, 1.0)), hh(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }',
+        'void main() { float m = nn(vP * 2.2) * 0.6 + nn(vP * 6.0) * 0.4; vec3 alb = mix(vec3(0.60, 0.62, 0.68), vec3(0.96, 0.96, 0.92), smoothstep(0.35, 0.7, m));',
+        ' float l = smoothstep(-0.04, 0.12, dot(normalize(vN), uL)); gl_FragColor = vec4(alb * (0.03 + 1.05 * l), uA); }'].join('\n') }));
+    CIE.luna.frustumCulled = false; CIE.luna.scale.setScalar(R * 0.032); g.add(CIE.luna);
+    mk = function (n, size, op) {   // estrellas: puntos sobre una esfera lejana
+      p = new Float32Array(n * 3); c = new Float32Array(n * 3);
+      for (i = 0; i < n; i++) { z = Math.random() * 2 - 1; a = Math.random() * 6.2832; sn = Math.sqrt(1 - z * z); p[i * 3] = sn * Math.cos(a) * 19000; p[i * 3 + 1] = z * 19000; p[i * 3 + 2] = sn * Math.sin(a) * 19000; r = Math.random(); c[i * 3] = 0.8 + 0.2 * r; c[i * 3 + 1] = 0.85 + 0.1 * r; c[i * 3 + 2] = 1 - 0.15 * r; }
+      var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(p, 3)); geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+      var pt = new THREE.Points(geo, new THREE.PointsMaterial({ size: size * dpr, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, fog: false })); pt.frustumCulled = false; return pt;
+    };
+    CIE.e1 = mk(1500, 1.5); CIE.e2 = mk(140, 2.8); CIE.estr = new THREE.Group(); CIE.estr.add(CIE.e1, CIE.e2); g.add(CIE.estr);
+    CIE.g = g; sc.add(g); CIE.dia = new THREE.Color(0x8cc4f2); CIE.noche = new THREE.Color(0x050a1f); CIE.cre = new THREE.Color(0xf2784b); CIE.solC = new THREE.Color(0xfff1e0); CIE.tmp = new THREE.Color();
+    CIE.s = new THREE.Vector3(); CIE.m = new THREE.Vector3(); CIE.ax = new THREE.Vector3(-0.3, 0, 1).normalize(); CIE.q = new THREE.Quaternion(); CIE.hn = new THREE.Color(0x35467a); CIE.hd = new THREE.Color(0xaac4e6); CIE.naranja = new THREE.Color(0xff7a3a);
+  }
+  function actualizarCielo(dt, t) {
+    if (!CIE.g || !cam) return; var d = Date.now() / CICLO_MS, a = (d - Math.floor(d)) * PI2, am = a + PI + (d * PI2) / FASES_LUNA, s = CIE.s, m = CIE.m, e, dia, tw, noche, col = CIE.tmp, R = 15000, lit;
+    s.set(Math.cos(a), Math.sin(a), 0.3).normalize(); m.set(Math.cos(am), Math.sin(am), -0.3).normalize(); e = s.y;
+    dia = sstep(-0.08, 0.22, e); noche = 1 - dia; tw = Math.exp(-(e * e) / 0.025);
+    CIE.g.position.copy(cam.position);
+    CIE.sol.position.copy(s).multiplyScalar(R); CIE.sol.visible = e > -0.12; CIE.sol.scale.setScalar(R * 0.3 * (1 + 0.4 * (1 - sstep(0, 0.4, e)))); CIE.sol.material.color.copy(CIE.solC).lerp(CIE.naranja, 1 - sstep(0, 0.35, e));
+    CIE.luna.position.copy(m).multiplyScalar(R); CIE.luna.visible = m.y > -0.1; CIE.uL.value.copy(s); CIE.uA.value = 0.3 + 0.7 * noche;
+    CIE.estr.quaternion.setFromAxisAngle(CIE.ax, a);
+    lit = sstep(0.02, -0.22, e); CIE.e1.material.opacity = lit * 0.95; CIE.e2.material.opacity = lit * (0.75 + 0.25 * Math.sin(t * 2.1));
+    col.copy(CIE.noche).lerp(CIE.dia, dia).lerp(CIE.cre, tw * 0.5 * (0.35 + 0.65 * dia));
+    if (bajoAgua) { col.setRGB(0.04, 0.29, 0.4).multiplyScalar(0.2 + 0.8 * dia); if (sc.background && sc.background.isColor) sc.background.copy(col); if (sc.fog) sc.fog.color.copy(col); }
+    else { if (CIE.bg) CIE.bg.copy(col); if (CIE.fog) CIE.fog.color.copy(col); }
+    if (aguaU.uSky.value) aguaU.uSky.value.copy(col);
+    luzSol.position.copy(s).multiplyScalar(100); luzSol.intensity = 2.3 * sstep(-0.05, 0.3, e); luzSol.color.copy(CIE.solC).lerp(CIE.naranja, (1 - sstep(0, 0.3, e)) * 0.6);
+    luzLuna.position.copy(m).multiplyScalar(100); luzLuna.intensity = (0.12 + 0.3 * (1 - s.dot(m)) * 0.5) * noche * sstep(-0.05, 0.15, m.y);
+    luzHemi.intensity = 0.3 + 0.45 * dia; luzHemi.color.copy(CIE.hn).lerp(CIE.hd, dia);
+  }
   function ambientar(tipo) {   // suelo, mar y paisaje lejano de cada planeta
     var pj = PAISAJE[tipo] || PAISAJE.rocoso, agua = pj[3] != null, R = agua ? RADIO_BASE + 260 : 30000, i, j;
     limpiarTerreno(); TER = null;
@@ -353,7 +403,7 @@ function muestra(x, z, tipo) {
       if (TERG) TERG.visible = false; suelo.visible = true; suelo.geometry.dispose(); suelo.rotation.x = -PI / 2; suelo.geometry = new THREE.CircleGeometry(R, 96); suelo.material.vertexColors = false; suelo.material.color.setHex(0xffffff);
       var tx = texSuelo(pj[0], pj[2]); tx.repeat.set(730 * R / 30000, 730 * R / 30000); suelo.material.map = tx; suelo.material.needsUpdate = true;
     }
-    sc.background = new THREE.Color(pj[1]); sc.fog = PERFIL[tipo] ? new THREE.Fog(pj[1], 1500, 3900) : agua ? new THREE.Fog(pj[1], 4500, 24000) : new THREE.Fog(pj[1], 1800, 9500); luzSol.color.setHex(pj[4] || 0xfff1e0);
+    sc.background = new THREE.Color(pj[1]); sc.fog = PERFIL[tipo] ? new THREE.Fog(pj[1], 1500, 3900) : agua ? new THREE.Fog(pj[1], 4500, 24000) : new THREE.Fog(pj[1], 1800, 9500); luzSol.color.setHex(pj[4] || 0xfff1e0); CIE.bg = sc.background; CIE.fog = sc.fog; CIE.dia.setHex(pj[1]); CIE.solC.setHex(pj[4] || 0xfff1e0); CIE.pj1 = pj[1];
     if (!mar) {
       crearAgua();
       orilla = new THREE.Mesh(new THREE.RingGeometry(RADIO_BASE + 200, RADIO_BASE + 262, 96), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); orilla.rotation.x = -PI / 2; orilla.position.y = -0.2; sc.add(orilla);
@@ -1233,6 +1283,7 @@ function muestra(x, z, tipo) {
       avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; hgT++; if (hgT % 6 === 0) { try { sincronizarHangares(); } catch (eh2) { } } if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }
       if (ghost) { rejilla.position.set(Math.round(ghost.g.position.x / 20) * 20, 0.5, Math.round(ghost.g.position.z / 20) * 20); }
       if (modoPie) actualizarPie(dt, t); else camara(); if (tToast > 0) { tToast -= dt; if (tToast <= 0) ui.toast.style.opacity = 0; }
+      try { actualizarCielo(dt, t); } catch (ec) { if (global.console && !CIE.err) { CIE.err = 1; console.error(ec); } }
       E.renderer.render(sc, cam);
     }
   };
