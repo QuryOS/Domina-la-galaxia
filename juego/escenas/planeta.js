@@ -115,7 +115,7 @@ function muestra(x, z, tipo) {
   if (ice > 0) { var capH = AGUA_Y + 1.3 + fb3(sx / 260, sy / 260, sz / 260, 2, sd + 77) * 0.5; if (f <= 0) h = capH * ice + h * (1 - ice) + 0; else h = Math.max(h, 0) * (1 - ice) + (capH + Math.max(0, h * 0.25)) * ice; }
   MS.m1 = fb3(sx / 260, sy / 260, sz / 260, 3, sd + 21) * 0.5 + 0.5; MS.m2 = fb3(sx / 1200, sy / 1200, sz / 1200, 2, sd + 33) * 0.5 + 0.5; MS.nv = sstep(0.3, 0.55, fb3(ux * 3.5 + 21, uy * 3.5, uz * 3.5 - 9, 2, sd + 88));
   MS.h = h; MS.hl = hl; MS.cold = cold; MS.ice = ice; MS.riv = rv;
-  MS.mD = (tipo === 'desierto') ? 1 : sstep(tipo === 'caos' ? 0.1 : 0.22, tipo === 'caos' ? 0.26 : 0.38, fb3(ux * 2.2 + 13, uy * 2.2 - 5, uz * 2.2 + 8, 2, sd + 41) + (alat > 0.35 && alat < 0.75 ? 0.12 : -0.08)) * sstep(RADIO_PLANO + 200, RADIO_PLANO + 900, hd) * (1 - cold);
+  MS.mD = (tipo === 'desierto') ? 1 : sstep(tipo === 'caos' ? 0.1 : 0.22, tipo === 'caos' ? 0.26 : 0.38, fb3(ux * 2.2 + 13, uy * 2.2 - 5, uz * 2.2 + 8, 2, sd + 41) + (alat > 0.35 && alat < 0.75 ? 0.12 : -0.08)) * sstep(RADIO_PLANO + 200, RADIO_PLANO + 900, hd) * (1 - cold) * 0.12;   // en tierra y caos la arena solo queda en las playas; el resto es césped y tierra
   MS.mB = tipo === 'desierto' ? 0 : sstep(0.0, 0.22, fb3(ux * 3 + 2, uy * 3 + 5, uz * 3 - 3, 2, sd + 51) + 0.1 - cold * 0.4) * sstep(RADIO_PLANO + 300, RADIO_PLANO + 1000, hd) * (1 - cold * 0.7);
   return h;
 }
@@ -173,7 +173,7 @@ function muestra(x, z, tipo) {
       wsn = Math.min(1, Math.max(sn, ice)); rem = 1 - wsn;   // material del suelo en este punto: roca > arena > tierra > césped (suman 1); la nieve va aparte
       wr = Math.min(rem, Math.min(1, sstep(0.28, 0.55, sl) * 0.95 + sstep(95, 190, h) * 0.5)); rem -= wr;
       wsd = Math.min(rem, Math.max(0, Math.min(1, mD * 0.9 + (h < AGUA_Y + 4.5 ? (1 - sstep(AGUA_Y + 0.5, AGUA_Y + 4.5, h)) * 0.95 * (1 - cold) : 0) + (h < AGUA_Y ? 0.6 : 0)))); rem -= wsd;
-      wdt = Math.min(rem, Math.min(1, sstep(0.3, 0.55, m1 * 0.6 + sl * 2.2) * 0.5 * (1 - mB * 0.6) + sstep(0.35, 0.8, cold) * 0.8)); rem -= wdt;
+      wdt = Math.min(rem, Math.min(1, sstep(0.3, 0.55, m1 * 0.6 + sl * 2.2) * 0.5 * (1 - mB * 0.6) + sstep(0.35, 0.8, cold) * 0.8 + sstep(0.55, 0.8, fM2[k]) * 0.55 * (1 - mB * 0.7))); rem -= wdt;
       mw[k * 4] = rem; mw[k * 4 + 1] = wdt; mw[k * 4 + 2] = wsd; mw[k * 4 + 3] = wr; ms[k] = wsn;
       pos[k * 3] = ia * step; pos[k * 3 + 1] = h; pos[k * 3 + 2] = ib * step; nor[k * 3] = hx / nl; nor[k * 3 + 1] = 1 / nl; nor[k * 3 + 2] = hz / nl;
       col[k * 3] = tmp.r; col[k * 3 + 1] = tmp.g; col[k * 3 + 2] = tmp.b; uv[k * 2] = u0 + ia * step / 12; uv[k * 2 + 1] = v0 + ib * step / 12;
@@ -461,7 +461,7 @@ function muestra(x, z, tipo) {
     for (i = deco.children.length - 1; i >= 0; i--) { var ch = deco.children[i]; deco.remove(ch); ch.traverse(function (m) { if (m.geometry) m.geometry.dispose(); }); }
     if (hierba) { sc.remove(hierba); hierba.geometry.dispose(); hierba = null; } hierbaKey = '';
     if (!bosques) { bosques = new THREE.Group(); sc.add(bosques); } while (bosques.children.length) bosques.remove(bosques.children[0]);
-    if (PERFIL[tipo] && tipo !== 'desierto') hierba = crearHierba(tipo);
+    /* sin matas de pasto 3D: el verde del suelo lo da la textura de césped */
     E.Suelo = { altura: hT, bioma: bioAt, bosque: listarBosque, tipo: tipo, grupo: bosques, agua: AGUA_Y, profundidad: function (x, z) { return Math.max(0, AGUA_Y - hT(x, z)); }, jugador: function () { return { x: px, y: pyF, z: pz, nadando: nadando, aire: aire }; } };
     try { if (E.Arboles && E.Arboles.poblar) E.Arboles.poblar(E.Suelo, sc, tipo); } catch (eb) { if (global.console) console.error(eb); }
     if (!agua || PERFIL[tipo]) return;
