@@ -129,6 +129,14 @@ function muestra(x, z, tipo) {
     var a = H[j * W1 + i], b = H[j * W1 + i + 1], c = H[(j + 1) * W1 + i], dd = H[(j + 1) * W1 + i + 1];
     return fu + fv <= 1 ? a + (b - a) * fu + (c - a) * fv : dd + (c - dd) * (1 - fu) + (b - dd) * (1 - fv);
   }
+  function hTc(x, z) {   // como hT pero NUNCA construye tiles: lo que no está en memoria cuenta como fondo profundo (lo usa el mapa de profundidad del agua)
+    if (!TER) return 0; x = wrapX(x); var tj = Math.floor(z / TILE); if (tj < TJ0 || tj > TJ1) return AGUA_Y + 1.3;
+    var ti = Math.floor((x + MUN.W / 2) / TILE), d = tilesDat[ti + ',' + tj]; if (!d) return AGUA_Y - 30;
+    var st = TILE / TN, lx = (x - (ti * TILE - MUN.W / 2)) / st, lz = (z - tj * TILE) / st, i = lx | 0, j = lz | 0, fu, fv, W1 = TN + 1, H = d.H;
+    if (i > TN - 1) i = TN - 1; if (j > TN - 1) j = TN - 1; fu = lx - i; fv = lz - j;
+    var a = H[j * W1 + i], b = H[j * W1 + i + 1], c = H[(j + 1) * W1 + i], dd = H[(j + 1) * W1 + i + 1];
+    return fu + fv <= 1 ? a + (b - a) * fu + (c - a) * fv : dd + (c - dd) * (1 - fu) + (b - dd) * (1 - fv);
+  }
   /* bioma en (x,z): 0 pasto · 1 desierto · 2 bosque · 3 roca · 4 playa · 5 agua · 6 nieve/hielo */
   function bioAt(x, z) {
     if (!TER) return 0; x = wrapX(x); var tj = Math.floor(z / TILE); if (tj < TJ0 || tj > TJ1) return 6;
@@ -218,7 +226,7 @@ function muestra(x, z, tipo) {
   /* agua con olas de verdad: el oleaje se calcula en la GPU sobre un parche que sigue al jugador (mismas ondas en CPU para flotar sobre ellas) */
   var OLAS = [[0.80, 0.60, 0.045, 0.66, 0.30], [-0.55, 0.84, 0.08, 0.89, 0.18], [0.30, -0.95, 0.14, 1.17, 0.10], [-0.90, -0.40, 0.21, 1.43, 0.05]];
   function olaH(x, z, t) { var h = 0, i, o; for (i = 0; i < 4; i++) { o = OLAS[i]; h += o[4] * Math.sin((o[0] * x + o[1] * z) * o[2] + t * o[3]); } return h; }
-  var aguaU = { uT: { value: 0 }, uPl: { value: null }, uSky: { value: null }, uDepth: { value: null }, uDInfo: { value: null } }, marFar = null, hieloP = null, hieloQ = null;
+  var aguaU = { uT: { value: 0 }, uPl: { value: null }, uSky: { value: null }, uDepth: { value: null }, uDInfo: { value: null }, uQ: { value: 2 } }, QA = { t: 0, n: 0, skip: 6 }, marFar = null, hieloP = null, hieloQ = null;
   /* mapa de profundidad del agua (256×256 alrededor del jugador): lo usa el agua para el color por fondo y la espuma de orilla */
   var DEP = { N: 256, SZ: 3200, data: null, stage: null, tex: null, sx: 0, sz: 0, row: 256, cx: 1e9, cz: 1e9, ncx: 0, ncz: 0 };
   function actualizarProfundidad(cx, cz, todo) {
@@ -229,7 +237,7 @@ function muestra(x, z, tipo) {
     }
     lim = todo ? N : Math.min(N, DEP.row + 16);
     for (r = DEP.row; r < lim; r++) for (i = 0; i < N; i++) {
-      x = DEP.sx + (i + 0.5) * cell; z = DEP.sz + (r + 0.5) * cell; h = hT(x, z); v = (AGUA_Y - h + 4) / 32; DEP.stage[r * N + i] = (v < 0 ? 0 : v > 1 ? 255 : v * 255) | 0;
+      x = DEP.sx + (i + 0.5) * cell; z = DEP.sz + (r + 0.5) * cell; h = hTc(x, z); v = (AGUA_Y - h + 4) / 32; DEP.stage[r * N + i] = (v < 0 ? 0 : v > 1 ? 255 : v * 255) | 0;
     }
     DEP.row = lim;
     if (DEP.row >= N) { DEP.data.set(DEP.stage); DEP.tex.needsUpdate = true; aguaU.uDInfo.value.set(DEP.sx, DEP.sz, DEP.SZ); DEP.cx = DEP.ncx; DEP.cz = DEP.ncz; }
@@ -245,12 +253,12 @@ function muestra(x, z, tipo) {
     for (i = 0; i < 4; i++) { var o = OLAS[i]; glsl += ' d = vec2(' + o[0].toFixed(3) + ',' + o[1].toFixed(3) + '); ph = dot(d, p) * ' + o[2].toFixed(3) + ' + uT * ' + o[3].toFixed(3) + '; h += ' + o[4].toFixed(3) + ' * sin(ph); g += ' + (o[4] * o[2]).toFixed(5) + ' * cos(ph) * d;\n'; }
     var mt = new THREE.MeshStandardMaterial({ color: 0x2f7fc4, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.9 });
     mt.onBeforeCompile = function (sh) {
-      sh.uniforms.uT = aguaU.uT; sh.uniforms.uPl = aguaU.uPl; sh.uniforms.uSky = aguaU.uSky; sh.uniforms.uDepth = aguaU.uDepth; sh.uniforms.uDInfo = aguaU.uDInfo;
+      sh.uniforms.uT = aguaU.uT; sh.uniforms.uPl = aguaU.uPl; sh.uniforms.uSky = aguaU.uSky; sh.uniforms.uDepth = aguaU.uDepth; sh.uniforms.uDInfo = aguaU.uDInfo; sh.uniforms.uQ = aguaU.uQ;
       sh.vertexShader = sh.vertexShader.split('#include <common>').join('#include <common>\nuniform float uT;\nuniform vec2 uPl;\nvarying float vCrest;\nvarying vec2 vWP;\nvoid olas(vec2 p, out float h, out vec2 g) { h = 0.0; g = vec2(0.0); vec2 d; float ph;\n' + glsl + '}')
         .split('#include <beginnormal_vertex>').join('vec4 wp0 = modelMatrix * vec4(position, 1.0); float fadeW = 1.0 - smoothstep(900.0, 1500.0, length(wp0.xz - uPl)); float wH; vec2 wG; olas(wp0.xz, wH, wG); wH *= fadeW; wG *= fadeW; vCrest = wH; vWP = wp0.xz;\nvec3 objectNormal = normalize(vec3(-wG.x, 1.0, -wG.y));\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3( tangent.xyz );\n#endif')
         .split('#include <begin_vertex>').join('vec3 transformed = vec3( position ); transformed.y += wH;');
       var FR = [
-        'uniform float uT;', 'uniform vec3 uSky;', 'uniform vec3 uDInfo;', 'uniform sampler2D uDepth;', 'varying float vCrest;', 'varying vec2 vWP;',
+        'uniform float uT;', 'uniform vec3 uSky;', 'uniform vec3 uDInfo;', 'uniform sampler2D uDepth;', 'uniform float uQ;', 'varying float vCrest;', 'varying vec2 vWP;',
         'float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
         'float vno(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y); }',
         'float profAgua() { vec2 uv = (vWP - uDInfo.xy) / uDInfo.z; if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 30.0; return texture2D(uDepth, uv).r * 32.0 - 4.0; }'
@@ -261,20 +269,26 @@ function muestra(x, z, tipo) {
         'vec3 wc = mix(vec3(0.30, 0.80, 0.76), diffuse * 0.62, smoothstep(0.3, 12.0, dA));',
         'wc = mix(wc, diffuse * vec3(0.20, 0.34, 0.50), smoothstep(14.0, 55.0, dA));',
         'diffuseColor.rgb = wc; diffuseColor.a = mix(0.42, 0.92, smoothstep(0.1, 5.0, dA));',
-        'float th = 0.55 + 0.35 * sin(uT * 0.8 + vno(vWP * 0.05) * 6.0);',
-        'float broken = smoothstep(0.30, 0.65, vno(vWP * 0.8 + vec2(uT * 0.15, -uT * 0.1)) * 0.6 + vno(vWP * 2.3 - vec2(uT * 0.2)) * 0.5);',
-        'float fo = (1.0 - smoothstep(th - 0.4, th, dA)) * broken;',
-        'float fo2 = (1.0 - smoothstep(th + 1.0, th + 1.6, dA)) * smoothstep(th + 0.2, th + 0.7, dA) * broken * 0.55 * (0.5 + 0.5 * sin(dA * 5.0 - uT * 1.6));',
-        'float foam = clamp(fo + fo2, 0.0, 1.0) * step(-0.5, dA);',
+        'float foam = 0.0;',
+        'if (uQ > 0.5 && dA < 3.0 && dA > -0.5) {',
+        ' float th = 0.55 + 0.35 * sin(uT * 0.8 + vno(vWP * 0.05) * 6.0);',
+        ' float bn = vno(vWP * 0.8 + vec2(uT * 0.15, -uT * 0.1)) * 0.6; if (uQ > 1.5) bn += vno(vWP * 2.3 - vec2(uT * 0.2)) * 0.5; else bn += 0.25;',
+        ' float broken = smoothstep(0.30, 0.65, bn);',
+        ' float fo = (1.0 - smoothstep(th - 0.4, th, dA)) * broken;',
+        ' float fo2 = (1.0 - smoothstep(th + 1.0, th + 1.6, dA)) * smoothstep(th + 0.2, th + 0.7, dA) * broken * 0.55 * (0.5 + 0.5 * sin(dA * 5.0 - uT * 1.6));',
+        ' foam = clamp(fo + fo2, 0.0, 1.0);',
+        '}',
         'diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.96, 0.98, 1.0), foam); diffuseColor.a = max(diffuseColor.a, foam);',
         'diffuseColor.rgb += vec3(0.14, 0.18, 0.2) * smoothstep(0.18, 0.5, vCrest);'
       ].join('\n');
       var NRM = [
         '#include <normal_fragment_maps>',
         'float dF = 1.0 - smoothstep(120.0, 600.0, length(vViewPosition));',
+        'if (uQ > 1.5 && dF > 0.0) {',
         'vec2 q = vWP;',
         'vec2 gd = vec2(cos(q.x * 0.9 + uT * 1.3) + cos(q.y * 1.7 - uT * 1.1 + q.x * 0.4) + cos((q.x + q.y) * 2.6 + uT * 2.1), cos(q.y * 1.1 - uT * 1.2) + cos(q.x * 2.1 + uT * 1.0 - q.y * 0.3) + cos((q.x - q.y) * 2.9 - uT * 1.8));',
-        'normal = normalize(normal + vec3(gd.x, gd.y, 0.0) * 0.03 * dF);'
+        'normal = normalize(normal + vec3(gd.x, gd.y, 0.0) * 0.03 * dF);',
+        '}'
       ].join('\n');
       var EMI = [
         '#include <emissivemap_fragment>',
@@ -290,7 +304,9 @@ function muestra(x, z, tipo) {
     hieloP = new THREE.Mesh(hg, hm); hieloP.rotation.x = -PI / 2; hieloP.frustumCulled = false; sc.add(hieloP); hieloQ = new THREE.Mesh(hg, hm); hieloQ.rotation.x = -PI / 2; hieloQ.frustumCulled = false; sc.add(hieloQ);
   }
   function actualizarAgua(dt, cx, cz) {
-    aguaT += dt; aguaU.uT.value = aguaT; if (!mar) return; aguaU.uPl.value.set(cx, cz); actualizarProfundidad(cx, cz, false);
+    aguaT += dt; aguaU.uT.value = aguaT;
+    if (QA.skip > 0) QA.skip -= dt; else if (dt < 0.5) { QA.t += dt; QA.n++; if (QA.t >= 3) { if (QA.t / QA.n > 1 / 36 && aguaU.uQ.value > 0) { aguaU.uQ.value--; QA.skip = 4; } QA.t = 0; QA.n = 0; } }   // si va lento, el agua baja sola de detalle (2 → 1 → 0)
+    if (!mar) return; aguaU.uPl.value.set(cx, cz); actualizarProfundidad(cx, cz, false);
     var gx = Math.round(cx / 20) * 20, gz = Math.round(cz / 20) * 20; mar.position.set(gx, AGUA_Y, gz); marFar.position.set(gx, AGUA_Y - 0.3, gz);
     if (hieloP) { hieloP.position.set(cx, AGUA_Y + 1.3, MUN.ZMAX + 20000 + 150); hieloQ.position.set(cx, AGUA_Y + 1.3, -MUN.ZMAX - 20000 - 150); }
   }
@@ -586,6 +602,13 @@ function muestra(x, z, tipo) {
   var N1 = { piedra: 60, hierro: 20, cobre: 10 }, N2 = { piedra: 150, hierro: 60, cobre: 30, titanio: 10, piezas: 10 }, N3 = { piedra: 400, hierro: 150, cobre: 80, titanio: 40, oro: 10, piezas: 30 };
   var COSTOS = { base_pc: { piedra: 8 }, base_pt: { piedra: 4 }, base_mc: { hierro: 20, piedra: 4 }, base_mt: { hierro: 10, piedra: 2 }, base_dc: { hierro: 30, titanio: 4 }, base_dt: { hierro: 15, titanio: 2 }, com1: N1, inv1: N1, pista1: N1, taller1: N1, torreta: { hierro: 20, cobre: 10 }, com2: N2, inv2: N2, pista2: N2, taller2: N2, extr_min: N2, extr_pet: N2, planta: N2, refineria: N2, com3: N3, complejo: N3, ciudad: N3, astillero: N3 };
   var DIA = 86400, REGEN = 100 / DIA, DECAY = 100 / (3 * DIA), MAX_OFFLINE = 48 * 3600 * 1000, DIAS_BODEGA = 14;
+  /* barra rápida (como en los juegos de supervivencia): los 6 primeros objetos del inventario, con su cantidad */
+  var hotSel = 0, hotSig = '';
+  function pintarHot(forzar) {
+    if (!ui || !ui.hotS) return; var inv = invL(), ks = Object.keys(E.Iconos.RES).filter(function (k) { return inv[k] > 0; }).slice(0, 6), sig = ks.map(function (k) { return k + inv[k]; }).join('|') + '#' + hotSel;
+    if (sig === hotSig && !forzar) return; hotSig = sig;
+    ui.hotS.forEach(function (d, i) { var k = ks[i]; d.className = 'jn-hot-s' + (i === hotSel ? ' sel' : ''); d.innerHTML = '<small class="n">' + (i + 1) + '</small>' + (k ? E.Iconos.svg(k, 30) + '<b>' + Math.floor(inv[k]) + '</b>' : ''); });
+  }
   function invL() { return leer('inv', {}) || {}; }
   function alcanza(c) { if (!c || jug.pruebas) return true; var iv = invL(), k; for (k in c) if ((iv[k] || 0) < c[k]) return false; return true; }
   function gastar(c, f) { if (!c || jug.pruebas) return; var iv = invL(), k; for (k in c) iv[k] = Math.max(0, (iv[k] || 0) + (f || -1) * c[k]); guardar('inv', iv); }
@@ -803,6 +826,7 @@ function muestra(x, z, tipo) {
     ui.bBuc.addEventListener('pointerdown', function (ev) { nDown = true; try { ui.bBuc.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); });
     ['pointerup', 'pointercancel'].forEach(function (n) { ui.bBuc.addEventListener(n, function () { nDown = false; }); });
     ui.aire = el('div', 'jn-aire', L, '<i></i>'); ui.aireI = ui.aire.firstChild; ui.aire.style.display = 'none';
+    ui.hot = el('div', 'jn-hot', L); ui.hotS = []; for (var hi = 0; hi < 6; hi++) (function (n) { var d = el('div', 'jn-hot-s' + (n === 0 ? ' sel' : ''), ui.hot); d.addEventListener('pointerdown', function (ev) { hotSel = n; pintarHot(true); ev.preventDefault(); ev.stopPropagation(); }); ui.hotS.push(d); })(hi);
     ui.bVol = el('button', 'jn-btn jn-grande jn-pl-volar', L, 'VOLAR');
     ui.bVol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado) volar = true; try { ui.bVol.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); });
     ['pointerup', 'pointercancel'].forEach(function (n) { ui.bVol.addEventListener(n, function () { volar = false; }); });
@@ -890,7 +914,7 @@ function muestra(x, z, tipo) {
     if (!ui) return; var pon = !!(ghost || itemSel), pie = modoPie, sen = !!sentado;
     function vis(b, v) { b.style.display = v ? '' : 'none'; }
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
-    vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bEdif, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bMej, modoCons && !!cercaM && pie && !sen); vis(ui.bSalC, modoCons && !sen); if (cercaM && cercaM.item.mejora) { var cm2 = COSTOS[cercaM.item.mejora]; ui.bMej.textContent = 'MEJORAR A ' + itemDe(cercaM.item.mejora).nombre.split('(')[0].replace('Base de ', '').toUpperCase().trim(); } vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
+    vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bEdif, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bMej, modoCons && !!cercaM && pie && !sen); vis(ui.bSalC, modoCons && !sen); if (cercaM && cercaM.item.mejora) { var cm2 = COSTOS[cercaM.item.mejora]; ui.bMej.textContent = 'MEJORAR A ' + itemDe(cercaM.item.mejora).nombre.split('(')[0].replace('Base de ', '').toUpperCase().trim(); } vis(ui.hot, pie && !modoCons && !pon && !sen && !modoBorrar); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
     vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, modoCons || (!pie && !pon)); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
     vis(ui.bTer, pie && !sen); ui.bTer.textContent = terceraP ? '1.ª PERSONA' : '3.ª PERSONA';
     vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB || cercaN)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bVol, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
@@ -1280,7 +1304,7 @@ function muestra(x, z, tipo) {
       var now = Date.now(), prox = null, pr;
       tMant -= dt; if (tMant <= 0) { tMant = 2; for (i = 0; i < colocadas.length; i++) tickMant(colocadas[i], now); if (mantO) pintarMant(); tGuardar += 2; if (tGuardar >= 30) { tGuardar = 0; guardarBase(); } }
       for (i = 0; i < colocadas.length; i++) { var c = colocadas[i]; if (c.fin) { if (now >= c.fin) { c.fin = 0; terminarObra(c); c.g.scale.y = 1; c.g.updateMatrixWorld(true); c._cj = null; cm.x = 1e9; guardarBase(); toast('TERMINADA: ' + c.item.nombre.toUpperCase(), 2); } else { pr = 1 - (c.fin - now) / c.dur; if (c._ob) avanceObra(c, pr); else c.g.scale.y = 0.04 + 0.96 * pr; if (!prox || c.fin < prox.fin) prox = c; } } }
-      avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; hgT++; if (hgT % 6 === 0) { try { sincronizarHangares(); } catch (eh2) { } } if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }
+      avisoT -= dt; if (avisoT <= 0) { avisoT = 0.5; hgT++; pintarHot(); if (hgT % 6 === 0) { try { sincronizarHangares(); } catch (eh2) { } } if (prox) ui.est.textContent = 'Construyendo ' + prox.item.nombre + ' · ' + Math.ceil((prox.fin - now) / 1000) + ' s'; else if (!cargando && !ghost && !itemSel) ui.est.textContent = ''; }
       if (ghost) { rejilla.position.set(Math.round(ghost.g.position.x / 20) * 20, 0.5, Math.round(ghost.g.position.z / 20) * 20); }
       if (modoPie) actualizarPie(dt, t); else camara(); if (tToast > 0) { tToast -= dt; if (tToast <= 0) ui.toast.style.opacity = 0; }
       try { actualizarCielo(dt, t); } catch (ec) { if (global.console && !CIE.err) { CIE.err = 1; console.error(ec); } }

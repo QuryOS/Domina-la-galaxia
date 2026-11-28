@@ -309,3 +309,16 @@
 [style*="display: none"][style*="display: none"][style*="display: none"]{display:none!important}
 .jn-atracar{display:none!important}
 .jn-atracar[style*="flex"]{display:flex!important}
+[data-ctl=p_bucear]{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v12M7 11l5 5 5-5M3 20c2-2 3-2 5 0s3 2 5 0 3-2 5 0 3 2 3 0'/%3E%3C/svg%3E")}
+.jn-planeta .jn-pl-volar.jn-pl-buc{right:calc(108px + env(safe-area-inset-right))!important;bottom:calc(240px + env(safe-area-inset-bottom))!important}
+.jn-aire{position:absolute;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);width:200px;height:9px;border-radius:6px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.5);overflow:hidden;pointer-events:none;z-index:6}
+.jn-aire i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#8fd8ff,#e8f8ff)}
+.jn-aire.bajo i{background:linear-gradient(90deg,#ff5a4d,#ffb0a8)}
+
+/* barra rápida de inventario (6 casillas) */
+.jn-hot{position:absolute;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:4px;z-index:6;pointer-events:auto}
+.jn-hot-s{position:relative;width:46px;height:46px;border-radius:6px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;color:#fff;font:700 11px system-ui,sans-serif}
+.jn-hot-s.sel{border:2px solid #fff;background:rgba(255,255,255,.18)}
+.jn-hot-s .n{position:absolute;left:3px;top:1px;font-size:9px;opacity:.8}
+.jn-hot-s b{position:absolute;right:3px;bottom:1px;font-size:10px;text-shadow:0 0 3px #000}
+.jn-hot-s svg{width:28px;height:28px}
