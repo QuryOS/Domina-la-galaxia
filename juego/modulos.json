@@ -8,6 +8,7 @@
   "juego/nucleo/iconos.js",
   "juego/nucleo/pantalla.js",
   "juego/recursos/procedural.js",
+  "juego/recursos/texturas.js",
   "juego/nucleo/modelos.js",
   "juego/red/red.js",
   "juego/red/amigos.js",

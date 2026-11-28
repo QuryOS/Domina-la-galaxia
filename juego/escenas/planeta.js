@@ -154,7 +154,7 @@ function muestra(x, z, tipo) {
       muestra(x0 + (a - 1) * step, z0 + (b - 1) * step, tipo); Hh[b * G + a] = MS.h;
       if (a >= 1 && b >= 1 && a <= N + 1 && b <= N + 1) { k = (b - 1) * W1 + (a - 1); fCold[k] = MS.cold; fIce[k] = MS.ice; fD[k] = MS.mD; fB[k] = MS.mB; fM1[k] = MS.m1; fM2[k] = MS.m2; fNv[k] = MS.nv; fLat[k] = MS.f; }
     }
-    var nS = 4 * W1, nT = n1 + nS, pos = new Float32Array(nT * 3), nor = new Float32Array(nT * 3), col = new Float32Array(nT * 3), uv = new Float32Array(nT * 2), H = new Float32Array(n1), B = new Uint8Array(n1);
+    var nS = 4 * W1, nT = n1 + nS, pos = new Float32Array(nT * 3), nor = new Float32Array(nT * 3), col = new Float32Array(nT * 3), uv = new Float32Array(nT * 2), H = new Float32Array(n1), B = new Uint8Array(n1), mw = new Float32Array(nT * 4), ms = new Float32Array(nT), wr, wsd, wdt, wsn, rem;
     var cc = TCC, tmp = cc.tmp, u0 = ((x0 / 12) % 1 + 1) % 1, v0 = ((z0 / 12) % 1 + 1) % 1, ia, ib, h, hx, hz, sl, nl, ci, snowH, sn, bio, cold, ice, mD, mB, m1, m2;
     for (ib = 0; ib < W1; ib++) for (ia = 0; ia < W1; ia++) {
       k = ib * W1 + ia; var q = (ib + 1) * G + ia + 1; h = Hh[q]; hx = (Hh[q - 1] - Hh[q + 1]) / (2 * step); hz = (Hh[q - G] - Hh[q + G]) / (2 * step); sl = Math.sqrt(hx * hx + hz * hz); nl = Math.sqrt(hx * hx + 1 + hz * hz);
@@ -170,6 +170,11 @@ function muestra(x, z, tipo) {
       if (h < AGUA_Y) { tmp.lerp(cc.arena, 0.6); tmp.lerp(cc.fondo, sstep(1.5, 45, AGUA_Y - h)); }   // fondo del mar
       tmp.lerp(cc.hielo, ice);
       bio = ice > 0.5 ? 6 : h < AGUA_Y + 0.6 ? 5 : (sn > 0.6 || cold > 0.85) ? 6 : (sl > 0.45 || h > 110) ? 3 : mD > 0.5 ? 1 : (mB > 0.5 && sl < 0.3) ? 2 : 0; B[k] = bio;
+      wsn = Math.min(1, Math.max(sn, ice)); rem = 1 - wsn;   // material del suelo en este punto: roca > arena > tierra > césped (suman 1); la nieve va aparte
+      wr = Math.min(rem, Math.min(1, sstep(0.28, 0.55, sl) * 0.95 + sstep(95, 190, h) * 0.5)); rem -= wr;
+      wsd = Math.min(rem, Math.max(0, Math.min(1, mD * 0.9 + (h < AGUA_Y + 4.5 ? (1 - sstep(AGUA_Y + 0.5, AGUA_Y + 4.5, h)) * 0.95 * (1 - cold) : 0) + (h < AGUA_Y ? 0.6 : 0)))); rem -= wsd;
+      wdt = Math.min(rem, Math.min(1, sstep(0.3, 0.55, m1 * 0.6 + sl * 2.2) * 0.5 * (1 - mB * 0.6) + sstep(0.35, 0.8, cold) * 0.8)); rem -= wdt;
+      mw[k * 4] = rem; mw[k * 4 + 1] = wdt; mw[k * 4 + 2] = wsd; mw[k * 4 + 3] = wr; ms[k] = wsn;
       pos[k * 3] = ia * step; pos[k * 3 + 1] = h; pos[k * 3 + 2] = ib * step; nor[k * 3] = hx / nl; nor[k * 3 + 1] = 1 / nl; nor[k * 3 + 2] = hz / nl;
       col[k * 3] = tmp.r; col[k * 3 + 1] = tmp.g; col[k * 3 + 2] = tmp.b; uv[k * 2] = u0 + ia * step / 12; uv[k * 2 + 1] = v0 + ib * step / 12;
     }
@@ -177,7 +182,7 @@ function muestra(x, z, tipo) {
     for (e = 0; e < 4; e++) for (t2 = 0; t2 < W1; t2++) {
       k = e === 0 ? t2 : e === 1 ? N * W1 + t2 : e === 2 ? t2 * W1 : t2 * W1 + N;
       pos[si * 3] = pos[k * 3]; pos[si * 3 + 1] = pos[k * 3 + 1] - 12; pos[si * 3 + 2] = pos[k * 3 + 2]; nor[si * 3] = nor[k * 3]; nor[si * 3 + 1] = nor[k * 3 + 1]; nor[si * 3 + 2] = nor[k * 3 + 2];
-      col[si * 3] = col[k * 3]; col[si * 3 + 1] = col[k * 3 + 1]; col[si * 3 + 2] = col[k * 3 + 2]; uv[si * 2] = uv[k * 2]; uv[si * 2 + 1] = uv[k * 2 + 1]; si++;
+      col[si * 3] = col[k * 3]; col[si * 3 + 1] = col[k * 3 + 1]; col[si * 3 + 2] = col[k * 3 + 2]; uv[si * 2] = uv[k * 2]; uv[si * 2 + 1] = uv[k * 2 + 1]; mw[si * 4] = mw[k * 4]; mw[si * 4 + 1] = mw[k * 4 + 1]; mw[si * 4 + 2] = mw[k * 4 + 2]; mw[si * 4 + 3] = mw[k * 4 + 3]; ms[si] = ms[k]; si++;
     }
     var idx = idxC[N]; if (!idx) {
       idx = new Uint16Array(N * N * 6 + 4 * N * 6); var q2 = 0, ja, jb, A, Bq, C, D;
@@ -188,9 +193,36 @@ function muestra(x, z, tipo) {
       }
       idxC[N] = idx;
     }
-    var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('aW', new THREE.BufferAttribute(mw, 4)); geo.setAttribute('aS', new THREE.BufferAttribute(ms, 1));
     geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(TILE / 2, 0, TILE / 2), TILE * 0.8); geo.boundingBox = null;
     return { geo: geo, H: H, B: B };
+  }
+  /* texturas del suelo (césped, tierra, arena, piedra, nieve): se mezclan según el material de cada punto y se multiplican sobre la paleta
+     del planeta (textura ÷ su color medio), así el color general no cambia pero el suelo gana detalle. Mientras se fabrican valen 1 (neutro). */
+  var TXU = null, TXN = ['cesped', 'tierra', 'arena', 'piedra', 'nieve'], TXL = ['tG', 'tD', 'tA', 'tR', 'tN'], TXA = ['aG', 'aD', 'aA', 'aR', 'aN'];
+  function crearTXU() {
+    if (TXU) return TXU; TXU = {}; var neutra = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, THREE.RGBAFormat); neutra.needsUpdate = true;
+    TXL.forEach(function (n, i) { TXU[n] = { value: neutra }; TXU[TXA[i]] = { value: new THREE.Vector3(1, 1, 1) }; }); TXU.neutra = neutra; return TXU;
+  }
+  function sincTexturas() {
+    if (!TXU || !E.Texturas) return; TXN.forEach(function (n, i) { var m = E.Texturas.mapas[n]; if (m) { TXU[TXL[i]].value = m.tex; TXU[TXA[i]].value.set(m.avg[0], m.avg[1], m.avg[2]); } });
+  }
+  function materialTerreno() {
+    var u = crearTXU(), m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, map: texDetalle(), side: THREE.DoubleSide });
+    m.onBeforeCompile = function (sh) {
+      TXL.forEach(function (n, i) { sh.uniforms[n] = u[n]; sh.uniforms[TXA[i]] = u[TXA[i]]; });
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 aW; attribute float aS; varying vec4 vW4; varying float vS1; varying vec3 vWPs;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvW4 = aW; vS1 = aS; vWPs = (modelMatrix * vec4(position, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D tG; uniform sampler2D tD; uniform sampler2D tA; uniform sampler2D tR; uniform sampler2D tN; uniform vec3 aG; uniform vec3 aD; uniform vec3 aA; uniform vec3 aR; uniform vec3 aN; varying vec4 vW4; varying float vS1; varying vec3 vWPs;')
+        .replace('#include <color_fragment>', ['#include <color_fragment>',
+          'vec2 wp = vWPs.xz;',
+          'vec3 rt = texture2D(tG, wp / 5.0).rgb / aG * vW4.x + texture2D(tD, wp / 4.0).rgb / aD * vW4.y + texture2D(tA, wp / 6.0).rgb / aA * vW4.z + texture2D(tR, wp / 8.0 + vec2(0.31, 0.17)).rgb / aR * vW4.w;',
+          'rt = mix(rt, texture2D(tN, wp / 5.0 + vec2(0.57, 0.23)).rgb / aN, vS1);',
+          'rt = clamp(rt, 0.3, 2.0);',
+          'float dT = smoothstep(150.0, 700.0, length(vViewPosition));',
+          'diffuseColor.rgb *= mix(mix(vec3(1.0), rt, 0.9), vec3(1.0), dT);'].join('\n'));
+    };
+    return m;
   }
   function limpiarTerreno() {
     var k; for (k in tilesMesh) { if (TERG) TERG.remove(tilesMesh[k]); } tilesMesh = {};
@@ -413,7 +445,7 @@ function muestra(x, z, tipo) {
     limpiarTerreno(); TER = null;
     if (PERFIL[tipo]) {   // planetas aterrizables: planeta redondo (tiles de terreno que dan la vuelta al mundo)
       suelo.visible = false; TIPO = tipo; var pp = PALETA[tipo] || PALETA.tierra; TCC = { tmp: new THREE.Color() }; ['c1', 'c2', 'seco', 'tierra', 'roca', 'arena', 'nieve', 'bosque', 'hielo', 'tundra'].forEach(function (n) { TCC[n] = new THREE.Color(pp[n]); }); TCC.fondo = new THREE.Color('#12384c');
-      if (TMAT) { if (TMAT.map) TMAT.map.dispose(); TMAT.dispose(); } TMAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, map: texDetalle(), side: THREE.DoubleSide });
+      if (TMAT) { if (TMAT.map) TMAT.map.dispose(); TMAT.dispose(); } TMAT = materialTerreno(); try { if (E.Texturas) { E.Texturas.alCambiar = sincTexturas; E.Texturas.iniciar(THREE); sincTexturas(); } } catch (et) { if (global.console) console.error(et); }
       if (!TERG) { TERG = new THREE.Group(); sc.add(TERG); } TERG.visible = true; TER = { tipo: tipo }; actualizarTerreno(0, 160); DEP.row = DEP.N; DEP.cx = 1e9; if (DEP.tex) actualizarProfundidad(0, 160, true);
     } else {
       if (TERG) TERG.visible = false; suelo.visible = true; suelo.geometry.dispose(); suelo.rotation.x = -PI / 2; suelo.geometry = new THREE.CircleGeometry(R, 96); suelo.material.vertexColors = false; suelo.material.color.setHex(0xffffff);
@@ -602,12 +634,36 @@ function muestra(x, z, tipo) {
   var N1 = { piedra: 60, hierro: 20, cobre: 10 }, N2 = { piedra: 150, hierro: 60, cobre: 30, titanio: 10, piezas: 10 }, N3 = { piedra: 400, hierro: 150, cobre: 80, titanio: 40, oro: 10, piezas: 30 };
   var COSTOS = { base_pc: { piedra: 8 }, base_pt: { piedra: 4 }, base_mc: { hierro: 20, piedra: 4 }, base_mt: { hierro: 10, piedra: 2 }, base_dc: { hierro: 30, titanio: 4 }, base_dt: { hierro: 15, titanio: 2 }, com1: N1, inv1: N1, pista1: N1, taller1: N1, torreta: { hierro: 20, cobre: 10 }, com2: N2, inv2: N2, pista2: N2, taller2: N2, extr_min: N2, extr_pet: N2, planta: N2, refineria: N2, com3: N3, complejo: N3, ciudad: N3, astillero: N3 };
   var DIA = 86400, REGEN = 100 / DIA, DECAY = 100 / (3 * DIA), MAX_OFFLINE = 48 * 3600 * 1000, DIAS_BODEGA = 14;
-  /* barra rápida (como en los juegos de supervivencia): los 6 primeros objetos del inventario, con su cantidad */
+  /* barra rápida (como en los juegos de supervivencia) y mochila: lo que compraste (muros, portones, torretas…) y tus recursos */
   var hotSel = 0, hotSig = '';
+  function objetosInv() {   // lista ordenada: primero lo comprado (defensas), luego los recursos
+    var inv = invL(), out = [];
+    CATALOGO.forEach(function (it) { if (it.defensa && !it.oculto) { var n = stockDe(it.id); if (n > 0) out.push({ t: 'd', it: it, n: n, k: it.id }); } });
+    Object.keys(E.Iconos.RES).forEach(function (k) { if (inv[k] > 0) out.push({ t: 'r', k: k, n: Math.floor(inv[k]) }); });
+    return out;
+  }
+  function imgObj(o, px) {   // miniatura real del modelo si ya existe; si no, la pide y mientras tanto pone las iniciales
+    if (o.t === 'r') return E.Iconos.svg(o.k, px);
+    var u = E.Iconos.miniatura(o.it.id, null);
+    if (u) return '<img src="' + u + '" style="width:' + px + 'px;height:' + px + 'px;object-fit:contain">';
+    miniDe(o.it, function () { hotSig = ''; if (ui && ui.moch && ui.moch.classList.contains('on')) pintarMoch(); });
+    return '<span style="font-size:10px;letter-spacing:.04em">' + o.it.nombre.slice(0, 5).toUpperCase() + '</span>';
+  }
+  function usarObj(o) { if (o && o.t === 'd') { if (ui.moch) ui.moch.classList.remove('on'); elegir(o.it); } }
   function pintarHot(forzar) {
-    if (!ui || !ui.hotS) return; var inv = invL(), ks = Object.keys(E.Iconos.RES).filter(function (k) { return inv[k] > 0; }).slice(0, 6), sig = ks.map(function (k) { return k + inv[k]; }).join('|') + '#' + hotSel;
-    if (sig === hotSig && !forzar) return; hotSig = sig;
-    ui.hotS.forEach(function (d, i) { var k = ks[i]; d.className = 'jn-hot-s' + (i === hotSel ? ' sel' : ''); d.innerHTML = '<small class="n">' + (i + 1) + '</small>' + (k ? E.Iconos.svg(k, 30) + '<b>' + Math.floor(inv[k]) + '</b>' : ''); });
+    if (!ui || !ui.hotS) return; var ls = objetosInv().slice(0, 6), sig = ls.map(function (o) { return o.k + o.n; }).join('|') + '#' + hotSel;
+    if (sig === hotSig && !forzar) return; hotSig = sig; ui.hotLs = ls;
+    ui.hotS.forEach(function (d, i) { var o = ls[i]; d.className = 'jn-hot-s' + (i === hotSel ? ' sel' : ''); d.innerHTML = '<small class="n">' + (i + 1) + '</small>' + (o ? imgObj(o, 30) + '<b>' + o.n + '</b>' : ''); });
+  }
+  function pintarMoch() {
+    var M = ui.moch; if (!M) return; M.innerHTML = ''; var W = el('div', 'jn-moch-w', M), cab = el('div', 'jn-moch-cab', W); el('b', '', cab, 'MOCHILA'); var x = el('button', 'jn-mapa-x', cab, '✕'); x.onclick = function () { M.classList.remove('on'); };
+    var ls = objetosInv(), g = el('div', 'jn-moch-g', W), i;
+    ls.forEach(function (o) {
+      var c = el('div', 'jn-moch-c', g), nm = o.t === 'd' ? o.it.nombre : E.Iconos.RES[o.k].n; c.innerHTML = '<div class="im">' + imgObj(o, 40) + '</div><b>' + o.n + '</b><small>' + nm + '</small>';
+      if (o.t === 'd') { c.classList.add('us'); c.onclick = function () { usarObj(o); }; }
+    });
+    for (i = ls.length; i < 24; i++) el('div', 'jn-moch-c vac', g);
+    el('div', 'jn-lb-nota', W, 'Toca un objeto comprado (muro, portón, torreta…) para colocarlo. Los recursos se gastan al construir.');
   }
   function invL() { return leer('inv', {}) || {}; }
   function alcanza(c) { if (!c || jug.pruebas) return true; var iv = invL(), k; for (k in c) if ((iv[k] || 0) < c[k]) return false; return true; }
@@ -816,6 +872,7 @@ function muestra(x, z, tipo) {
       if (modoPie && !(naveBaja && naveY < 3 && Math.hypot(px - naveX, pz - naveZ) < pad + 30)) { toast('LLAMA A LA NAVE Y ACÉRCATE PARA SUBIR', 2); return; } despegar();
     };
     ui.bPie = el('button', 'jn-btn', ui.barra, 'BAJAR A PIE'); ui.bPie.onclick = function () { if (modoPie) salirPie(); else entrarPie(); };
+    ui.bMoch = el('button', 'jn-btn', ui.barra, 'MOCHILA'); ui.bMoch.onclick = function () { pintarMoch(); ui.moch.classList.add('on'); };
     ui.bPerro = el('button', 'jn-btn', ui.barra, 'PERRO'); ui.bPerro.onclick = function () { if (ui.perro.classList.contains('on')) ui.perro.classList.remove('on'); else { pintarPerro(); ui.perro.classList.add('on'); } };
     ui.bCor = el('button', 'jn-btn', ui.barra, 'CORRER'); ui.bCor.onclick = function () { correr = !correr; ui.bCor.classList.toggle('on', correr); };
     ui.bSen = el('button', 'jn-btn', ui.barra, 'BAJAR DE LA TORRETA'); ui.bSen.onclick = function () { if (sentado) levantarse(); };
@@ -826,7 +883,7 @@ function muestra(x, z, tipo) {
     ui.bBuc.addEventListener('pointerdown', function (ev) { nDown = true; try { ui.bBuc.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); });
     ['pointerup', 'pointercancel'].forEach(function (n) { ui.bBuc.addEventListener(n, function () { nDown = false; }); });
     ui.aire = el('div', 'jn-aire', L, '<i></i>'); ui.aireI = ui.aire.firstChild; ui.aire.style.display = 'none';
-    ui.hot = el('div', 'jn-hot', L); ui.hotS = []; for (var hi = 0; hi < 6; hi++) (function (n) { var d = el('div', 'jn-hot-s' + (n === 0 ? ' sel' : ''), ui.hot); d.addEventListener('pointerdown', function (ev) { hotSel = n; pintarHot(true); ev.preventDefault(); ev.stopPropagation(); }); ui.hotS.push(d); })(hi);
+    ui.hot = el('div', 'jn-hot', L); ui.hotS = []; for (var hi = 0; hi < 6; hi++) (function (n) { var d = el('div', 'jn-hot-s' + (n === 0 ? ' sel' : ''), ui.hot); d.addEventListener('pointerdown', function (ev) { hotSel = n; pintarHot(true); usarObj((ui.hotLs || [])[n]); ev.preventDefault(); ev.stopPropagation(); }); ui.hotS.push(d); })(hi);
     ui.bVol = el('button', 'jn-btn jn-grande jn-pl-volar', L, 'VOLAR');
     ui.bVol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado) volar = true; try { ui.bVol.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); });
     ['pointerup', 'pointercancel'].forEach(function (n) { ui.bVol.addEventListener(n, function () { volar = false; }); });
@@ -840,8 +897,8 @@ function muestra(x, z, tipo) {
     ui.sb = el('div', 'jn-pl-sb', L); ui.sk = el('div', 'jn-pl-sk', L); ui.mira = el('div', 'jn-pl-mira', L, '+'); ui.izq = izq;
     ui.panel = el('div', 'jn-pmenu jn-pl-panel', L, ''); var cab = el('div', 'jn-pl-cab', ui.panel); el('b', '', cab, 'ESTRUCTURAS'); var x = el('button', 'jn-mapa-x', ui.panel, '✕'); x.onclick = function () { ui.panel.classList.remove('on'); };
     ui.lstCat = el('div', 'jn-fl-lista', ui.panel);
-    ui.mant = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, ''); ui.perro = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, '');
-    [['p_cons', ui.bCons], ['p_col', ui.bCol], ['p_rot', ui.bRot], ['p_can', ui.bCan], ['p_demoler', ui.bBor], ['p_nave', ui.bNave], ['p_despegar', ui.bDes], ['p_pie', ui.bPie], ['p_correr', ui.bCor], ['p_usar', ui.bUsar], ['p_saltar', ui.bSal], ['p_golpe', ui.bGol], ['p_volar', ui.bVol], ['p_disparar', ui.bFue], ['p_torreta', ui.tor], ['p_zoom', ui.izq], ['p_recargar', ui.bRec], ['p_sen', ui.bSen], ['p_edif', ui.bEdif], ['p_bucear', ui.bBuc], ['p_perro', ui.bPerro], ['p_mej', ui.bMej], ['p_salc', ui.bSalC], ['p_ter', ui.bTer]].forEach(function (q) { if (q[1]) q[1].setAttribute('data-ctl', q[0]); });
+    ui.moch = el('div', 'jn-pmenu jn-moch jn-pl-mant', L, ''); ui.mant = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, ''); ui.perro = el('div', 'jn-pmenu jn-pl-panel jn-pl-mant', L, '');
+    [['p_cons', ui.bCons], ['p_col', ui.bCol], ['p_rot', ui.bRot], ['p_can', ui.bCan], ['p_demoler', ui.bBor], ['p_nave', ui.bNave], ['p_despegar', ui.bDes], ['p_pie', ui.bPie], ['p_correr', ui.bCor], ['p_usar', ui.bUsar], ['p_saltar', ui.bSal], ['p_golpe', ui.bGol], ['p_volar', ui.bVol], ['p_disparar', ui.bFue], ['p_torreta', ui.tor], ['p_zoom', ui.izq], ['p_recargar', ui.bRec], ['p_sen', ui.bSen], ['p_edif', ui.bEdif], ['p_bucear', ui.bBuc], ['p_perro', ui.bPerro], ['p_moch', ui.bMoch], ['p_mej', ui.bMej], ['p_salc', ui.bSalC], ['p_ter', ui.bTer]].forEach(function (q) { if (q[1]) q[1].setAttribute('data-ctl', q[0]); });
     E.aplicarLayout(L);
   }
   var colaMini = [], miniOn = false;
@@ -914,7 +971,7 @@ function muestra(x, z, tipo) {
     if (!ui) return; var pon = !!(ghost || itemSel), pie = modoPie, sen = !!sentado;
     function vis(b, v) { b.style.display = v ? '' : 'none'; }
     ui.tit.textContent = pl ? pl.nombre.toUpperCase() + ' · BASE ' + nEst() + '/' + MAX_EST + (colocadas.length > nEst() ? ' · DEFENSAS ' + (colocadas.length - nEst()) : '') : '';
-    vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bEdif, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bMej, modoCons && !!cercaM && pie && !sen); vis(ui.bSalC, modoCons && !sen); if (cercaM && cercaM.item.mejora) { var cm2 = COSTOS[cercaM.item.mejora]; ui.bMej.textContent = 'MEJORAR A ' + itemDe(cercaM.item.mejora).nombre.split('(')[0].replace('Base de ', '').toUpperCase().trim(); } vis(ui.hot, pie && !modoCons && !pon && !sen && !modoBorrar); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
+    vis(ui.bPerro, !!datosPerro() && !pon && !modoBorrar && !sen); vis(ui.bCons, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bEdif, !modoCons && !pon && !modoBorrar && !sen); vis(ui.bMej, modoCons && !!cercaM && pie && !sen); vis(ui.bSalC, modoCons && !sen); if (cercaM && cercaM.item.mejora) { var cm2 = COSTOS[cercaM.item.mejora]; ui.bMej.textContent = 'MEJORAR A ' + itemDe(cercaM.item.mejora).nombre.split('(')[0].replace('Base de ', '').toUpperCase().trim(); } vis(ui.hot, !sen); vis(ui.bMoch, !sen); vis(ui.bCol, pon); vis(ui.bRot, pon); vis(ui.bCan, pon);
     vis(ui.bNave, !sen && !pon && !(!pie && modoBorrar)); vis(ui.bBor, modoCons || (!pie && !pon)); ui.bBor.textContent = modoBorrar ? 'LISTO' : 'DEMOLER'; vis(ui.bDes, !sen && !pon);
     vis(ui.bTer, pie && !sen); ui.bTer.textContent = terceraP ? '1.ª PERSONA' : '3.ª PERSONA';
     vis(ui.bPie, !sen && !pon && !modoBorrar); ui.bPie.textContent = pie ? 'VISTA BASE' : 'BAJAR A PIE'; vis(ui.bCor, pie && !sen && !pon); vis(ui.bSen, sen); ui.bUsar.style.display = (pie && !sen && !pon && (cercaT || cercaG || cercaB || cercaN)) ? 'flex' : 'none'; vis(ui.bSal, pie && !sen && !pon); vis(ui.bVol, pie && !sen && !pon); vis(ui.bGol, pie && !sen && !pon);
