@@ -41,7 +41,7 @@
   E.ATERRIZABLES = { tierra: 1, caos: 1, desierto: 1 };   // los demás son planetas mineros: no se aterriza
 
   var sc, cam, suelo, anillo, rejilla, luzSol, luzHemi, luzLuna, ui = null, construido = false, ray = null, v2p = null, pyF = 0, fallV = 0, rc = null, cm = { x: 1e9, z: 1e9, list: [] }, ascKey = '', pendAsc = null, viajeFin = 0, naveBaja = false, naveY = HOVER, avisoT = 0, naveX = 0, naveZ = 0, naveTx = 0, naveTz = 0;
-  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, jet = 1, volar = false, jetOn = false, golpeT = 0, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaN = false, cercaG = null, cercaB = null, vA = null, qA = null, vB = null, vC = null;
+  var modoPie = false, px = 0, pz = 0, pyaw = 0, ppit = 0, sentado = null, correr = false, tIx = 0, tIy = 0, saltoY = 0, saltoV = 0, jet = 1, volar = false, jetOn = false, golpeT = 0, golpePend = false, manosPie = null,  stk = null, lookId = null, cercaT = null, cercaN = false, cercaG = null, cercaB = null, vA = null, qA = null, vB = null, vC = null;
   var pl = null, ret = null, key = '', nave = null, pad = 60, colocadas = [], ghost = null, itemSel = null, rotG = 0, modoBorrar = false, cargando = '', alt = false;
   var fx = 0, fz = 0, yaw = 0.6, pit = 0.75, dist = 160, punteros = {}, pinch0 = 0, dist0 = 0, mov = 0, bR = 0, bZ = 0, tToast = 0;
 
@@ -223,6 +223,26 @@ function muestra(x, z, tipo) {
           'diffuseColor.rgb *= mix(mix(vec3(1.0), rt, 0.9), vec3(1.0), dT);'].join('\n'));
     };
     return m;
+  }
+  /* rocas de farmeo (piedra, metal, azufre) repartidas al azar, nunca en el agua: módulo juego/mundo/rocas.js */
+  var rocaAv = { t: 0, tot: {} };
+  function darRecursos(o) {
+    var iv = invL(), k, txt = []; for (k in o) { iv[k] = (iv[k] || 0) + o[k]; rocaAv.tot[k] = (rocaAv.tot[k] || 0) + o[k]; } guardar('inv', iv); rocaAv.t = 0.35;
+    if (hotSig !== undefined) hotSig = '';
+  }
+  function iniciarRocas() {
+    if (!E.Rocas) return; E.Rocas.iniciar(THREE, sc, {
+      alt: hTc, agua: AGUA_Y, dar: darRecursos,
+      ocupado: function (x, z) { var i; for (i = 0; i < colocadas.length; i++) if (Math.hypot(colocadas[i].x - x, colocadas[i].z - z) < 40) return true; return false; }
+    });
+  }
+  function avisoRocas(dt) {   // junta lo recolectado en un solo aviso ("+12 Piedra  +4 Hierro")
+    if (rocaAv.t <= 0) return; rocaAv.t -= dt; if (rocaAv.t > 0) return;
+    var k, txt = []; for (k in rocaAv.tot) txt.push('+' + rocaAv.tot[k] + ' ' + (E.Iconos.RES[k] ? E.Iconos.RES[k].n : k)); rocaAv.tot = {}; if (txt.length) toast(txt.join('   '), 1.6);
+  }
+  function golpearRocas() {   // el golpe del jugador: desde los ojos hacia donde mira
+    if (!TER || !E.Rocas) return; var cp = Math.cos(ppit), o = new THREE.Vector3(px, (manosPie ? manosPie.eye : 1.7) + pyF + saltoY, pz), d = new THREE.Vector3(-Math.sin(pyaw) * cp, Math.sin(ppit), -Math.cos(pyaw) * cp);
+    E.Rocas.golpear(o, d);
   }
   function limpiarTerreno() {
     var k; for (k in tilesMesh) { if (TERG) TERG.remove(tilesMesh[k]); } tilesMesh = {};
@@ -442,11 +462,11 @@ function muestra(x, z, tipo) {
   }
   function ambientar(tipo) {   // suelo, mar y paisaje lejano de cada planeta
     var pj = PAISAJE[tipo] || PAISAJE.rocoso, agua = pj[3] != null, R = agua ? RADIO_BASE + 260 : 30000, i, j;
-    limpiarTerreno(); TER = null;
+    limpiarTerreno(); TER = null; try { if (E.Rocas) E.Rocas.detener(); } catch (er0) { }
     if (PERFIL[tipo]) {   // planetas aterrizables: planeta redondo (tiles de terreno que dan la vuelta al mundo)
       suelo.visible = false; TIPO = tipo; var pp = PALETA[tipo] || PALETA.tierra; TCC = { tmp: new THREE.Color() }; ['c1', 'c2', 'seco', 'tierra', 'roca', 'arena', 'nieve', 'bosque', 'hielo', 'tundra'].forEach(function (n) { TCC[n] = new THREE.Color(pp[n]); }); TCC.fondo = new THREE.Color('#12384c');
       if (TMAT) { if (TMAT.map) TMAT.map.dispose(); TMAT.dispose(); } TMAT = materialTerreno(); try { if (E.Texturas) { E.Texturas.alCambiar = sincTexturas; E.Texturas.iniciar(THREE); sincTexturas(); } } catch (et) { if (global.console) console.error(et); }
-      if (!TERG) { TERG = new THREE.Group(); sc.add(TERG); } TERG.visible = true; TER = { tipo: tipo }; actualizarTerreno(0, 160); DEP.row = DEP.N; DEP.cx = 1e9; if (DEP.tex) actualizarProfundidad(0, 160, true);
+      if (!TERG) { TERG = new THREE.Group(); sc.add(TERG); } TERG.visible = true; TER = { tipo: tipo }; actualizarTerreno(0, 160); iniciarRocas(); DEP.row = DEP.N; DEP.cx = 1e9; if (DEP.tex) actualizarProfundidad(0, 160, true);
     } else {
       if (TERG) TERG.visible = false; suelo.visible = true; suelo.geometry.dispose(); suelo.rotation.x = -PI / 2; suelo.geometry = new THREE.CircleGeometry(R, 96); suelo.material.vertexColors = false; suelo.material.color.setHex(0xffffff);
       var tx = texSuelo(pj[0], pj[2]); tx.repeat.set(730 * R / 30000, 730 * R / 30000); suelo.material.map = tx; suelo.material.needsUpdate = true;
@@ -887,7 +907,7 @@ function muestra(x, z, tipo) {
     ui.bVol = el('button', 'jn-btn jn-grande jn-pl-volar', L, 'VOLAR');
     ui.bVol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado) volar = true; try { ui.bVol.setPointerCapture(ev.pointerId); } catch (x) { } ev.preventDefault(); });
     ['pointerup', 'pointercancel'].forEach(function (n) { ui.bVol.addEventListener(n, function () { volar = false; }); });
-    ui.bGol = el('button', 'jn-btn jn-grande jn-pl-golpe', L, 'GOLPEAR'); ui.bGol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado && golpeT <= 0) golpeT = 0.45; ev.preventDefault(); });
+    ui.bGol = el('button', 'jn-btn jn-grande jn-pl-golpe', L, 'GOLPEAR'); ui.bGol.addEventListener('pointerdown', function (ev) { if (modoPie && !sentado && golpeT <= 0) { golpeT = 0.45; golpePend = true; } ev.preventDefault(); });
     ui.bRec = el('button', 'jn-btn', ui.barra, 'RECARGAR'); ui.bRec.onclick = function () { if (sentado) sentado.api.recargar(); };
     ui.bFue = el('button', 'jn-btn jn-grande jn-fuego', L, 'DISPARAR'); ['pointerdown'].forEach(function (n) { ui.bFue.addEventListener(n, function (ev) { if (sentado) sentado.api.disparar(true); ev.preventDefault(); }); }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { ui.bFue.addEventListener(n, function () { if (sentado) sentado.api.disparar(false); }); });
     ui.asc = el('div', 'jn-pl-asc', L); ui.asc.style.display = 'none';
@@ -1181,6 +1201,7 @@ function muestra(x, z, tipo) {
     return { y: hT(x, z), bloq: false };
   }
   function moverConColision(mx, mz, dt) {
+    if (TER && E.Rocas) { var rr = E.Rocas.empujar(px, pz, mx, mz); if (rr) { mx = rr[0]; mz = rr[1]; } }   // las rocas son sólidas
     var cand = null; try { if (!rc) { rc = new THREE.Raycaster(); o3 = new THREE.Vector3(); d3 = new THREE.Vector3(); } cand = candidatos(px, pz); } catch (e) { cand = null; }
     if (TER && AGUA_Y - hT(px + mx, pz + mz) > 1.2) { px += mx; pz += mz; return; }   // agua profunda: se nada (la altura la lleva actualizarPie)
     if (!cand || !cand.length) { px += mx; pz += mz; var tg = hT(px, pz); if (pyF > tg + 0.02) { fallV = Math.min(fallV + 25 * dt, 40); pyF = Math.max(tg, pyF - fallV * dt); } else { pyF += Math.min(tg - pyF, 14 * dt + 0.02); fallV = 0; } return; }
@@ -1293,7 +1314,7 @@ function muestra(x, z, tipo) {
     ui.bVol.style.background = 'linear-gradient(to top,rgba(0,200,255,.75) ' + Math.round(jet * 100) + '%,rgba(20,30,50,.6) ' + Math.round(jet * 100) + '%)';
     if (manosPie) { var fl = manosPie.llamas; if (fl) { fl[0].visible = fl[1].visible = jetOn; if (jetOn) { var fs = 0.8 + Math.random() * 0.5; fl[0].scale.set(1, fs, 1); fl[1].scale.set(1, fs, 1); } } }
     if (saltoV !== 0 || saltoY > 0) { saltoV -= 12 * dt; saltoY += saltoV * dt; if (saltoY <= 0) { saltoY = 0; saltoV = 0; } }
-    if (golpeT > 0) golpeT -= dt; if (vidaJ < 100) vidaJ = Math.min(100, vidaJ + dt * 2);
+    if (golpeT > 0) golpeT -= dt; if (golpePend && golpeT < 0.26) { golpePend = false; golpearRocas(); } if (vidaJ < 100) vidaJ = Math.min(100, vidaJ + dt * 2);
     if (terceraP) {   // la cámara se aleja por detrás del soldado, siguiendo hacia dónde miras (sube y baja libremente)
       var cp = Math.cos(ppit), D3 = 3.4, hx = px, hy = (manosPie ? manosPie.eye : 1.7) - 0.15 + pyF + saltoY, hz = pz;
       cam.position.set(hx + Math.sin(pyaw) * cp * D3 + Math.cos(pyaw) * 0.45, Math.max(0.35, hy - Math.sin(ppit) * D3), hz + Math.cos(pyaw) * cp * D3 - Math.sin(pyaw) * 0.45);
@@ -1340,7 +1361,7 @@ function muestra(x, z, tipo) {
     actualizar: function (dt, t) {
       if (!pl) return;
       if (viajeFin && Date.now() >= viajeFin) { viajeFin = 0; guardar('viaje', null); if (nave) nave.visible = true; toast('TU NAVE HA LLEGADO', 2.6); }
-      if (TER) { var cxT = modoPie ? px : fx, czT = modoPie ? pz : fz; actualizarTerreno(cxT, czT); actualizarAgua(dt, cxT, czT); }
+      if (TER) { var cxT = modoPie ? px : fx, czT = modoPie ? pz : fz; actualizarTerreno(cxT, czT); actualizarAgua(dt, cxT, czT); if (E.Rocas) { E.Rocas.actualizar(dt, t, cxT, czT); avisoRocas(dt); } }
       yaw += bR * dt * 1.2; dist = clamp(dist * (1 + bZ * dt * 1.4), 25, TER ? 900 : 4000);
       if (ghost) {
         var gx = Math.round(fx / 2) * 2, gz = Math.round(fz / 2) * 2, ok;

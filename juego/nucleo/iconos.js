@@ -9,6 +9,7 @@
     cobre: { n: 'Cobre', c: '#e0894f', svg: '<path d="M3 15l3-6h12l3 6z" fill="#c4713c" stroke="#f0b088"/><path d="M3 15v3h18v-3" fill="#8f4f27" stroke="#d48a57"/><path d="M8 9l-1 6M16 9l1 6" stroke="#f3b78f" fill="none"/>' },
     titanio: { n: 'Titanio', c: '#8fd0ff', svg: '<path d="M12 3l6 5-2 10-4 3-4-3-2-10z" fill="#6aa5cf" stroke="#c4e8ff"/><path d="M12 3v18M6 8l6 4 6-4M8 18l4-6 4 6" stroke="#dff3ff" fill="none" stroke-opacity=".7"/>' },
     oro: { n: 'Oro', c: '#ffd447', svg: '<path d="M4 16l3-6 5-3 6 3 2 6-4 3H8z" fill="#e3b630" stroke="#fff0a8"/><path d="M7 10l5 3 6-3M12 13v7" stroke="#fff6c4" fill="none" stroke-opacity=".8"/>' },
+    azufre: { n: 'Azufre', c: '#f1d23e', svg: '<path d="M12 3l5 6-2 10H9L7 9z" fill="#e8c92f" stroke="#fff3a0"/><path d="M12 3l-2 7 2 9M12 3l2 7-2 9" fill="none" stroke="#b99a14"/>' },
     piezas: { n: 'Trozos metálicos', c: '#c9d6e6', svg: '<path d="M4 8l6-3 4 4-2 4 6 1-3 5H7z" fill="#7c8a9c" stroke="#c9d6e6"/><circle cx="10" cy="13" r="1.6" fill="#44505f"/><path d="M14 9l5-2" stroke="#c9d6e6"/>' },
     credito: { n: 'Toristina', c: '#ffe27a', svg: '<circle cx="12" cy="12" r="8" fill="#e6b83a" stroke="#fff1a8" stroke-width="1.5"/><path d="M8 8h8M12 8v8M9.5 16h5" stroke="#6b4a00" stroke-width="1.8" fill="none"/>' }
   };
