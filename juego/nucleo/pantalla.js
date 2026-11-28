@@ -30,13 +30,13 @@
     E.renderer.setClearColor(0x02030a, 1);
     E.renderer.outputEncoding = THREE.sRGBEncoding;
     E.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    E.renderer.toneMappingExposure = 1.1;
+    E.renderer.toneMappingExposure = 1.1; E.renderer.shadowMap.enabled = false; E.renderer.shadowMap.type = THREE.PCFShadowMap;
     return true;
   }
   E.ancho = 1; E.alto = 1;
   function redimensionar() {
     E.ancho = raiz.clientWidth || global.innerWidth || 800; E.alto = raiz.clientHeight || global.innerHeight || 600;
-    if (E.renderer) { E.renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, CALIDAD[jug.calidad].dpr)); E.renderer.setSize(E.ancho, E.alto, false); }
+    if (E.renderer) { if (E.calAut !== jug.calidad) { E.calAut = jug.calidad; E.dprAuto = 0; } E.renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, CALIDAD[jug.calidad].dpr, E.dprAuto || 99)); E.renderer.setSize(E.ancho, E.alto, false); }
     for (var k in escenas) if (escenas[k].redimensionar) escenas[k].redimensionar(E.ancho, E.alto);
   }
   function mostrarCapas(lista) {

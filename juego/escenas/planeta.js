@@ -47,15 +47,15 @@
 
   function construir() {
     mar = orilla = deco = null; manosPrem = null; sc = new THREE.Scene(); cam = new THREE.PerspectiveCamera(60, 1, 1, 22000);
-    luzSol = new THREE.DirectionalLight(0xfff1e0, 2.3); luzSol.position.set(0.6, 0.8, 0.4); luzHemi = new THREE.HemisphereLight(0xaac4e6, 0x3a2a22, 0.75); luzLuna = new THREE.DirectionalLight(0x8fa8ff, 0); luzLuna.position.set(-0.6, 0.8, -0.4); sc.add(luzSol, luzHemi, luzLuna); crearCielo();
-    suelo = new THREE.Mesh(new THREE.CircleGeometry(30000, 72), new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 })); suelo.rotation.x = -PI / 2; sc.add(suelo);
+    luzSol = new THREE.DirectionalLight(0xfff1e0, 2.3); luzSol.position.set(0.6, 0.8, 0.4); luzHemi = new THREE.HemisphereLight(0xaac4e6, 0x3a2a22, 0.75); luzLuna = new THREE.DirectionalLight(0x8fa8ff, 0); luzLuna.position.set(-0.6, 0.8, -0.4); sc.add(luzSol, luzHemi, luzLuna, luzSol.target); luzSol.castShadow = jug.calidad !== 'baja'; GFX.base = null; crearCielo();
+    suelo = new THREE.Mesh(new THREE.CircleGeometry(30000, 72), new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 })); suelo.rotation.x = -PI / 2; suelo.receiveShadow = true; sc.add(suelo);
     anillo = new THREE.Mesh(new THREE.RingGeometry(RADIO_PLANO - 2.5, RADIO_PLANO, 160), new THREE.MeshBasicMaterial({ color: 0x7fe3ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })); anillo.rotation.x = -PI / 2; anillo.position.y = 0.4; sc.add(anillo);
     rejilla = new THREE.GridHelper(600, 30, 0x7fe3ff, 0x7fe3ff); rejilla.material.transparent = true; rejilla.material.opacity = 0.16; rejilla.position.y = 0.5; rejilla.visible = false; sc.add(rejilla);
     try {   // reflejos suaves para que los metales no se vean negros
       var es = new THREE.Scene(); es.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), new THREE.MeshBasicMaterial({ color: 0x2a3348, side: THREE.BackSide })));
       var strip = function (c, w, h, x, y, z) { var m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); es.add(m); };
       strip(0xdddddd, 24, 8, 0, 18, 4); strip(0xffc890, 8, 16, -16, 2, 6); strip(0x8fb8ff, 8, 16, 16, 0, -6);
-      var pm = new THREE.PMREMGenerator(E.renderer); sc.environment = pm.fromScene(es, 0.06).texture; pm.dispose();
+      var pm = new THREE.PMREMGenerator(E.renderer); sc.environment = GFX.base = pm.fromScene(es, 0.06).texture; pm.dispose();
     } catch (e0) { }
     ray = new THREE.Raycaster(); v2p = new THREE.Vector2();
     construido = true;
@@ -259,7 +259,7 @@ function muestra(x, z, tipo) {
       vi = vi0 + di; vj = vj0 + dj; if (vj < TJ0 || vj > TJ1) continue; lod = (Math.abs(di) <= 1 && Math.abs(dj) <= 1) ? 0 : 1; key = vi + ',' + vj + ',' + lod; need[key] = 1; if (tilesMesh[key]) continue;
       ti = ((vi % MUN.NX) + MUN.NX) % MUN.NX; tj = vj;
       if (lod === 0) g = tileDatos(ti, tj).geo; else { var k1 = ti + ',' + tj; g = tilesGeo1[k1] || (tilesGeo1[k1] = construirTile(ti, tj, TN1).geo); }
-      m = new THREE.Mesh(g, TMAT); m.position.set(vi * TILE - MUN.W / 2, 0, vj * TILE); TERG.add(m); tilesMesh[key] = m;
+      m = new THREE.Mesh(g, TMAT); m.receiveShadow = true; m.position.set(vi * TILE - MUN.W / 2, 0, vj * TILE); TERG.add(m); tilesMesh[key] = m;
     }
     for (k in tilesMesh) if (!need[k]) { TERG.remove(tilesMesh[k]); delete tilesMesh[k]; }
     if (tileCnt > 120) podarTiles(((vi0 % MUN.NX) + MUN.NX) % MUN.NX, vj0);
@@ -458,7 +458,73 @@ function muestra(x, z, tipo) {
     if (aguaU.uSky.value) aguaU.uSky.value.copy(col);
     luzSol.position.copy(s).multiplyScalar(100); luzSol.intensity = 2.3 * sstep(-0.05, 0.3, e); luzSol.color.copy(CIE.solC).lerp(CIE.naranja, (1 - sstep(0, 0.3, e)) * 0.6);
     luzLuna.position.copy(m).multiplyScalar(100); luzLuna.intensity = (0.12 + 0.3 * (1 - s.dot(m)) * 0.5) * noche * sstep(-0.05, 0.15, m.y);
-    luzHemi.intensity = 0.3 + 0.45 * dia; luzHemi.color.copy(CIE.hn).lerp(CIE.hd, dia);
+    luzHemi.intensity = 0.2 + 0.34 * dia; luzHemi.color.copy(CIE.hn).lerp(CIE.hd, dia);
+  }
+
+  /* ---- GRÁFICOS: sombras del sol que siguen al jugador, reflejos del cielo (3 fases) y nitidez automática ---- */
+  var GFX = { q: '', on: false, ent: null, base: null, fase: '', sw: 0, n: 0, at: 0, an: 0, ini: 0, buenos: 0, v: null, r: null, u: null, R: 70, ms: 1024 };
+  function crearEntornos(hexSky, hexGnd) {
+    if (!E.renderer) return;
+    try {
+      var pm = new THREE.PMREMGenerator(E.renderer), ent = {}, sky = new THREE.Color(hexSky).convertSRGBToLinear(), gnd = new THREE.Color(hexGnd).convertSRGBToLinear(), blanco = new THREE.Color(1, 1, 1);
+      var def = {
+        dia: [sky.clone().multiplyScalar(0.42), sky.clone().lerp(blanco, 0.35).multiplyScalar(0.62), gnd.clone().multiplyScalar(0.22)],
+        ocaso: [new THREE.Color(0.06, 0.08, 0.18), new THREE.Color(0.6, 0.27, 0.13), gnd.clone().multiplyScalar(0.08)],
+        noche: [new THREE.Color(0.004, 0.006, 0.02), new THREE.Color(0.012, 0.016, 0.04), new THREE.Color(0.003, 0.003, 0.006)]
+      };
+      for (var k in def) {
+        var d = def[k], es = new THREE.Scene(), mt = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false,
+          uniforms: { zen: { value: new THREE.Vector3(d[0].r, d[0].g, d[0].b) }, hor: { value: new THREE.Vector3(d[1].r, d[1].g, d[1].b) }, gnd: { value: new THREE.Vector3(d[2].r, d[2].g, d[2].b) } },
+          vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+          fragmentShader: 'uniform vec3 zen; uniform vec3 hor; uniform vec3 gnd; varying vec3 vP; void main(){ float h = normalize(vP).y; vec3 c = h > 0.0 ? mix(hor, zen, pow(h, 0.55)) : mix(hor, gnd, smoothstep(0.0, -0.3, h)); gl_FragColor = vec4(c, 1.0); }' });
+        var ms = new THREE.Mesh(new THREE.SphereGeometry(40, 24, 16), mt); es.add(ms);
+        ent[k] = pm.fromScene(es, 0.04).texture; ms.geometry.dispose(); mt.dispose();
+      }
+      pm.dispose();
+      if (GFX.ent) for (var o in GFX.ent) GFX.ent[o].dispose();
+      GFX.ent = ent; GFX.fase = '';
+    } catch (e) { if (global.console) console.error(e); GFX.ent = null; }
+  }
+  function sombrear() {   // marca como "proyecta / recibe sombra" lo que se haya añadido a la escena (edificios, rocas, criaturas...)
+    var ex = [TERG, mar, orilla, deco, CIE.g, anillo, rejilla, suelo, cam, ghost && ghost.g], i;
+    for (i = 0; i < sc.children.length; i++) {
+      var c = sc.children[i]; if (c.isLight || ex.indexOf(c) >= 0) continue;
+      c.traverse(function (o) {
+        if (!o.isMesh || o._sh) return; o._sh = 1;
+        var m = Array.isArray(o.material) ? o.material[0] : o.material;
+        if (!m || m.transparent || m.isShaderMaterial || m.isMeshBasicMaterial) return;
+        o.castShadow = o.receiveShadow = true;
+      });
+    }
+  }
+  function actualizarGraficos(dt) {
+    var r = E.renderer, s = CIE.s; if (!r || !luzSol || !s || !cam) return;
+    var q = jug.calidad, sh = luzSol.shadow, c = sh.camera, e = s.y, f = GFX.fase, nf;
+    if (GFX.q !== q) {
+      GFX.q = q; GFX.on = q !== 'baja'; GFX.ms = q === 'alta' ? 2048 : 1024; GFX.R = q === 'alta' ? 90 : 70;
+      sh.mapSize.set(GFX.ms, GFX.ms); if (sh.map) { sh.map.dispose(); sh.map = null; }
+      c.left = c.bottom = -GFX.R; c.right = c.top = GFX.R; c.near = 1; c.far = 600; c.updateProjectionMatrix(); sh.bias = -0.0005; sh.normalBias = 0.06; luzSol.castShadow = GFX.on;
+    }
+    // reflejos según la hora (con histéresis para que no parpadee)
+    nf = e > 0.3 ? 'dia' : e > -0.08 ? 'ocaso' : 'noche';
+    if ((f === 'dia' && e > 0.25) || (f === 'noche' && e < -0.04) || (f === 'ocaso' && e > -0.12 && e < 0.35)) nf = f;
+    if (nf !== f) { GFX.fase = nf; if (GFX.ent && GFX.ent[nf]) sc.environment = GFX.ent[nf]; }
+    // sombra del sol centrada en el jugador (o en el foco de la cámara) y ajustada a la cuadrícula de texeles para que no tiemble
+    var v = GFX.v || (GFX.v = new THREE.Vector3()), rr = GFX.r || (GFX.r = new THREE.Vector3()), uu = GFX.u || (GFX.u = new THREE.Vector3()), tex = 2 * GFX.R / GFX.ms, a, b;
+    v.set(modoPie ? px : fx, modoPie ? cam.position.y : 0, modoPie ? pz : fz);
+    rr.set(0, 1, 0).cross(s).normalize(); uu.copy(s).cross(rr).normalize();
+    a = v.dot(rr); b = v.dot(uu); v.addScaledVector(rr, Math.round(a / tex) * tex - a).addScaledVector(uu, Math.round(b / tex) * tex - b);
+    luzSol.target.position.copy(v); luzSol.position.copy(v).addScaledVector(s, 300);
+    r.shadowMap.autoUpdate = false;
+    if (GFX.on) { GFX.sw -= dt; if (GFX.sw <= 0) { GFX.sw = 1; sombrear(); } if (e > 0.02 && (++GFX.n & 1)) r.shadowMap.needsUpdate = true; }
+    // nitidez automática: baja la resolución si los fps caen y la sube si sobran
+    if (dt < 0.25) { GFX.at += dt; GFX.an++; if (GFX.at >= 1.5) {
+      var fps = GFX.an / GFX.at, mx = Math.min(global.devicePixelRatio || 1, E.CALIDAD[q].dpr), cur = E.dprAuto || mx, n = cur; GFX.at = 0; GFX.an = 0; GFX.ini += 1.5;
+      if (GFX.ini > 25) {
+        if (fps < 38 && cur > 0.8) { n = Math.max(0.8, cur - 0.2); GFX.buenos = 0; } else if (fps > 56 && cur < mx && ++GFX.buenos >= 4) { n = Math.min(mx, cur + 0.1); GFX.buenos = 0; }
+        if (Math.abs(n - cur) > 0.01) { E.dprAuto = n; r.setPixelRatio(n); r.setSize(E.ancho, E.alto, false); }
+      }
+    } }
   }
   function ambientar(tipo) {   // suelo, mar y paisaje lejano de cada planeta
     var pj = PAISAJE[tipo] || PAISAJE.rocoso, agua = pj[3] != null, R = agua ? RADIO_BASE + 260 : 30000, i, j;
@@ -471,7 +537,7 @@ function muestra(x, z, tipo) {
       if (TERG) TERG.visible = false; suelo.visible = true; suelo.geometry.dispose(); suelo.rotation.x = -PI / 2; suelo.geometry = new THREE.CircleGeometry(R, 96); suelo.material.vertexColors = false; suelo.material.color.setHex(0xffffff);
       var tx = texSuelo(pj[0], pj[2]); tx.repeat.set(730 * R / 30000, 730 * R / 30000); suelo.material.map = tx; suelo.material.needsUpdate = true;
     }
-    sc.background = new THREE.Color(pj[1]); sc.fog = PERFIL[tipo] ? new THREE.Fog(pj[1], 1500, 3900) : agua ? new THREE.Fog(pj[1], 4500, 24000) : new THREE.Fog(pj[1], 1800, 9500); luzSol.color.setHex(pj[4] || 0xfff1e0); CIE.bg = sc.background; CIE.fog = sc.fog; CIE.dia.setHex(pj[1]); CIE.solC.setHex(pj[4] || 0xfff1e0); CIE.pj1 = pj[1];
+    sc.background = new THREE.Color(pj[1]); sc.fog = PERFIL[tipo] ? new THREE.Fog(pj[1], 1500, 3900) : agua ? new THREE.Fog(pj[1], 4500, 24000) : new THREE.Fog(pj[1], 1800, 9500); luzSol.color.setHex(pj[4] || 0xfff1e0); CIE.bg = sc.background; CIE.fog = sc.fog; CIE.dia.setHex(pj[1]); CIE.solC.setHex(pj[4] || 0xfff1e0); CIE.pj1 = pj[1]; crearEntornos(pj[1], pj[0]);
     if (!mar) {
       crearAgua();
       orilla = new THREE.Mesh(new THREE.RingGeometry(RADIO_BASE + 200, RADIO_BASE + 262, 96), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide })); orilla.rotation.x = -PI / 2; orilla.position.y = -0.2; sc.add(orilla);
@@ -1386,7 +1452,8 @@ function muestra(x, z, tipo) {
       if (ghost) { rejilla.position.set(Math.round(ghost.g.position.x / 20) * 20, 0.5, Math.round(ghost.g.position.z / 20) * 20); }
       if (modoPie) actualizarPie(dt, t); else camara(); if (tToast > 0) { tToast -= dt; if (tToast <= 0) ui.toast.style.opacity = 0; }
       try { actualizarCielo(dt, t); } catch (ec) { if (global.console && !CIE.err) { CIE.err = 1; console.error(ec); } }
-      E.renderer.render(sc, cam);
+      try { actualizarGraficos(dt); } catch (eg2) { if (global.console && !GFX.err) { GFX.err = 1; console.error(eg2); } }
+      E.renderer.shadowMap.enabled = GFX.on; E.renderer.render(sc, cam); E.renderer.shadowMap.enabled = false;
     }
   };
 })(window);
